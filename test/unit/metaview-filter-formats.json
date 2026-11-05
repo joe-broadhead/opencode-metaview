@@ -1,0 +1,19 @@
+{
+  "source": "The filter_formats map list_fields returned for a signed-in Metaview account: the filter grammar, which no input schema carries. Operations only, per field type.",
+  "listedAt": "2026-11-05",
+  "filter_formats": {
+    "content": { "operations": ["references", "does_not_reference", "references_one_of", "does_not_reference_any_of"] },
+    "string": { "operations": ["is_one_of", "is_none_of", "like_one_of", "not_like_any_of"] },
+    "participant_list": { "operations": ["includes_one_of", "excludes_all_of"] },
+    "string_list": { "operations": ["includes_one_of", "excludes_all_of"] },
+    "number": { "operations": ["is", "less_than", "greater_than"] },
+    "date": {
+      "operations": ["before", "after", "between"],
+      "absolute_single": "before, after: { \"scope\": \"absolute\", \"value\": \"<ISO date>\" }",
+      "absolute_range": "between: { \"scope\": \"absolute\", \"value\": [\"<from>\", \"<to>\"] }",
+      "relative": "{ \"scope\": \"relative\", \"value\": <seconds from now, negative for the past> }"
+    },
+    "participant_scoped_number": { "operations": ["is", "less_than", "greater_than"] },
+    "boolean": { "operations": ["is"] }
+  }
+}

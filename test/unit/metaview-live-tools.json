@@ -1,0 +1,4006 @@
+{
+  "server": "metaview",
+  "source": "OpenCode ctx.tool.list() for the metaview server, signed in to a Metaview account; names and input schemas only",
+  "host": "2.2.3",
+  "listedAt": "2026-11-05T15:02:52.168Z",
+  "tools": [
+    {
+      "id": "metaview_create_ai_field",
+      "name": "create_ai_field",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "description": "Human-readable field name (e.g. \"Candidate Salary Expectation\").",
+            "type": "string"
+          },
+          "prompt": {
+            "description": "Instructions for what to extract from each conversation transcript (e.g. \"Extract the candidate's salary expectations\"). Automatically assessed and improved before creation unless skip_improvement=true.",
+            "type": "string"
+          },
+          "value_type": {
+            "description": "Data type of the extracted value. Prefer constrained outputs so results can be filtered and grouped: boolean for yes/no; number for scores/ratings (e.g. 1-5); list for multiple items (not comma-separated text); single_line_text for categories — constrain the prompt to a fixed value set (e.g. 'Respond with exactly one of: None, Low, Moderate, High'), never free-form text with explanations. Use long_text only for genuinely open-ended answers.",
+            "enum": [
+              "single_line_text",
+              "long_text",
+              "list",
+              "number",
+              "currency",
+              "date",
+              "boolean"
+            ],
+            "type": "string"
+          },
+          "field_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Field ID of an existing AI field to update ('AI:<uuid>'); omit to create a new field. On update, changing the prompt, value_type, or name (for auto-prompted fields) CLEARS all existing results and triggers re-analysis on next query. System (prefab) fields cannot be updated."
+          },
+          "skip_similarity_check": {
+            "default": false,
+            "description": "Create only. True skips the duplicate-field check and forces creation. Use when a previous call returned already_existed=true but the suggested field does not meet your needs. Default false.",
+            "type": "boolean"
+          },
+          "skip_improvement": {
+            "default": false,
+            "description": "Create only. True skips the automatic prompt/value_type assessment and improvement, creating the field exactly as specified. Default false. Both what you submit and the improved version are compliance-checked; if the error says only the improved version was rejected, set this true to create your own wording as-is.",
+            "type": "boolean"
+          },
+          "rationale": {
+            "description": "Always provide a brief explanation of why you are calling this tool",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "prompt",
+          "value_type",
+          "rationale"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "metaview_create_job_post_check",
+      "name": "create_job_post_check",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "description": "Name shown in the workspace's checks list.",
+            "maxLength": 500,
+            "minLength": 1,
+            "type": "string"
+          },
+          "prompt": {
+            "description": "Complete instructions for judging a job post.",
+            "maxLength": 20000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "check_type": {
+            "enum": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6
+            ],
+            "type": "integer",
+            "default": 2,
+            "description": "Check category; list_job_post_checks returns category names and IDs."
+          },
+          "rationale": {
+            "description": "Always provide a brief explanation of why you are calling this tool",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "prompt",
+          "rationale"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "metaview_create_report",
+      "name": "create_report",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "filters": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Filter objects ({field_id, operation, value}) defining which conversations the report covers. REQUIRED when creating (report_id omitted) — pass an empty list [] for all conversations. When updating, omit to leave filters unchanged. Filter value formats are data, not prose: list_fields returns a filter_formats map (operations + value_format per field type; a field's type key selects its entry). IMPORTANT: date filter values are a dict, not a bare date string. Example: {\"field_id\": \"default:start_time\", \"operation\": \"after\", \"value\": {\"scope\": \"relative\", \"value\": -2592000}}"
+          },
+          "report_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "UUID of an existing report to update. Omit to create a new report. On update, only the parameters you provide change."
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Report name shown in the Reports list."
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional report description, maximum 10 words. Omit or pass null to leave unchanged; pass an empty string to remove an existing description."
+          },
+          "group": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Field ID to group the report by (e.g. 'OSPT:<uuid>'; groupable=true in list_fields). Mutually exclusive with remove_grouping — never pass both."
+          },
+          "remove_grouping": {
+            "default": false,
+            "description": "True: remove the report's existing grouping (update only). Mutually exclusive with group — never pass both.",
+            "type": "boolean"
+          },
+          "field_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Field IDs (from list_fields) shown as the report's table columns."
+          },
+          "sort_field": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Field ID to sort conversation rows by (applied together with field_ids). Mutually exclusive with sort_metric, which sorts groups instead — never pass both."
+          },
+          "sort_ascending": {
+            "default": true,
+            "description": "Sort direction for sort_field (default true = ascending).",
+            "type": "boolean"
+          },
+          "metrics": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Metrics computed per group on a grouped report. Each dict: metric_id (required, 'aggregation:...' or 'AI:<uuid>' from list_fields), function ('mean'|'median'|'sum'|'max'|'min'; default 'mean'), metric_arguments (optional dict — check required_arguments from list_fields). Defaults are applied when creating a grouped report without metrics."
+          },
+          "sort_metric": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "How to sort groups on a grouped report: {metric_id, function ('mean'|'median'|'sum'|'max'|'min'), metric_arguments?} — same shape as metrics entries. Mutually exclusive with sort_field, which sorts conversation rows instead — never pass both."
+          },
+          "sort_metric_ascending": {
+            "default": true,
+            "description": "Sort direction for sort_metric (default true = ascending).",
+            "type": "boolean"
+          },
+          "only_show_recorded_conversations": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "True: the report covers only recorded conversations (creation default). False: also include unrecorded ones. Omit on update to leave unchanged."
+          },
+          "expand_rows": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Show grouped report rows expanded in the web-app UI."
+          },
+          "min_group_conversation_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Minimum conversations a group must have to appear in a grouped report."
+          },
+          "rationale": {
+            "description": "Always provide a brief explanation of why you are calling this tool",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rationale"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "metaview_create_snippet",
+      "name": "create_snippet",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "conversation_id": {
+            "description": "Numeric conversation ID the clip comes from.",
+            "maximum": 2147483647,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "start_ms": {
+            "description": "Clip start, in milliseconds from the start of the conversation.",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "end_ms": {
+            "description": "Clip end, in milliseconds. The clip is at most 300 seconds and must lie within the transcript.",
+            "exclusiveMinimum": 0,
+            "type": "integer"
+          },
+          "title": {
+            "default": "",
+            "description": "Short title, at most 7 words. Omit to generate one (slower).",
+            "maxLength": 120,
+            "type": "string"
+          },
+          "note": {
+            "default": "",
+            "description": "One sentence on what the moment reveals and why it matters. Omit to generate one.",
+            "maxLength": 500,
+            "type": "string"
+          },
+          "share_scope": {
+            "default": "anyone_in_org",
+            "description": "Who can open the share link. anyone_in_org (default): signed-in members of the workspace. anyone_with_link: PUBLIC, no sign-in needed; only when the user explicitly asks.",
+            "enum": [
+              "anyone_in_org",
+              "anyone_with_link"
+            ],
+            "type": "string"
+          },
+          "rationale": {
+            "description": "Always provide a brief explanation of why you are calling this tool",
+            "type": "string"
+          }
+        },
+        "required": [
+          "conversation_id",
+          "start_ms",
+          "end_ms",
+          "rationale"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "metaview_enrich_candidate_contacts",
+      "name": "enrich_candidate_contacts",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "candidate_ids": {
+            "description": "Candidate UUIDs to enrich (non-empty). Only the first 100 eligible candidates are processed per call — the rest are dropped from this run and reported in truncated_candidate_count; retry with the remainder.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "enrichment_type": {
+            "description": "Contact type to enrich. Costs 3 credits per net-new email or 10 credits per net-new phone number; a candidate may yield multiple contacts. On shared credits, candidates Metaview sourced are free.",
+            "enum": [
+              "email",
+              "phone"
+            ],
+            "type": "string"
+          },
+          "rationale": {
+            "description": "Always provide a brief explanation of why you are calling this tool",
+            "type": "string"
+          }
+        },
+        "required": [
+          "candidate_ids",
+          "enrichment_type",
+          "rationale"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "metaview_fetch_candidates",
+      "name": "fetch_candidates",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "candidates": {
+            "description": "1-10 candidate lookups. Each is a dict with at least one identifier key — these exact keys and no others:\n- candidate_id: Metaview candidate UUID (as returned by the application review, screening, and sourcing candidate tools).\n- linkedin_url: LinkedIn profile URL (\"https://www.linkedin.com/in/john-doe\") or bare shorthand (\"john-doe\").\n- email: candidate email address.\n- phone_number: candidate phone number.\n- participant_id: Metaview participant ID (e.g. from the default:candidate field in conversation data).\nOptional scoped-access keys (each requires candidate_id and an accessible entity whose roster includes the candidate):\n- application_review_id: Application Review UUID authorizing ATS access.\n- screen_id: screen UUID authorizing ATS access.",
+            "items": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "rationale": {
+            "description": "Always provide a brief explanation of why you are calling this tool",
+            "type": "string"
+          }
+        },
+        "required": [
+          "candidates",
+          "rationale"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "metaview_find_candidate_in_sequences",
+      "name": "find_candidate_in_sequences",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "candidate_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Candidate UUID for direct lookup (preferred when known). At least one of candidate_id/linkedin_url/email/phone_number is required."
+          },
+          "linkedin_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "LinkedIn profile URL (normalized automatically). At least one of candidate_id/linkedin_url/email/phone_number is required."
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Email address, matched against any of the candidate's emails or the to_email used in a sequence. At least one of candidate_id/linkedin_url/email/phone_number is required."
+          },
+          "phone_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Phone number, matched against the candidate's phone numbers. At least one of candidate_id/linkedin_url/email/phone_number is required."
+          },
+          "rationale": {
+            "description": "Always provide a brief explanation of why you are calling this tool",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rationale"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "metaview_generate_notes",
+      "name": "generate_notes",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "conversation_id": {
+            "description": "The conversation (session) ID to generate notes for. Get IDs from search_conversations. The conversation must have a transcript.",
+            "type": "string"
+          },
+          "template": {
+            "anyOf": [
+              {
+                "enum": [
+                  "question_and_answer",
+                  "conversational",
+                  "recruiter_screen",
+                  "generic_debrief",
+                  "team_role_debrief",
+                  "technical_role_debrief",
+                  "intake_call",
+                  "candidate_pack",
+                  "custom_definition",
+                  "coding_interview",
+                  "system_design_interview",
+                  "role_alignment",
+                  "client_call"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Template to use; omit to auto-select the best template for the conversation. Pass 'custom_definition' together with template_definition_id to use a custom note template; every other value is a built-in template."
+          },
+          "template_definition_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "UUID of a custom note template (from list_note_templates). Required when template='custom_definition'; must be omitted for any other template value."
+          },
+          "rationale": {
+            "description": "Always provide a brief explanation of why you are calling this tool",
+            "type": "string"
+          }
+        },
+        "required": [
+          "conversation_id",
+          "rationale"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "metaview_get_application_review_details",
+      "name": "get_application_review_details",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "application_review_id": {
+            "description": "The review to inspect (UUID from list_application_reviews).",
+            "type": "string"
+          },
+          "icp_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Return the full ICP text of a specific historical version — a display number (1, 2, 3, ...) as shown in version_history and the web app, not a raw internal id. Omit for the ACTIVE / DRAFT / RANKING texts. Only available at detail_level='full'."
+          },
+          "detail_level": {
+            "description": "'full' (default): the ICP text, version history, rerank status, decisions, and fit distribution. 'concise': run and rerank state, display versions, pending counts, and next-step guidance — use for cheap polling after an ICP update or restore.",
+            "enum": [
+              "concise",
+              "full"
+            ],
+            "type": "string",
+            "default": "full"
+          },
+          "rationale": {
+            "description": "Always provide a brief explanation of why you are calling this tool",
+            "type": "string"
+          }
+        },
+        "required": [
+          "application_review_id",
+          "rationale"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "metaview_get_application_review_rules",
+      "name": "get_application_review_rules",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "rationale": {
+            "description": "Always provide a brief explanation of why you are calling this tool",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rationale"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "metaview_get_chart_data",
+      "name": "get_chart_data",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "chart_inputs": {
+            "description": "Chart specifications, each a dict with: metric_id (str, required) — 'aggregation:...' or 'AI:<uuid>' from list_fields. function (str) — one of Average, Median, Count, Sum, Max, Min, Cumulative, Rolling Average; must be in the metric's chart_functions. interval (str) — one of day, week, month, quarter. function and interval MUST be provided together (aggregate chart) or both omitted (scatter chart; the metric must have 'scatter' in chart_types). metric_arguments (dict, optional) — check required_arguments from list_fields. For contact-scoped metrics (question_count, talk_time, minutes_late) you MUST pass {\"scope\": \"internal\"} or {\"scope\": \"external\"}. \"internal\" = interviewers/hiring team, \"external\" = non-team participants (candidates, clients, etc.). function_arguments (dict, optional) — for Rolling Average pass {\"windowIntervalCount\": <int>}.",
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "report_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "UUID of a saved report (from search_reports) to use as the base filter set. Filters passed alongside apply on top."
+          },
+          "filters": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Filter objects, each {field_id, operation, value}, scoping which conversations are charted. Filter value formats are data, not prose: list_fields returns a filter_formats map (operations + value_format per field type; a field's type key selects its entry). IMPORTANT: date filter values are a dict, not a bare date string. Example: {\"field_id\": \"default:start_time\", \"operation\": \"after\", \"value\": {\"scope\": \"relative\", \"value\": -2592000}}"
+          },
+          "only_show_recorded_conversations": {
+            "default": true,
+            "description": "True (default): chart only recorded conversations. False: also include unrecorded ones (calls that were not captured, or upcoming).",
+            "type": "boolean"
+          },
+          "group": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Field ID (e.g. 'OSPT:<uuid>', 'default:interviewer') to scope the chart to conversations that have a value for this field. This is a filter, NOT a breakdown — it does not split the chart per group member; for per-group metrics use group_conversations. Must be a field ID, never a metric ('aggregation:...') ID."
+          },
+          "min_count": {
+            "default": 0,
+            "description": "Minimum conversations per group when group is set (default 0).",
+            "type": "integer"
+          },
+          "timezone_offset_minutes": {
+            "default": 0,
+            "description": "Timezone offset in minutes for date bucketing (default 0 = UTC). Aggregate charts only.",
+            "type": "integer"
+          },
+          "rationale": {
+            "description": "Always provide a brief explanation of why you are calling this tool",
+            "type": "string"
+          }
+        },
+        "required": [
+          "chart_inputs",
+          "rationale"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "metaview_get_enrichment_status",
+      "name": "get_enrichment_status",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "person_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Filter usage and attempts to this person (admin only). Non-admins always see only their own data regardless of this parameter."
+          },
+          "month": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Month to report on as YYYY-MM (e.g. \"2026-01\"). Scopes usage, usage_by_user, and enrichment_attempts to that calendar month; omit for the current month to date. Does NOT affect 'credits', which is always the live balance. Usage is null on shared credits."
+          },
+          "include_usage_by_user": {
+            "default": false,
+            "description": "True: include the per-user usage breakdown (admin only). Default false.",
+            "type": "boolean"
+          },
+          "include_enrichment_attempts": {
+            "default": false,
+            "description": "True: append the list of individual enrichment attempts. Default false.",
+            "type": "boolean"
+          },
+          "enrichment_type": {
+            "anyOf": [
+              {
+                "description": "Type of contact enrichment.",
+                "enum": [
+                  "email",
+                  "phone"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Filter attempts by type (email or phone). Only used when include_enrichment_attempts=true."
+          },
+          "offset": {
+            "default": 0,
+            "description": "Pagination offset for attempts (default 0).",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "limit": {
+            "default": 50,
+            "description": "Attempts per page (default 50; values above 100 are clamped to 100).",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "candidate_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Candidates you are about to enrich. Returns free_candidate_ids: those that enrich at no cost, because Metaview sourced them, the workspace is on shared credits and today's free enrichment limit still covers them. When the limit runs short, earlier candidate_ids take priority."
+          },
+          "rationale": {
+            "description": "Always provide a brief explanation of why you are calling this tool",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rationale"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "metaview_get_job_post",
+      "name": "get_job_post",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "job_post_id": {
+            "description": "Job Post UUID from list_job_posts or send_job_post_message.",
+            "type": "string"
+          },
+          "message_limit": {
+            "default": 20,
+            "description": "Latest chat messages per page, returned chronologically.",
+            "maximum": 50,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "before": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Opaque next_cursor to read older chat messages."
+          },
+          "content_offset": {
+            "default": 0,
+            "description": "Character offset into the document Markdown.",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "rationale": {
+            "description": "Always provide a brief explanation of why you are calling this tool",
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_post_id",
+          "rationale"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "metaview_get_job_post_template",
+      "name": "get_job_post_template",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "template_id": {
+            "description": "Template UUID from list_job_post_templates.",
+            "type": "string"
+          },
+          "rationale": {
+            "description": "Always provide a brief explanation of why you are calling this tool",
+            "type": "string"
+          }
+        },
+        "required": [
+          "template_id",
+          "rationale"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "metaview_get_job_post_thread",
+      "name": "get_job_post_thread",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "job_post_id": {
+            "description": "Job Post UUID to inspect.",
+            "type": "string"
+          },
+          "thread_id": {
+            "description": "Thread ID from list_job_post_threads.",
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          },
+          "limit": {
+            "default": 10,
+            "description": "Current comment revisions per page, oldest first.",
+            "maximum": 20,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "offset": {
+            "default": 0,
+            "description": "Number of comments to skip; use next_offset to continue.",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "rationale": {
+            "description": "Always provide a brief explanation of why you are calling this tool",
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_post_id",
+          "thread_id",
+          "rationale"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "metaview_get_note_template",
+      "name": "get_note_template",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "template_id": {
+            "description": "Template UUID (from list_note_templates). INTERNAL ONLY — never show this id to the user; refer to templates by name.",
+            "type": "string"
+          },
+          "rationale": {
+            "description": "Always provide a brief explanation of why you are calling this tool",
+            "type": "string"
+          }
+        },
+        "required": [
+          "template_id",
+          "rationale"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "metaview_get_platform_credits",
+      "name": "get_platform_credits",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "include_people": {
+            "default": false,
+            "description": "Include spend per person, highest first. Members only ever see their own row.",
+            "type": "boolean"
+          },
+          "rationale": {
+            "description": "Always provide a brief explanation of why you are calling this tool",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rationale"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "metaview_get_screen_details",
+      "name": "get_screen_details",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "screen_id": {
+            "description": "The screen to inspect (UUID from list_screens).",
+            "type": "string"
+          },
+          "detail_level": {
+            "description": "'full' (default): the interview plan with every question and rubric, version history, roster counts, and fit distribution. 'concise': active version, pending-changes flags, and roster counts, with no plan content.",
+            "enum": [
+              "concise",
+              "full"
+            ],
+            "type": "string",
+            "default": "full"
+          },
+          "plan_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Return the interview plan of an earlier version instead of the current one — the version number shown in version_history and the web app. Only available at detail_level='full'."
+          },
+          "rationale": {
+            "description": "Always provide a brief explanation of why you are calling this tool",
+            "type": "string"
+          }
+        },
+        "required": [
+          "screen_id",
+          "rationale"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "metaview_get_screen_interview",
+      "name": "get_screen_interview",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "screen_id": {
+            "description": "The screen the interview belongs to (UUID from list_screens).",
+            "type": "string"
+          },
+          "candidate_id": {
+            "description": "The candidate whose interview to read (from list_screen_candidates).",
+            "type": "string"
+          },
+          "rationale": {
+            "description": "Always provide a brief explanation of why you are calling this tool",
+            "type": "string"
+          }
+        },
+        "required": [
+          "screen_id",
+          "candidate_id",
+          "rationale"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "metaview_get_search_details",
+      "name": "get_search_details",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "search_id": {
+            "description": "The search UUID to inspect.",
+            "type": "string"
+          },
+          "icp_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Return a specific ICP version's content instead of the latest. Discover existing versions from icp_versions in the response."
+          },
+          "rationale": {
+            "description": "Always provide a brief explanation of why you are calling this tool",
+            "type": "string"
+          }
+        },
+        "required": [
+          "search_id",
+          "rationale"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "metaview_get_sourcing_analytics",
+      "name": "get_sourcing_analytics",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "metric": {
+            "description": "What to measure. Counts (searches, candidates, feedback, accepted, rejected, maybe, candidates_without_feedback, scheduled_searches, searches_with_sequences), acceptance_rate (percentage), or seat_utilization (admin-only).",
+            "enum": [
+              "searches",
+              "candidates",
+              "feedback",
+              "accepted",
+              "rejected",
+              "maybe",
+              "acceptance_rate",
+              "candidates_without_feedback",
+              "scheduled_searches",
+              "searches_with_sequences",
+              "seat_utilization"
+            ],
+            "type": "string"
+          },
+          "time_period": {
+            "anyOf": [
+              {
+                "description": "Shorthand time filters.",
+                "enum": [
+                  "today",
+                  "yesterday",
+                  "this_week",
+                  "last_week",
+                  "this_month",
+                  "last_month",
+                  "this_quarter",
+                  "last_quarter",
+                  "last_7_days",
+                  "last_30_days",
+                  "last_90_days"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Shorthand time filter. Ignored when start_date is provided."
+          },
+          "start_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Custom range start, ISO date (YYYY-MM-DD). Overrides time_period."
+          },
+          "end_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Custom range end, ISO date (YYYY-MM-DD)."
+          },
+          "group_by": {
+            "anyOf": [
+              {
+                "description": "How to break down results.",
+                "enum": [
+                  "user",
+                  "search",
+                  "day",
+                  "week",
+                  "month",
+                  "mode",
+                  "feedback_value"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Break results into groups. day/week/month give time series (ungrouped totals otherwise); user/search/mode/feedback_value give per-entity breakdowns."
+          },
+          "user_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Admin only: filter to one team member's data by person ID. Ignored for non-admins (own data only)."
+          },
+          "search_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Filter to a specific search (UUID). Must be accessible to the caller."
+          },
+          "include_archived": {
+            "default": false,
+            "description": "Include archived searches (default false).",
+            "type": "boolean"
+          },
+          "limit": {
+            "default": 20,
+            "description": "Max groups per page (default 20; values above 100 are clamped to 100).",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "offset": {
+            "default": 0,
+            "description": "Pagination offset for grouped results (default 0).",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "rationale": {
+            "description": "Always provide a brief explanation of why you are calling this tool",
+            "type": "string"
+          }
+        },
+        "required": [
+          "metric",
+          "rationale"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "metaview_get_sourcing_messages",
+      "name": "get_sourcing_messages",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "search_id": {
+            "description": "The search UUID to retrieve messages for.",
+            "type": "string"
+          },
+          "limit": {
+            "default": 50,
+            "description": "Messages per page (default 50; values above 200 are clamped to 200).",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "offset": {
+            "default": 0,
+            "description": "Pagination offset (default 0). Messages are ordered chronologically.",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "rationale": {
+            "description": "Always provide a brief explanation of why you are calling this tool",
+            "type": "string"
+          }
+        },
+        "required": [
+          "search_id",
+          "rationale"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "metaview_get_user_context",
+      "name": "get_user_context",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "rationale": {
+            "description": "Always provide a brief explanation of why you are calling this tool",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rationale"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "metaview_give_application_review_candidate_feedback",
+      "name": "give_application_review_candidate_feedback",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "application_review_id": {
+            "description": "The review containing the candidates (UUID from list_application_reviews).",
+            "type": "string"
+          },
+          "candidate_ids": {
+            "description": "Candidate ids to record the decision for, from list_application_review_candidates. Must be non-empty; every candidate gets the same decision and feedback text. There is no select-all — pass each id explicitly.",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "type": "array"
+          },
+          "decision": {
+            "description": "REJECT or PROGRESS.",
+            "enum": [
+              "REJECT",
+              "PROGRESS"
+            ],
+            "type": "string"
+          },
+          "feedback_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional free-text feedback recorded with the decision (visible to the hiring team and used to calibrate the review agent)."
+          },
+          "rejection_reason_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "ATS rejection reason id (REJECT only). Check list_application_review_rejection_options first for whether the ATS requires it and the valid ids."
+          },
+          "rejection_email_template_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "ATS rejection email template id (REJECT only; valid ids from list_application_review_rejection_options)."
+          },
+          "rationale": {
+            "description": "Always provide a brief explanation of why you are calling this tool",
+            "type": "string"
+          }
+        },
+        "required": [
+          "application_review_id",
+          "candidate_ids",
+          "decision",
+          "rationale"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "metaview_give_sourcing_feedback",
+      "name": "give_sourcing_feedback",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "search_id": {
+            "description": "UUID of the search containing the candidates.",
+            "type": "string"
+          },
+          "feedbacks": {
+            "description": "Feedback objects, each {candidate_id: str, accepted: str, text?: str}. accepted must be one of YES, MAYBE, or NO; text is optional free-text explaining the decision. Maximum 50 items per call.",
+            "items": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "request_refinement": {
+            "default": false,
+            "description": "Set true on your final feedback batch to trigger the agent to act on ALL accumulated feedback for this search (not just this batch): it derives rejection themes, refines the ICP, and delivers a revised candidate batch, with first matches typically found within a minute (same as the app's 'Refine search' button). Only fires when at least one item in this call succeeded. Default false: feedback is recorded and nothing else happens.",
+            "type": "boolean"
+          },
+          "rationale": {
+            "description": "Always provide a brief explanation of why you are calling this tool",
+            "type": "string"
+          }
+        },
+        "required": [
+          "search_id",
+          "feedbacks",
+          "rationale"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "metaview_group_conversations",
+      "name": "group_conversations",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "group_by": {
+            "description": "Field ID to group by (e.g. 'OSPT:<uuid>', 'default:interviewer', 'AI:<uuid>'). Use list_fields to find fields where groupable is true.",
+            "type": "string"
+          },
+          "report_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "UUID of a saved report (from search_reports) to use as the base filter set. Filters passed alongside apply on top."
+          },
+          "filters": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Filter objects, each {field_id, operation, value}, scoping which conversations are grouped. Filter value formats are data, not prose: list_fields returns a filter_formats map (operations + value_format per field type; a field's type key selects its entry). IMPORTANT: date filter values are a dict, not a bare date string. Example: {\"field_id\": \"default:start_time\", \"operation\": \"after\", \"value\": {\"scope\": \"relative\", \"value\": -2592000}}"
+          },
+          "only_show_recorded_conversations": {
+            "default": true,
+            "description": "True (default): group only recorded conversations. False: also include unrecorded ones (calls that were not captured, or upcoming).",
+            "type": "boolean"
+          },
+          "search_term": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Filter groups by name substring. Prefer this over fetching all groups when looking for a specific one."
+          },
+          "min_conversation_count": {
+            "default": 0,
+            "description": "Minimum conversations a group must have to be included (default 0).",
+            "type": "integer"
+          },
+          "offset": {
+            "default": 0,
+            "description": "Pagination offset over groups (default 0).",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "limit": {
+            "default": 20,
+            "description": "Groups per page (default 20; values above 100 are clamped to 100).",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "metrics": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Metrics to compute per group. Each dict: metric_id (required, 'aggregation:...' or 'AI:<uuid>' from list_fields), function ('mean'|'median'|'sum'|'max'|'min'; default 'mean'), metric_arguments (optional dict — check required_arguments from list_fields. For contact-scoped metrics (question_count, talk_time, minutes_late) you MUST pass {\"scope\": \"internal\"} or {\"scope\": \"external\"}. \"internal\" = interviewers/hiring team, \"external\" = non-team participants (candidates, clients, etc.).)"
+          },
+          "sort_metric": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "How to sort groups: {metric_id, function ('mean'|'median'|'sum'|'max'|'min'), metric_arguments?} — same shape as metrics entries. Omit to sort groups alphabetically by label."
+          },
+          "sort_ascending": {
+            "default": true,
+            "description": "Sort ascending (default true); applies to sort_metric, or to the alphabetical label order when sort_metric is omitted.",
+            "type": "boolean"
+          },
+          "rationale": {
+            "description": "Always provide a brief explanation of why you are calling this tool",
+            "type": "string"
+          }
+        },
+        "required": [
+          "group_by",
+          "rationale"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "metaview_list_application_review_candidates",
+      "name": "list_application_review_candidates",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "application_review_id": {
+            "description": "The review to list candidates for (UUID from list_application_reviews).",
+            "type": "string"
+          },
+          "limit": {
+            "default": 20,
+            "description": "Candidates per page (default 20; values above 100 are clamped).",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "offset": {
+            "default": 0,
+            "description": "Pagination offset (default 0).",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "detail_level": {
+            "description": "'minimal': candidate_id, name, fit band, decision, applied_at. 'summary' (default): plus decided_at, decision_feedback, and the agent's fit reasoning. 'full': plus AI column results, including fraud risk when enabled (type='fraud_detection', LOW / MEDIUM / HIGH, advisory; active human corrections replace the original value and reasoning).",
+            "enum": [
+              "minimal",
+              "summary",
+              "full"
+            ],
+            "type": "string",
+            "default": "summary"
+          },
+          "decision_filter": {
+            "description": "Filter by human decision. The per-candidate decision field reads PROGRESSED, REJECTED, or null; 'undecided' matches a null decision.",
+            "enum": [
+              "all",
+              "progressed",
+              "rejected",
+              "undecided"
+            ],
+            "type": "string",
+            "default": "all"
+          },
+          "fit_filter": {
+            "anyOf": [
+              {
+                "description": "Candidate fit level for an AI column criterion in order of fit.",
+                "enum": [
+                  "poor",
+                  "no_evidence",
+                  "okay",
+                  "good",
+                  "great"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Only candidates in this fit band. Omit for all bands."
+          },
+          "rationale": {
+            "description": "Always provide a brief explanation of why you are calling this tool",
+            "type": "string"
+          }
+        },
+        "required": [
+          "application_review_id",
+          "rationale"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "metaview_list_application_review_rejection_options",
+      "name": "list_application_review_rejection_options",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "application_review_id": {
+            "description": "The review to list rejection options for (UUID from list_application_reviews).",
+            "type": "string"
+          },
+          "rationale": {
+            "description": "Always provide a brief explanation of why you are calling this tool",
+            "type": "string"
+          }
+        },
+        "required": [
+          "application_review_id",
+          "rationale"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "metaview_list_application_reviews",
+      "name": "list_application_reviews",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "include_archived": {
+            "default": false,
+            "description": "Include archived reviews (default false).",
+            "type": "boolean"
+          },
+          "search_term": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Case-insensitive substring match on the job title. Omit to list all."
+          },
+          "limit": {
+            "default": 20,
+            "description": "Reviews per page (default 20; values above 50 are clamped).",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "offset": {
+            "default": 0,
+            "description": "Pagination offset (default 0).",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "rationale": {
+            "description": "Always provide a brief explanation of why you are calling this tool",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rationale"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "metaview_list_ats_jobs",
+      "name": "list_ats_jobs",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional title search to filter jobs (e.g. 'engineer')."
+          },
+          "limit": {
+            "default": 20,
+            "description": "Jobs per page (default 20; values above 100 are clamped to 100).",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "offset": {
+            "default": 0,
+            "description": "Pagination offset (default 0).",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "posting_type": {
+            "anyOf": [
+              {
+                "enum": [
+                  "CANDIDATE",
+                  "PROSPECT"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Posting type to inspect. Omit to preserve the workspace default."
+          },
+          "rationale": {
+            "description": "Always provide a brief explanation of why you are calling this tool",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rationale"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "metaview_list_ats_stages",
+      "name": "list_ats_stages",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "job_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "The ATS job ID (from list_ats_jobs). Omit to list workspace-level stages for ATSes where stages are not job-specific."
+          },
+          "posting_type": {
+            "anyOf": [
+              {
+                "enum": [
+                  "CANDIDATE",
+                  "PROSPECT"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Posting type selected from list_ats_jobs. Omit to preserve the workspace default."
+          },
+          "rationale": {
+            "description": "Always provide a brief explanation of why you are calling this tool",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rationale"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "metaview_list_field_values",
+      "name": "list_field_values",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "field_id": {
+            "description": "The field ID (from list_fields), e.g. 'OSPT:<uuid>', 'default:interviewer', 'default:candidate'.",
+            "type": "string"
+          },
+          "report_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional report UUID; scope values to conversations in that report."
+          },
+          "filters": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional filter objects ({field_id, operation, value}) to scope which conversations contribute values. Formats: see list_fields' filter_formats map."
+          },
+          "only_show_recorded_conversations": {
+            "default": true,
+            "description": "True (default): only values from recorded conversations. False: also include unrecorded ones.",
+            "type": "boolean"
+          },
+          "search_term": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Filter values by name/label; substring and regex supported. For people, prefer 'First Last' together."
+          },
+          "offset": {
+            "default": 0,
+            "description": "Pagination offset (default 0).",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "limit": {
+            "default": 50,
+            "description": "Values per page (default 50).",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "rationale": {
+            "description": "Always provide a brief explanation of why you are calling this tool",
+            "type": "string"
+          }
+        },
+        "required": [
+          "field_id",
+          "rationale"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "metaview_list_fields",
+      "name": "list_fields",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "report_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional report UUID to scope fields to that report's context."
+          },
+          "search_term": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Ranked name search: exact and substring/regex matches first, then closest fuzzy matches. Prefer this over fetching all fields."
+          },
+          "field_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Exact field or metric IDs to look up (e.g. 'OSPT:<uuid>', 'aggregation:session_count'). Takes precedence over search_term."
+          },
+          "offset": {
+            "default": 0,
+            "description": "Pagination offset over fields (default 0).",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "limit": {
+            "default": 100,
+            "description": "Fields per page (default 100). Metrics are returned on the first page (offset=0) and for field_ids lookups.",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "rationale": {
+            "description": "Always provide a brief explanation of why you are calling this tool",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rationale"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "metaview_list_job_post_checks",
+      "name": "list_job_post_checks",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "job_post_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional Job Post UUID to list only checks available on that post."
+          },
+          "limit": {
+            "default": 20,
+            "description": "Maximum check definitions per page.",
+            "maximum": 50,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "offset": {
+            "default": 0,
+            "description": "Number of definitions to skip; use next_offset to continue.",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "rationale": {
+            "description": "Always provide a brief explanation of why you are calling this tool",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rationale"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "metaview_list_job_post_templates",
+      "name": "list_job_post_templates",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "offset": {
+            "default": 0,
+            "description": "Number of templates to skip; use next_offset for the next page.",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "limit": {
+            "default": 20,
+            "description": "Maximum summaries per page.",
+            "maximum": 50,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "rationale": {
+            "description": "Always provide a brief explanation of why you are calling this tool",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rationale"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "metaview_list_job_post_threads",
+      "name": "list_job_post_threads",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "job_post_id": {
+            "description": "Job Post UUID to inspect.",
+            "type": "string"
+          },
+          "limit": {
+            "default": 20,
+            "description": "Threads per page, in document order.",
+            "maximum": 50,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "offset": {
+            "default": 0,
+            "description": "Number of threads to skip; use next_offset to continue.",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "rationale": {
+            "description": "Always provide a brief explanation of why you are calling this tool",
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_post_id",
+          "rationale"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "metaview_list_job_posts",
+      "name": "list_job_posts",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "search": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Case-insensitive title substring."
+          },
+          "limit": {
+            "default": 20,
+            "description": "Posts per page.",
+            "maximum": 50,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "offset": {
+            "default": 0,
+            "description": "Number of posts to skip, newest updated first.",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "created_by_user_id": {
+            "anyOf": [
+              {
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Filter by creator's numeric user ID. For your own posts, use user_id from get_user_context."
+          },
+          "rationale": {
+            "description": "Always provide a brief explanation of why you are calling this tool",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rationale"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "metaview_list_mailboxes",
+      "name": "list_mailboxes",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "rationale": {
+            "description": "Always provide a brief explanation of why you are calling this tool",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rationale"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "metaview_list_note_template_groups",
+      "name": "list_note_template_groups",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "rationale": {
+            "description": "Always provide a brief explanation of why you are calling this tool",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rationale"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "metaview_list_note_templates",
+      "name": "list_note_templates",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "search_term": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Filter templates by name (case-insensitive substring / regex)."
+          },
+          "include_detail": {
+            "default": false,
+            "description": "True: include each template's full sections list. Default false.",
+            "type": "boolean"
+          },
+          "offset": {
+            "default": 0,
+            "description": "Pagination offset (default 0).",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "limit": {
+            "default": 20,
+            "description": "Templates per page (default 20; values above 50 are clamped to 50).",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "rationale": {
+            "description": "Always provide a brief explanation of why you are calling this tool",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rationale"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "metaview_list_screen_candidates",
+      "name": "list_screen_candidates",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "screen_id": {
+            "description": "The screen whose candidates to list (UUID from list_screens).",
+            "type": "string"
+          },
+          "stage": {
+            "anyOf": [
+              {
+                "description": "The stage values the tool accepts, lowercased and case-insensitive.",
+                "enum": [
+                  "pending",
+                  "pre_screen",
+                  "screened",
+                  "progressed",
+                  "rejected"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Only return candidates at this stage; omit for the whole roster. 'screened' is the review queue awaiting a human decision."
+          },
+          "detail_level": {
+            "description": "'minimal' (default): candidate id, name, stage, overall fit, decision. 'medium': also the scorecard's one-paragraph summary of the candidate (bluf), interview status, completion timestamp, decision feedback, and authenticity signals.",
+            "enum": [
+              "minimal",
+              "medium"
+            ],
+            "type": "string",
+            "default": "minimal"
+          },
+          "limit": {
+            "default": 20,
+            "description": "Candidates per page (default 20; values above 100 are clamped).",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "offset": {
+            "default": 0,
+            "description": "Pagination offset (default 0).",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "rationale": {
+            "description": "Always provide a brief explanation of why you are calling this tool",
+            "type": "string"
+          }
+        },
+        "required": [
+          "screen_id",
+          "rationale"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "metaview_list_screens",
+      "name": "list_screens",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "include_archived": {
+            "default": false,
+            "description": "Include archived screens (default false).",
+            "type": "boolean"
+          },
+          "search_term": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Case-insensitive substring match on the job title. Omit to list all."
+          },
+          "limit": {
+            "default": 20,
+            "description": "Screens per page (default 20; values above 50 are clamped to 50).",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "offset": {
+            "default": 0,
+            "description": "Pagination offset (default 0).",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "rationale": {
+            "description": "Always provide a brief explanation of why you are calling this tool",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rationale"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "metaview_list_sequence_candidates",
+      "name": "list_sequence_candidates",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "sequence_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Sequence UUID. Required unless candidate_sequence_id is provided."
+          },
+          "candidate_sequence_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Fetch one candidate's full journey directly by enrollment UUID. When provided, include_detail and include_messages are implied."
+          },
+          "include_detail": {
+            "default": false,
+            "description": "True: include per-step delivery status (sent, delivered, opened, replied, bounced, skipped) and candidate_sequence_step_id per step (required for updates via manage_candidate_sequence). Default false.",
+            "type": "boolean"
+          },
+          "include_messages": {
+            "default": false,
+            "description": "True: include email content for all sent steps. Requires include_detail. Default false.",
+            "type": "boolean"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "enum": [
+                  "active",
+                  "paused",
+                  "cancelled",
+                  "completed"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Filter by enrollment status. Omit to see all statuses."
+          },
+          "search_term": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Filter by candidate name (case-insensitive substring match)."
+          },
+          "offset": {
+            "default": 0,
+            "description": "Pagination offset (default 0).",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "limit": {
+            "default": 50,
+            "description": "Candidates per page (default 50; values above 100 are clamped to 100).",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "rationale": {
+            "description": "Always provide a brief explanation of why you are calling this tool",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rationale"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "metaview_list_sequences",
+      "name": "list_sequences",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "sequence_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "UUID of one sequence to fetch with full detail (steps, templates, schedules). When provided, include_detail is implied and other filters are ignored."
+          },
+          "created_by_person_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Only return sequences created by this person ID. Non-admins may only pass their own person ID."
+          },
+          "search_term": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Filter sequences whose name contains this substring (case-insensitive). Regex is supported when the term contains special characters like .*+?[]|()."
+          },
+          "include_detail": {
+            "default": false,
+            "description": "True: include full step configuration for each sequence. Default false (summary only).",
+            "type": "boolean"
+          },
+          "include_disabled": {
+            "default": true,
+            "description": "Include disabled sequences (default true).",
+            "type": "boolean"
+          },
+          "offset": {
+            "default": 0,
+            "description": "Pagination offset (default 0).",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "limit": {
+            "default": 20,
+            "description": "Sequences per page (default 20; values above 50 are clamped to 50).",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "rationale": {
+            "description": "Always provide a brief explanation of why you are calling this tool",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rationale"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "metaview_list_sourcing_candidates",
+      "name": "list_sourcing_candidates",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "search_id": {
+            "description": "The search UUID to list candidates for.",
+            "type": "string"
+          },
+          "pack": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Filter to one pack (candidate batch, 1-based). Omit to list all candidates."
+          },
+          "limit": {
+            "default": 20,
+            "description": "Candidates per page (default 20; values above 100 are clamped to 100).",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "offset": {
+            "default": 0,
+            "description": "Pagination offset (default 0).",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "detail_level": {
+            "description": "How much data per candidate: 'minimal' = candidate_id, name, linkedin_url only (smallest, best for ID lists); 'summary' (default) adds the sourcing agent's reasoning summary sections; 'full' adds the full profile (location, experience, education, skills) — larger, but avoids separate fetch_candidates calls.",
+            "enum": [
+              "minimal",
+              "summary",
+              "full"
+            ],
+            "type": "string",
+            "default": "summary"
+          },
+          "feedback_status": {
+            "description": "Filter by feedback status: 'all' (default), 'unreviewed' (no feedback yet), or 'yes'/'no'/'maybe' (latest verdict).",
+            "enum": [
+              "all",
+              "unreviewed",
+              "yes",
+              "no",
+              "maybe"
+            ],
+            "type": "string",
+            "default": "all"
+          },
+          "rationale": {
+            "description": "Always provide a brief explanation of why you are calling this tool",
+            "type": "string"
+          }
+        },
+        "required": [
+          "search_id",
+          "rationale"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "metaview_list_sourcing_knowledge",
+      "name": "list_sourcing_knowledge",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "rationale": {
+            "description": "Always provide a brief explanation of why you are calling this tool",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rationale"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "metaview_list_sourcing_searches",
+      "name": "list_sourcing_searches",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "default": 20,
+            "description": "Searches per page (default 20; values above 50 are clamped to 50).",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "offset": {
+            "default": 0,
+            "description": "Pagination offset (default 0).",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "rationale": {
+            "description": "Always provide a brief explanation of why you are calling this tool",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rationale"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "metaview_manage_candidate_sequence",
+      "name": "manage_candidate_sequence",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "description": "The operation to perform. cancel: stop further sends but keep the candidate visible. remove: delete (archive) the enrollment entirely. update: override one step's subject/body/schedule for this candidate.",
+            "enum": [
+              "add",
+              "pause",
+              "resume",
+              "cancel",
+              "remove",
+              "update"
+            ],
+            "type": "string"
+          },
+          "sequence_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Sequence UUID. Required when action=add."
+          },
+          "candidate_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Candidate UUIDs to enroll. Required when action=add."
+          },
+          "candidate_sequence_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Enrollment UUID. Required when action=pause, resume, cancel, or remove."
+          },
+          "candidate_sequence_step_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Per-candidate step UUID. Required when action=update. Get it from list_sequence_candidates(sequence_id=..., include_detail=true)."
+          },
+          "subject_override": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "update only. Custom subject for this candidate's step; supports {{variable_name}} placeholders filled per-candidate by AI before sending. Mutually exclusive with clear_subject_override (if both are set, the clear wins)."
+          },
+          "template_override": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "update only. Custom body for this candidate's step; supports {{variable_name}} placeholders filled per-candidate by AI before sending. Mutually exclusive with clear_template_override (if both are set, the clear wins)."
+          },
+          "clear_subject_override": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "update only. True reverts the subject to the template default. Mutually exclusive with subject_override."
+          },
+          "clear_template_override": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "update only. True reverts the body to the template default. Mutually exclusive with template_override."
+          },
+          "schedule_override": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "update only. Schedule override object, one of: {\"schedule_type\": \"instant\"}; {\"schedule_type\": \"next_business_day\", \"time_of_day\": \"HH:MM\" or \"HH:MM:SS\"}; {\"schedule_type\": \"later\", \"delay_seconds\": N}. specific_time is NOT supported. Mutually exclusive with clear_schedule_override (if both are set, the clear wins)."
+          },
+          "clear_schedule_override": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "update only. True reverts the schedule to the template default. Mutually exclusive with schedule_override."
+          },
+          "context_source_type": {
+            "anyOf": [
+              {
+                "const": "search",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "add only. Must be 'search' and requires context_source_id. Leave BOTH context_source_type and context_source_id null when the source is unknown — do NOT guess or fabricate a value."
+          },
+          "context_source_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "add only. UUID of the search the candidates came from; requires context_source_type. Leave null if context_source_type is null."
+          },
+          "rationale": {
+            "description": "Always provide a brief explanation of why you are calling this tool",
+            "type": "string"
+          }
+        },
+        "required": [
+          "action",
+          "rationale"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "metaview_manage_note_template",
+      "name": "manage_note_template",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "enum": [
+              "create",
+              "update",
+              "delete",
+              "set_rules"
+            ],
+            "type": "string",
+            "description": "The operation to perform: create, update, delete, or set_rules."
+          },
+          "template_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Template UUID. Required when action=update, delete, or set_rules. INTERNAL ONLY — never surface this id to the user; refer to templates by name."
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Template name. Required when action=create; optional for update (renames)."
+          },
+          "sections": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Ordered list of section objects (list order = display order; max 100). Required when action=create; optional for update. FULL REPLACE on update: the list replaces ALL existing sections — omitted sections are removed. Include a section's existing id to update it in place; omit id for new sections.\nSection shape (every field required):\n  directive: 'SINGLE' (one block under a fixed heading) | 'REPEATING' (one block per detected entity — prefer this whenever the intent is 'one block per X', instead of several near-identical SINGLE sections)\n  heading: str — required when directive='SINGLE'\n  repeating_entity: str — required when directive='REPEATING' (e.g. 'Question', 'Topic', 'Role', 'Project')\n  description: str — THE most important field: a PROMPT run on every transcript, not a note to a human. Cover (a) SCOPE — what to include and leave out — and (b) OUTPUT FORMAT — length caps, markdown patterns, label conventions (e.g. '3 bullets max, each **Label:** one sentence, under 120 words'). REPEATING descriptions run once per detected entity.\n  output: dict, one of:\n    {'type': 'TEXT', 'text_format': 'PARAGRAPH'|'BULLET_POINT', 'detail': 'low'|'medium'|'high'} — use TEXT for anything that isn't a hard classification; carry structure via markdown in the description.\n    {'type': 'NUMBER', 'currency': str} — '' for a plain number, else 'USD', 'EUR', ...\n    {'type': 'OPTIONS', 'options_type': 'SINGLE'|'MULTIPLE', 'options': [str, ...]} — the description MUST give per-option selection criteria (exactly when to pick each value and when NOT to); for booleans use options=['true', 'false'] with options_type='SINGLE'.\n    {'type': 'DATE', 'date_format': str, e.g. 'yyyy/mm/dd'|'mm/dd/yyyy'|'dd/mm/yyyy'}"
+          },
+          "group_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "update only. Move the template into a named accessible folder; pass '' or 'personal' for the personal folder. Resolve folder names via list_note_template_groups first. Omit to leave the template where it is."
+          },
+          "filters": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Required for set_rules only. Full replacement of When to Use conditions, combined with AND. Pass [] to disable automatic selection for the chosen scope. Each object has field_id, operation, and value. Discover field IDs/operations with list_fields and values with list_field_values. Filter value formats are data, not prose: list_fields returns a filter_formats map (operations + value_format per field type; a field's type key selects its entry). IMPORTANT: date filter values are a dict, not a bare date string. Example: {\"field_id\": \"default:start_time\", \"operation\": \"after\", \"value\": {\"scope\": \"relative\", \"value\": -2592000}}",
+            "maxLength": 100
+          },
+          "apply_to_workspace": {
+            "default": false,
+            "description": "set_rules only. False (default): personal rules. True: admin-only workspace rules, replacing everyone's personal copies; $self is not allowed. An admin saving personal rules also disables workspace rules for this template. Rules affect future automatic selection; existing notes are not regenerated.",
+            "type": "boolean"
+          },
+          "rationale": {
+            "description": "Always provide a brief explanation of why you are calling this tool",
+            "type": "string"
+          }
+        },
+        "required": [
+          "action",
+          "rationale"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "metaview_manage_notes_sources",
+      "name": "manage_notes_sources",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "conversation_id": {
+            "description": "The anchor conversation whose notes to manage — the conversation generate_notes was originally called with. Required for every action.",
+            "type": "string"
+          },
+          "action": {
+            "enum": [
+              "list",
+              "add",
+              "remove"
+            ],
+            "type": "string",
+            "description": "The operation to perform: list, add, or remove."
+          },
+          "conversation_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Conversation IDs to add (action=add) or remove (action=remove). Added conversations must have transcripts."
+          },
+          "documents": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Plain-text documents to add (action=add only). Each entry is {\"name\": short name (e.g. \"Resume - Jane Smith\"), \"content\": full text} — both fields required."
+          },
+          "source_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Source UUIDs to remove (action=remove only), as returned by a prior 'list' call. Use for document sources or when the source ID is already known."
+          },
+          "rationale": {
+            "description": "Always provide a brief explanation of why you are calling this tool",
+            "type": "string"
+          }
+        },
+        "required": [
+          "conversation_id",
+          "action",
+          "rationale"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "metaview_manage_sequence",
+      "name": "manage_sequence",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "description": "The operation to perform: create, update, duplicate, or delete.",
+            "enum": [
+              "create",
+              "update",
+              "duplicate",
+              "delete"
+            ],
+            "type": "string"
+          },
+          "sequence_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Sequence UUID. Required when action=update, duplicate, or delete."
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Sequence name. Required when action=create; optional for update (renames)."
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Sequence description. Optional for create and update."
+          },
+          "set_enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Enable or disable the sequence. Optional for create and update."
+          },
+          "unsendable_step_behavior": {
+            "anyOf": [
+              {
+                "enum": [
+                  "PAUSE_SEQUENCE",
+                  "SKIP_STEP"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "What the sequence's AUTOMATIC steps do when they can't reach the candidate (no email, phone number or LinkedIn profile for the step's channel, WhatsApp rejects the number, or the email bounces): PAUSE_SEQUENCE pauses the candidate's sequence until someone fixes it; SKIP_STEP skips that step and the sequence carries on. Manual steps always pause. Optional for create and update."
+          },
+          "steps": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "FULL REPLACE (update action only): this list replaces the sequence's current steps — steps not in the list are DELETED. Each step's schedule is required (schedule_type values: instant, later, next_business_day; specific_time is rejected). time_of_day accepts 'HH:MM' or 'HH:MM:SS'.\n    steps: Optional for update. A JSON list of step objects to replace the current steps.\n        Steps not in the list are deleted. Order in the list determines step order.\n        Each step object has:\n            channel_type: str (REQUIRED — one of: EMAIL, LINKEDIN_CONNECTION, LINKEDIN_INMAIL, LINKEDIN_MESSAGE, SMS, PHONE, WHATSAPP)\n            sequence_step_id: str | null (include the existing step ID to update it;\n                omit or set null for new steps — an ID will be generated automatically)\n            template: str | null (message body; supports {{variable_name}} placeholders\n                that are filled in per-candidate by an AI call before sending)\n            description: str | null\n            schedule: dict | null (e.g. {\"schedule_type\": \"instant\"}, {\"schedule_type\": \"later\", \"delay_seconds\": 86400}, {\"schedule_type\": \"next_business_day\", \"time_of_day\": \"09:00:00\"}.\n                Setting a specific time is NOT supported.\n            step_execution_type: str | null (AUTOMATIC or MANUAL)\n            execution_timeout_seconds: int | null (only for MANUAL steps)\n\n        EMAIL step fields:\n            from_mailbox_id: REQUIRED (mailbox UUID — use list_mailboxes to get available mailboxes)\n            step_type: REQUIRED (NEW_THREAD or REPLY)\n            bcc: optional (list of email addresses)\n            cc: optional (list of email addresses)\n            step_execution_type: AUTOMATIC, MANUAL (default: AUTOMATIC)\n            NOT used: from_whatsapp_account_id, linkedin_subject\n            step_type values: NEW_THREAD or REPLY\n            subject: str | null (REQUIRED for NEW_THREAD; forbidden for REPLY. Supports {{variable_name}} placeholders)\n\n        LINKEDIN_CONNECTION step fields:\n            step_execution_type: MANUAL (default: MANUAL)\n            NOT used: bcc, cc, from_mailbox_id, from_whatsapp_account_id, linkedin_subject, step_type\n            Connection request with optional note; recommended maximum 275 characters including resolved placeholders (stored in template field)\n\n        LINKEDIN_INMAIL step fields:\n            linkedin_subject: REQUIRED (str — required subject line for the InMail)\n            step_execution_type: MANUAL (default: MANUAL)\n            NOT used: bcc, cc, from_mailbox_id, from_whatsapp_account_id, step_type\n            InMail to non-connections. Requires subject + body. Uses Premium LinkedIn credits.\n\n        LINKEDIN_MESSAGE step fields:\n            linkedin_subject: optional (str | null — subject line for the LinkedIn message)\n            step_execution_type: MANUAL (default: MANUAL)\n            NOT used: bcc, cc, from_mailbox_id, from_whatsapp_account_id, step_type\n            subject shorthand: setting 'subject' auto-maps to linkedin_subject\n\n        SMS step fields:\n            step_execution_type: MANUAL (default: MANUAL)\n            NOT used: bcc, cc, from_mailbox_id, from_whatsapp_account_id, linkedin_subject, step_type\n\n        PHONE step fields:\n            step_execution_type: MANUAL (default: MANUAL)\n            NOT used: bcc, cc, from_mailbox_id, from_whatsapp_account_id, linkedin_subject, step_type\n\n        WHATSAPP step fields:\n            from_whatsapp_account_id: optional (ignored; the connected sender is selected automatically)\n            step_execution_type: AUTOMATIC, MANUAL (default: AUTOMATIC)\n            NOT used: bcc, cc, from_mailbox_id, linkedin_subject, step_type\n            Automatic steps use the step creator's connected WhatsApp account."
+          },
+          "rationale": {
+            "description": "Always provide a brief explanation of why you are calling this tool",
+            "type": "string"
+          }
+        },
+        "required": [
+          "action",
+          "rationale"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "metaview_manage_sourcing_knowledge",
+      "name": "manage_sourcing_knowledge",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "enum": [
+              "create",
+              "update",
+              "archive"
+            ],
+            "type": "string",
+            "description": "The operation to perform: create, update, or archive."
+          },
+          "knowledge_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Knowledge entry UUID. Required when action=update or archive."
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "The trigger: WHEN the agent should apply this entry (max 1,000 chars, e.g. 'When sourcing for sales roles in EMEA'). Required for create; optional for update."
+          },
+          "content": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "The instruction: WHAT the agent should do when the trigger matches (max 32,000 chars). Write direct, specific guidance. Required for create; optional for update."
+          },
+          "scope": {
+            "anyOf": [
+              {
+                "enum": [
+                  "personal",
+                  "workspace"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "workspace = applies to every user's searches; personal = only yours. Required for create; on update, only pass to change the scope."
+          },
+          "rationale": {
+            "description": "Always provide a brief explanation of why you are calling this tool",
+            "type": "string"
+          }
+        },
+        "required": [
+          "action",
+          "rationale"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "metaview_post_sourcing_candidates_to_ats",
+      "name": "post_sourcing_candidates_to_ats",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "search_id": {
+            "description": "UUID of the sourcing search containing the candidates.",
+            "type": "string"
+          },
+          "candidate_ids": {
+            "description": "Candidate IDs to post (from list_sourcing_candidates). Maximum 50 candidates per call.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "job_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "The ATS job to add applications to (from list_ats_jobs). Required unless list_ats_jobs returns job_required=false."
+          },
+          "stage_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional stage for the new applications. Use an id from list_ats_stages (Metaview-side stage IDs, not raw ATS IDs). Omit to use the job's default stage."
+          },
+          "posting_type": {
+            "anyOf": [
+              {
+                "enum": [
+                  "CANDIDATE",
+                  "PROSPECT"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Post as a candidate or prospect. Omit to preserve the workspace default."
+          },
+          "rationale": {
+            "description": "Always provide a brief explanation of why you are calling this tool",
+            "type": "string"
+          }
+        },
+        "required": [
+          "search_id",
+          "candidate_ids",
+          "rationale"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "metaview_resolve_job_post_suggestion",
+      "name": "resolve_job_post_suggestion",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "job_post_id": {
+            "description": "Editable Job Post UUID.",
+            "type": "string"
+          },
+          "comment_id": {
+            "description": "Current suggestion comment ID, not thread ID.",
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          },
+          "action": {
+            "description": "Apply or dismiss the suggestion.",
+            "enum": [
+              "accept",
+              "reject"
+            ],
+            "type": "string"
+          },
+          "base_version_id": {
+            "description": "base_version_id returned by get_job_post_thread.",
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          },
+          "base_version_operations_count": {
+            "description": "Operation count returned with that exact version ID.",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "request_id": {
+            "description": "Unique key for this action; reuse unchanged on retries.",
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          },
+          "rationale": {
+            "description": "Always provide a brief explanation of why you are calling this tool",
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_post_id",
+          "comment_id",
+          "action",
+          "base_version_id",
+          "base_version_operations_count",
+          "request_id",
+          "rationale"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "metaview_restore_application_review_icp",
+      "name": "restore_application_review_icp",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "application_review_id": {
+            "description": "The review to restore a version on (UUID from list_application_reviews).",
+            "type": "string"
+          },
+          "version": {
+            "description": "The display version number to restore, as shown in version_history from get_application_review_details (approved versions numbered 1, 2, 3, ... oldest first).",
+            "type": "integer"
+          },
+          "rationale": {
+            "description": "Always provide a brief explanation of why you are calling this tool",
+            "type": "string"
+          }
+        },
+        "required": [
+          "application_review_id",
+          "version",
+          "rationale"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "metaview_run_job_post_checks",
+      "name": "run_job_post_checks",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "job_post_id": {
+            "description": "UUID of the editable Job Post to check.",
+            "type": "string"
+          },
+          "check_ids": {
+            "description": "Check UUIDs from list_job_post_checks for this post.",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "type": "array"
+          },
+          "rationale": {
+            "description": "Always provide a brief explanation of why you are calling this tool",
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_post_id",
+          "check_ids",
+          "rationale"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "metaview_search_conversations",
+      "name": "search_conversations",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "report_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "UUID of a saved report (from search_reports) to use as the base filter set. Filters passed alongside apply on top of the report's saved filters."
+          },
+          "filters": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Filter objects, each {field_id: str, operation: str, value: <per field type>}. Get field IDs, operations, and per-type value formats from list_fields (filter_formats map); get valid values from list_field_values. Date values are dicts, never bare date strings: {\"scope\": \"relative\", \"value\": -2592000} = last 30 days; {\"scope\": \"absolute\", \"value\": [\"2024-01-01T00:00:00Z\", \"2024-02-01T00:00:00Z\"]} = a fixed range. Use \"$self\" as a person/participant value for the authenticated user."
+          },
+          "fields": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Field IDs to return as columns (default: the report's configured fields or a small default set). Request 'default:transcript' (large — keep limit at 5 or fewer) or 'default:summary' (slow on-the-fly generation) deliberately."
+          },
+          "only_show_recorded_conversations": {
+            "default": true,
+            "description": "True (default): only recorded conversations. False: also include unrecorded ones (calls that were not captured, or upcoming).",
+            "type": "boolean"
+          },
+          "sort_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Field ID to sort by (default: default:start_time)."
+          },
+          "sort_ascending": {
+            "default": false,
+            "description": "Sort ascending. Default false — newest first when sorting by date.",
+            "type": "boolean"
+          },
+          "offset": {
+            "default": 0,
+            "description": "Pagination offset (default 0).",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "limit": {
+            "default": 20,
+            "description": "Conversations per page (default 20; values above 50 are clamped to 50). Keep low when requesting 'default:transcript'.",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "conversation_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Fetch specific conversations by numeric ID (max 100). When provided, report_id and filters are ignored."
+          },
+          "rationale": {
+            "description": "Always provide a brief explanation of why you are calling this tool",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rationale"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "metaview_search_reports",
+      "name": "search_reports",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "report_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Report UUIDs to fetch. When provided, only these reports are returned and the other filters are ignored."
+          },
+          "include_detail": {
+            "default": false,
+            "description": "True: return each report's full configuration (filters, fields, grouping, metrics, charts). Default false: summary only.",
+            "type": "boolean"
+          },
+          "search_term": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Filter reports by name (case-insensitive). Supports substring matching and regex patterns (auto-detected)."
+          },
+          "category": {
+            "anyOf": [
+              {
+                "enum": [
+                  "createdByMe",
+                  "createdByMetaview",
+                  "recentlyViewed",
+                  "favorited"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Filter reports by category."
+          },
+          "sort_key": {
+            "anyOf": [
+              {
+                "enum": [
+                  "name",
+                  "created_at",
+                  "updated_at"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Sort field (default: updated_at)."
+          },
+          "sort_order": {
+            "anyOf": [
+              {
+                "enum": [
+                  "asc",
+                  "desc"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Sort direction (default: desc)."
+          },
+          "offset": {
+            "default": 0,
+            "description": "Pagination offset (default 0).",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "limit": {
+            "default": 20,
+            "description": "Reports per page (default 20; values above 100 are clamped to 100).",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "rationale": {
+            "description": "Always provide a brief explanation of why you are calling this tool",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rationale"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "metaview_search_snippets",
+      "name": "search_snippets",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "conversation_id": {
+            "description": "Numeric conversation ID from search_conversations.",
+            "maximum": 2147483647,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "prompt": {
+            "description": "The moment to find, in plain language (1-600 characters).",
+            "maxLength": 600,
+            "minLength": 1,
+            "type": "string"
+          },
+          "rationale": {
+            "description": "Always provide a brief explanation of why you are calling this tool",
+            "type": "string"
+          }
+        },
+        "required": [
+          "conversation_id",
+          "prompt",
+          "rationale"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "metaview_send_job_post_message",
+      "name": "send_job_post_message",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "description": "Brief or editing instructions for the Job Posts agent.",
+            "maxLength": 20000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "job_post_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Existing Job Post UUID to refine. Omit to create a post."
+          },
+          "template_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Reusable template UUID for a new post only."
+          },
+          "request_id": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Required for creation: caller-generated unique key. Reuse it with the same brief/template on retries to avoid duplicate posts. Ignored for follow-ups."
+          },
+          "rationale": {
+            "description": "Always provide a brief explanation of why you are calling this tool",
+            "type": "string"
+          }
+        },
+        "required": [
+          "message",
+          "rationale"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "metaview_send_sourcing_message",
+      "name": "send_sourcing_message",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "description": "The message for the agent. Keep it short: for a new source search, briefly state the role and key constraints (location, seniority, must-haves) — the sourcing agent writes the ICP itself, so do NOT paste a full ICP as the message. For a new research search, state the topic or question. For follow-ups, give refinements or answers. Include every target company, segment and location in this one message; a long list of targets is fine and is not a reason to split it into several searches. Max 10000 characters.",
+            "type": "string"
+          },
+          "search_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "UUID of an existing search to follow up on — use it to refine or widen a search (e.g. add companies, segments or locations). Omit only to create a new search, at most one per role."
+          },
+          "mode": {
+            "enum": [
+              "source",
+              "research"
+            ],
+            "type": "string",
+            "default": "source",
+            "description": "Set 'research' for market/talent research questions; the default 'source' creates a candidate search. Honored ONLY when creating a new search (search_id omitted) and cannot be changed afterwards — follow-up messages ignore it."
+          },
+          "rationale": {
+            "description": "Always provide a brief explanation of why you are calling this tool",
+            "type": "string"
+          }
+        },
+        "required": [
+          "message",
+          "rationale"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "metaview_submit_feedback",
+      "name": "submit_feedback",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "category": {
+            "enum": [
+              "bug",
+              "feature_request",
+              "other"
+            ],
+            "type": "string",
+            "description": "bug, feature_request, or other."
+          },
+          "feedback": {
+            "description": "The feedback, written for an engineer.",
+            "maxLength": 4000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "rationale": {
+            "description": "Always provide a brief explanation of why you are calling this tool",
+            "type": "string"
+          }
+        },
+        "required": [
+          "category",
+          "feedback",
+          "rationale"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "metaview_update_application_review_icp",
+      "name": "update_application_review_icp",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "application_review_id": {
+            "description": "The review to update (UUID from list_application_reviews).",
+            "type": "string"
+          },
+          "icp_text": {
+            "description": "The complete, final ICP text (non-empty, max 50000 chars). Replaces the current profile in full — never send a diff or partial edit.",
+            "type": "string"
+          },
+          "base_version": {
+            "description": "Optimistic lock: the active ICP version number read from active_icp.version in get_application_review_details (the display number shown in the web app). If it no longer matches (someone edited since you read it), the update is rejected — re-read and re-apply.",
+            "type": "integer"
+          },
+          "rationale": {
+            "description": "Always provide a brief explanation of why you are calling this tool",
+            "type": "string"
+          }
+        },
+        "required": [
+          "application_review_id",
+          "icp_text",
+          "base_version",
+          "rationale"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "metaview_update_application_review_rules",
+      "name": "update_application_review_rules",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "rules": {
+            "description": "The complete new rules text (max 10,000 chars). FULL REPLACE — this becomes the entire workspace rules. Pass an empty string to clear.",
+            "type": "string"
+          },
+          "rationale": {
+            "description": "Always provide a brief explanation of why you are calling this tool",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rules",
+          "rationale"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "metaview_update_screen_outreach",
+      "name": "update_screen_outreach",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "screen_id": {
+            "description": "The screen to update (UUID from list_screens).",
+            "type": "string"
+          },
+          "base_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Optimistic lock: the active version number read from active_version.version in get_screen_details, or null when no candidates are invited yet. If it no longer matches (the screen changed since you read it), the update is rejected — re-read and re-apply."
+          },
+          "subject": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Replacement invitation subject, plain text (max 500 chars; template variables allowed). Pass an empty string to revert to the default subject."
+          },
+          "body_html": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Replacement invitation body as HTML (p, ul, li, strong tags; max 20000 chars; template variables allowed). The 'Start your interview' button is appended by the system — do not write your own CTA link. Pass an empty string to revert to the default body."
+          },
+          "cc": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Replacement cc list for the invitation (max 10 addresses). Replaces the list wholesale — pass [] to clear."
+          },
+          "bcc": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Replacement bcc list for the invitation (max 10 addresses). Replaces the list wholesale — pass [] to clear."
+          },
+          "deadline_after_days": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "The candidate's completion deadline, days after admission (max 90). Must be greater than 0. Cannot be combined with clear_deadline."
+          },
+          "deadline_day_kind": {
+            "anyOf": [
+              {
+                "description": "How ``deadline_after`` days are counted: every day, or weekdays only.",
+                "enum": [
+                  "calendar",
+                  "business"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "How deadline_after_days is counted: 'calendar' (every day, the default) or 'business' (weekdays only, so a 3-day deadline sent on a Friday falls on Wednesday)."
+          },
+          "clear_deadline": {
+            "default": false,
+            "description": "Remove the completion deadline entirely: candidates can complete any time, no reminders are sent, and any saved reject_at_deadline is turned off with it. Cannot be combined with deadline_after_days.",
+            "type": "boolean"
+          },
+          "reject_at_deadline": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Whether undecided candidates are auto-rejected once their deadline passes. Requires a deadline; false makes the deadline purely candidate-facing urgency."
+          },
+          "include_opt_out_link": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Whether outreach emails carry an opt-out link."
+          },
+          "rationale": {
+            "description": "Always provide a brief explanation of why you are calling this tool",
+            "type": "string"
+          }
+        },
+        "required": [
+          "screen_id",
+          "base_version",
+          "rationale"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "metaview_update_screen_plan",
+      "name": "update_screen_plan",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "screen_id": {
+            "description": "The screen to update (UUID from list_screens).",
+            "type": "string"
+          },
+          "base_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Optimistic lock: the active version number read from active_version.version in get_screen_details, or null when no candidates are invited yet. If it no longer matches (the screen changed since you read it), the update is rejected — re-read and re-apply."
+          },
+          "sections": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "The complete, final interview plan as a list of section objects — the same shape get_screen_details returns in interview_plan.sections. FULL REPLACE: this replaces the current plan wholesale, and sections/questions not in the list are deleted — never send a diff or partial edit. Each section: {section_id, title, goal?, questions}. Each question: {question_id, prompt, kind?, options?, follow_up?, rubric?, output_type?, multi_select?, candidate_role?, character?}. kind is exactly one of 'conversational' (asked out loud), 'multiple_choice' (options required; options and multi_select apply only to this kind — multi_select true lets the candidate pick several options), 'slack_thread' (answered in writing), or 'role_play' (a spoken scene the interviewer plays in character; candidate_role is who the candidate is in the scene and character is the interviewer's private brief for who they play — both apply only to this kind). output_type is 'FIT', 'BOOLEAN', 'NUMBER', 'SHORT_TEXT', or 'DATE'. Keep the ids of nodes you carry over — kind, output_type, multi_select, and question history follow the id, and omitted fields are preserved from the current node; invent new unique ids for new nodes (defaults: conversational, FIT). Omit this parameter entirely to keep the current sections and update only the context fields (once candidates are invited, a context-only update still makes a new version)."
+          },
+          "role_context": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Replacement role context grounding the interviewer and scoring. Omit to keep the current plan's (changing it re-scores undecided completed interviews)."
+          },
+          "company_context": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Replacement company context. Omit to keep the current plan's (never re-scores)."
+          },
+          "rationale": {
+            "description": "Always provide a brief explanation of why you are calling this tool",
+            "type": "string"
+          }
+        },
+        "required": [
+          "screen_id",
+          "base_version",
+          "rationale"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "metaview_upsert_job_post_template",
+      "name": "upsert_job_post_template",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "description": "Complete template name.",
+            "maxLength": 500,
+            "minLength": 1,
+            "type": "string"
+          },
+          "sections": {
+            "description": "Complete ordered section list; replaces every existing section.",
+            "items": {
+              "properties": {
+                "content": {
+                  "anyOf": [
+                    {
+                      "maxLength": 20000,
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "Required for static sections. For generated sections, optional base text to modify."
+                },
+                "static": {
+                  "default": false,
+                  "description": "True copies content verbatim; false generates from prompt.",
+                  "type": "boolean"
+                },
+                "prompt": {
+                  "anyOf": [
+                    {
+                      "maxLength": 10000,
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "Required for generated sections: instructions for content and formatting."
+                },
+                "title": {
+                  "anyOf": [
+                    {
+                      "maxLength": 500,
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "Optional heading for this section."
+                }
+              },
+              "type": "object"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "type": "array"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Instructions for generating the job title. Omit or null to clear."
+          },
+          "template_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Workspace template UUID to replace. Omit to create a template."
+          },
+          "rationale": {
+            "description": "Always provide a brief explanation of why you are calling this tool",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "sections",
+          "rationale"
+        ],
+        "additionalProperties": false
+      }
+    }
+  ]
+}
