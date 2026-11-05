@@ -6,6 +6,10 @@
 // starts with "fail", with an upstream error (`isError`) whose first line holds a signed URL. `get_user_context`
 // answers with a fake account, in Metaview's shape. The same server is also an LM Studio-compatible model API for a
 // scripted model (`model.script`), so a host test can run a real session turn that calls Metaview's tools.
+//
+// While `challenge` is set, every MCP request gets 401 with the bearer challenge Metaview's server sends, and the same
+// server plays Metaview's sign-in server: protected-resource metadata, and an authorization server at `/oauth` that
+// accepts a client metadata document, so a host test can complete OpenCode's sign-in.
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http"
 import type { AddressInfo } from "node:net"
 import { DENIED_TOOLS, READ_TOOLS, WRITE_TOOLS } from "../../src/metaview-tools.js"
@@ -23,9 +27,17 @@ export const UPSTREAM_FAILURE = "Metaview refused https://files.metaview.ai/a.pn
 /** A fake account, in get_user_context's shape. */
 export const ACCOUNT = { workspace_name: "Acme Recruiting", participant_id: "p_fake_1", user_id: "u_fake_1", is_admin: false, is_paying_plan: true, data_access: "Your own conversations" }
 
+/** The scopes Metaview's plug-in sign-in asks for, and the fake's challenge names. */
+export const SCOPES = "openid offline_access"
+
 export interface FakeMcpOptions {
   /** `metaview` lists every tool the plugin knows, and the new tool. */
   readonly catalog?: "metaview"
+  /**
+   * Whether the token endpoint issues a refresh token. Without one, a 401 later needs a new sign-in and leaves the
+   * credential in place, which is the `/connect` account the plugin marks.
+   */
+  readonly refreshTokens?: boolean
 }
 
 /** The scripted model's id, as the fake's model API lists it. */
@@ -46,6 +58,8 @@ export interface FakeMcp {
   challenge: boolean
   /** The server's origin; `${origin}/v1` is the model API. */
   readonly origin: string
+  /** Every token request's form, in order. */
+  readonly tokens: Record<string, string>[]
   readonly model: {
     /** The calls the model makes, one per turn, before it answers with text. */
     script: ScriptedCall[]
@@ -73,6 +87,8 @@ export async function startFakeMcp(options: FakeMcpOptions = {}): Promise<FakeMc
   const inputs: { tool: string; arguments: unknown }[] = []
   const markers: (string | undefined)[] = []
   const authorizations: (string | undefined)[] = []
+  const tokens: Record<string, string>[] = []
+  let codes = 0
   const answer = (message: Message, path: string) => {
     const reply = (result: unknown) => ({ jsonrpc: "2.0", id: message.id, result })
     switch (message.method) {
@@ -98,7 +114,7 @@ export async function startFakeMcp(options: FakeMcpOptions = {}): Promise<FakeMc
     }
   }
   const model = { script: [] as ScriptedCall[], requests: [] as unknown[] }
-  // Filled once the server listens; the request handler reads `challenge` and `origin` from it.
+  // Filled once the server listens; the request handler reads `challenge`, `url` and `origin` from it.
   const fake = { challenge: false } as FakeMcp
   /**
    * One streamed chat completion. A request that offers tools is an agent turn: after n tool results the model makes
@@ -118,8 +134,54 @@ export async function startFakeMcp(options: FakeMcpOptions = {}): Promise<FakeMc
     response.writeHead(200, { "content-type": "text/event-stream" })
     response.end(`${chunk(delta, null)}${chunk({}, call ? "tool_calls" : "stop")}${usage}data: [DONE]\n\n`)
   }
+  /** Metaview's sign-in server: the resource's metadata, and an authorization server at `/oauth` that takes a client metadata document. */
+  const signIn = async (request: IncomingMessage, response: ServerResponse, route: string) => {
+    const json = (status: number, body: unknown) => void response.writeHead(status, { "content-type": "application/json" }).end(JSON.stringify(body))
+    const issuer = `${fake.origin}/oauth`
+    if (route.startsWith("/.well-known/oauth-protected-resource")) {
+      const resource = `${fake.origin}${route.slice("/.well-known/oauth-protected-resource".length) || "/mcp"}`
+      return json(200, { resource, authorization_servers: [issuer], scopes_supported: SCOPES.split(" "), bearer_methods_supported: ["header"] })
+    }
+    if (["/.well-known/oauth-authorization-server/oauth", "/.well-known/openid-configuration/oauth", "/oauth/.well-known/openid-configuration", "/oauth/.well-known/oauth-authorization-server"].includes(route)) {
+      return json(200, {
+        issuer,
+        authorization_endpoint: `${issuer}/authorize`,
+        token_endpoint: `${issuer}/token`,
+        response_types_supported: ["code"],
+        grant_types_supported: ["authorization_code", "refresh_token"],
+        code_challenge_methods_supported: ["S256"],
+        token_endpoint_auth_methods_supported: ["none"],
+        scopes_supported: SCOPES.split(" "),
+        client_id_metadata_document_supported: true,
+      })
+    }
+    // Like a signed-in browser: the authorization endpoint sends the loopback callback a code, and the token endpoint
+    // exchanges it for an access token.
+    if (route === "/oauth/authorize") {
+      const query = new URL(request.url ?? "/", "http://127.0.0.1").searchParams
+      const target = new URL(query.get("redirect_uri") ?? "/")
+      target.searchParams.set("code", `fake-code-${++codes}`)
+      if (query.get("state")) target.searchParams.set("state", query.get("state")!)
+      return void response.writeHead(302, { location: target.toString() }).end()
+    }
+    if (route === "/oauth/token" && request.method === "POST") {
+      const form = Object.fromEntries(new URLSearchParams(await read(request)))
+      tokens.push(form)
+      // While the server challenges, a refresh is refused like a revoked token: the person must sign in again.
+      if (fake.challenge && form.grant_type === "refresh_token") return json(400, { error: "invalid_grant" })
+      return json(200, {
+        access_token: `fake-access-${tokens.length}`,
+        token_type: "Bearer",
+        expires_in: 3600,
+        ...(options.refreshTokens === false ? {} : { refresh_token: `fake-refresh-${tokens.length}` }),
+        scope: SCOPES,
+      })
+    }
+    return json(404, { error: "not_found" })
+  }
   const server = createServer(async (request, response) => {
     const route = new URL(request.url ?? "/", "http://127.0.0.1").pathname
+    if (route.startsWith("/.well-known/") || route.startsWith("/oauth")) return signIn(request, response, route)
     if (route === "/api/v1/models") {
       const models = [{ type: "llm", key: MODEL_ID, display_name: "Fake model", loaded_instances: [], max_context_length: 32_000, capabilities: { vision: false, trained_for_tool_use: true } }]
       return void response.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify({ models }))
@@ -128,7 +190,7 @@ export async function startFakeMcp(options: FakeMcpOptions = {}): Promise<FakeMc
     markers.push(header(request, "x-metaview-test"))
     authorizations.push(header(request, "authorization"))
     if (fake.challenge) {
-      const metadata = `${fake.origin}/.well-known/oauth-protected-resource`
+      const metadata = `${fake.origin}/.well-known/oauth-protected-resource${route}`
       return void response
         .writeHead(401, { "content-type": "application/json", "www-authenticate": `Bearer resource_metadata="${metadata}", scope="openid offline_access"` })
         .end(JSON.stringify({ error: "invalid_token" }))
@@ -145,6 +207,7 @@ export async function startFakeMcp(options: FakeMcpOptions = {}): Promise<FakeMc
   Object.assign(fake, {
     url: `http://127.0.0.1:${port}/mcp`,
     origin: `http://127.0.0.1:${port}`,
+    tokens,
     model,
     calls,
     called,
