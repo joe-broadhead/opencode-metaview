@@ -198,6 +198,12 @@
         "readOnly": true
       },
       {
+        "name": "metaview.list_connectors",
+        "permission": "metaview_list_connectors",
+        "effect": "allow",
+        "readOnly": true
+      },
+      {
         "name": "metaview.list_field_values",
         "permission": "metaview_list_field_values",
         "effect": "allow",

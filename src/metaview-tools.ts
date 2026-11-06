@@ -7,7 +7,7 @@
 // known tool missing from a live list is normal and never reported.
 //
 // The names and PARAMETERS match what OpenCode lists for Metaview's server, recorded in
-// test/unit/metaview-live-tools.json (2026-11-05); the drift test pins them to it. That list carries no annotations,
+// test/unit/metaview-live-tools.json (2026-11-06); the drift test pins them to it. That list carries no annotations,
 // so each tool's class comes from its own description.
 
 /** Known reads: each only reads, by its description, and sends nothing beyond its query. They run without asking. */
@@ -36,6 +36,7 @@ export const READ_TOOLS: readonly string[] = [
   "list_application_reviews",
   "list_ats_jobs",
   "list_ats_stages",
+  "list_connectors",
   "list_field_values",
   "list_fields",
   "list_job_post_checks",
@@ -135,6 +136,7 @@ export const PARAMETERS: Readonly<Record<string, readonly string[]>> = {
   list_application_reviews: ["include_archived:boolean", "search_term:string|null", "limit:integer", "offset:integer", "rationale*:string"],
   list_ats_jobs: ["query:string|null", "limit:integer", "offset:integer", "posting_type:string|null", "rationale*:string"],
   list_ats_stages: ["job_id:string|null", "posting_type:string|null", "rationale*:string"],
+  list_connectors: ["search_id:string|null", "rationale*:string"],
   list_field_values: ["field_id*:string", "report_id:string|null", "filters:array<object>|null", "only_show_recorded_conversations:boolean", "search_term:string|null", "offset:integer", "limit:integer", "rationale*:string"],
   list_fields: ["report_id:string|null", "search_term:string|null", "field_ids:array<string>|null", "offset:integer", "limit:integer", "rationale*:string"],
   list_job_post_checks: ["job_post_id:string|null", "limit:integer", "offset:integer", "rationale*:string"],
@@ -164,7 +166,7 @@ export const PARAMETERS: Readonly<Record<string, readonly string[]>> = {
   search_reports: ["report_ids:array<string>|null", "include_detail:boolean", "search_term:string|null", "category:string|null", "sort_key:string|null", "sort_order:string|null", "offset:integer", "limit:integer", "rationale*:string"],
   search_snippets: ["conversation_id*:integer", "prompt*:string", "rationale*:string"],
   send_job_post_message: ["message*:string", "job_post_id:string|null", "template_id:string|null", "request_id:string|null", "rationale*:string"],
-  send_sourcing_message: ["message*:string", "search_id:string|null", "mode:string", "rationale*:string"],
+  send_sourcing_message: ["message*:string", "search_id:string|null", "mode:string", "mcp_connection_ids:array<string>|null", "rationale*:string"],
   submit_feedback: ["category*:string", "feedback*:string", "rationale*:string"],
   update_application_review_icp: ["application_review_id*:string", "icp_text*:string", "base_version*:integer", "rationale*:string"],
   update_application_review_rules: ["rules*:string", "rationale*:string"],

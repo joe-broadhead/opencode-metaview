@@ -14,7 +14,7 @@ contracts drop a top-level key they don't know, and refuse an unknown key inside
 
 ## Tools and permissions
 
-67 tools are declared (42 read-only): every tool in `src/metaview-tools.ts`, 42 reads, 22 writes and
+68 tools are declared (43 read-only): every tool in `src/metaview-tools.ts`, 43 reads, 22 writes and
 3 denied tools, each once: each read tool as read-only with `allow`, each write
 tool with `ask`, and each denied tool with `deny`. Jelly's agents have no base "allow everything" rule,
 so this plugin's own default rules, which it puts after that rule, never reach them. Jelly writes each
@@ -27,7 +27,7 @@ a read-only helper every tool not marked `readOnly`. A declared `allow` changes 
 - Off: `metaview_give_application_review_candidate_feedback` (application review decisions, which sync to the ATS and
   can email the candidate), `metaview_manage_candidate_sequence` (candidate outreach) and `metaview_submit_feedback`
   (text sent to the Metaview team).
-- Everything else runs, as the plugin's own rules let it: the 42 reads (`READ_TOOLS`), each of which only reads
+- Everything else runs, as the plugin's own rules let it: the 43 reads (`READ_TOOLS`), each of which only reads
   from the person's own Metaview workspace, within their role, and changes nothing in the ATS or for a candidate. On a
   workspace whose conversations unlock on shared platform credits, reading transcripts and summaries may draw on those
   credits; the `metaview` skill says so.

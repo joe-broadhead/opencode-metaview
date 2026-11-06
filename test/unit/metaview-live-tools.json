@@ -2,7 +2,7 @@
   "server": "metaview",
   "source": "OpenCode ctx.tool.list() for the metaview server, signed in to a Metaview account; names and input schemas only",
   "host": "2.2.3",
-  "listedAt": "2026-11-05T15:02:52.168Z",
+  "listedAt": "2026-11-06T18:30:00.000Z",
   "tools": [
     {
       "id": "metaview_create_ai_field",
@@ -1704,6 +1704,35 @@
             ],
             "default": null,
             "description": "Posting type selected from list_ats_jobs. Omit to preserve the workspace default."
+          },
+          "rationale": {
+            "description": "Always provide a brief explanation of why you are calling this tool",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rationale"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "metaview_list_connectors",
+      "name": "list_connectors",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "search_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Existing search UUID. Omit to discover connectors for a new search."
           },
           "rationale": {
             "description": "Always provide a brief explanation of why you are calling this tool",
@@ -3576,6 +3605,21 @@
             "type": "string",
             "default": "source",
             "description": "Set 'research' for market/talent research questions; the default 'source' creates a candidate search. Honored ONLY when creating a new search (search_id omitted) and cannot be changed afterwards — follow-up messages ignore it."
+          },
+          "mcp_connection_ids": {
+            "anyOf": [
+              {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Full selection of connector UUIDs from list_connectors for this search. Omit to preserve selection (new searches start empty); [] disables all connectors. Selection applies to the whole search, including future turns."
           },
           "rationale": {
             "description": "Always provide a brief explanation of why you are calling this tool",
