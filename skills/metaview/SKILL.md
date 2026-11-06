@@ -12,7 +12,7 @@ timeout (HTTP 504) on a filtered or `search` call: retry once, narrower or witho
 
 Start with `get_user_context({ rationale })`, once. Its `data_access` says which conversations the user sees: a member
 sees only calls they joined or that were shared with them, so a history may miss rounds colleagues ran. A free plan
-(`is_paying_plan` false) limits transcripts, summaries and AI fields: say so rather than working around it.
+(`is_paying_plan` false) limits transcripts, summaries and AI fields: say so rather than working around it. Where `notes_on_platform_credits` shows, reads run unasked but may draw on shared credits: say so before reading many.
 
 ## Find the person, then the conversations
 

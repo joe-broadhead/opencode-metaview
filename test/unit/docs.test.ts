@@ -25,7 +25,8 @@ const OPT_IN = '{ "action": "metaview_submit_feedback", "resource": "*", "effect
 describe("docs", () => {
   test.each(FILES)("%s states no count of read, write or declared tools that could go stale", (file) => {
     const counts = [...text(file).matchAll(/\b\d+ (?:known )?(?:read|write)(?:s\b| tools\b| read-only)|\b\d+ tools are declared/g)].map((match) => match[0])
-    const stale = counts.filter((count) => !count.startsWith(`${READ_TOOLS.length} read`) && !count.startsWith(`${WRITE_TOOLS.length} write`))
+    const declared = `${READ_TOOLS.length + WRITE_TOOLS.length + DENIED_TOOLS.length} tools are declared`
+    const stale = counts.filter((count) => !count.startsWith(`${READ_TOOLS.length} read`) && !count.startsWith(`${WRITE_TOOLS.length} write`) && count !== declared)
     expect(stale).toEqual([])
   })
 
