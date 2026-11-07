@@ -82,13 +82,19 @@ Three skills teach the model to use Metaview well:
 
 ### Scripts
 
-A script or a cron job can call Metaview's read tools with no model, through `opencode api`. It runs as a session and
-its agent, under that agent's permission rules and the session's own. Write tools are never available to scripts:
+A script or a cron job can call every tool this plugin knows with no model, through `opencode api`. It runs as a
+session and its agent, under that agent's permission rules and the session's own. The rule is resolved first, so only
+a prior explicit `allow` runs: a write or a send needs one, an `ask` is refused, and a denied tool stays denied. A
+saved "Always allow" does not authorize an ad-hoc script:
 
 ```sh
 opencode api post /api/rpc/metaview.workspace.tools/search_conversations \
+  -H "x-opencode-directory:$PWD" \
   -d '{"input":{"sessionID":"ses_…","input":{"rationale":"weekly interview list","limit":20}}}'
 ```
+
+Without `x-opencode-directory:$PWD` the call reaches the service's default location and fails `rpc.unavailable` when
+the plugin is not loaded there.
 
 See [Scripting](https://github.com/joe-broadhead/opencode-metaview/blob/HEAD/docs/scripting.md).
 

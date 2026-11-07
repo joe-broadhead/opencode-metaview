@@ -140,17 +140,18 @@ describe(`the plugin on OpenCode ${HOST_VERSION}`, () => {
     }
   })
 
-  test("DC-5: no script reaches a denied tool: the tools RPC has no such method, and describe never lists one", async () => {
+  test("DC-5: no script reaches a denied tool: each is a destructive method, refused before Metaview is called", async () => {
     const sessionID = await session(host)
-    const described = await scriptCall(host, "describe", {})
+    const described = JSON.parse(await scriptCall(host, "describe", {})) as { methods: { name: string; class: string }[] }
+    const classOf = Object.fromEntries(described.methods.map((method) => [method.name, method.class]))
     for (const tool of DENIED_TOOLS) {
-      expect(described).not.toContain(tool)
+      expect(classOf[tool]).toBe("destructive")
       const call = (host.client.rpc as unknown as { call: (input: object) => Promise<unknown> }).call
       const outcome = await call({ rpcID: TOOLS_RPC_ID, method: tool, input: { sessionID, input: { rationale: "record a decision" } }, location: host.location }).then(
         (output) => ({ ran: true, output }),
         (error: unknown) => ({ ran: false, error: JSON.stringify(error, Object.getOwnPropertyNames(error ?? {})) }),
       )
-      expect(outcome).toMatchObject({ ran: false })
+      expect(outcome).toMatchObject({ ran: false, error: expect.stringContaining("PERMISSION_DENIED") })
       expect(host.fake.calls).not.toContain(tool)
     }
   })

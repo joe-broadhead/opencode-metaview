@@ -88,6 +88,9 @@ export const WRITE_TOOLS: readonly string[] = [
   "upsert_job_post_template",
 ]
 
+/** The known writes that send a message to a person, which the tools RPC reports as class `send`. */
+export const SEND_TOOLS: readonly string[] = ["send_job_post_message", "send_sourcing_message"]
+
 /**
  * Off by default; a deny also hides them. A user or organisation turns one back on with a later `ask` rule for it.
  * - `give_application_review_candidate_feedback` (destructive): a REJECT or PROGRESS syncs to the ATS, and a REJECT can

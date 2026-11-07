@@ -15,7 +15,7 @@ import { arch, platform } from "node:os"
 import { basename, join, relative, resolve, sep } from "node:path"
 import { fileURLToPath } from "node:url"
 import { ENDPOINT, SUPPORTED_HOST, TESTED_HOSTS } from "../../src/constants.js"
-import { TOOLS_RPC_ID } from "../../src/host/tools-rpc.js"
+import { METHODS, TOOLS_RPC_ID } from "../../src/host/tools-rpc.js"
 import { DENIED_TOOLS, READ_TOOLS, WRITE_TOOLS } from "../../src/metaview-tools.js"
 import { defaultRules, type Rule } from "../../src/permissions.js"
 import { SKILL_NAMES } from "../../src/skills.js"
@@ -317,14 +317,16 @@ describe.each(HOST_VERSIONS)("the tools RPC on stock OpenCode %s", (version) => 
     await fake?.close()
   }, 60_000)
 
-  test("describes exactly the known reads, each available with its live schema", async () => {
+  test("describes every known tool with its class, each available with its live schema", async () => {
     const { value } = await script("describe", {})
     expect(value.id).toBe(TOOLS_RPC_ID)
-    expect(value.methods.map((method: { name: string }) => method.name)).toEqual([...READ_TOOLS])
+    expect(value.methods.map((method: { name: string }) => method.name)).toEqual(METHODS.map((method) => method.name))
+    const classes = Object.fromEntries(METHODS.map((method) => [method.name, method.class]))
     for (const method of value.methods) {
-      expect({ name: method.name, kind: method.kind, action: method.action, available: method.available }).toEqual({
+      expect({ name: method.name, kind: method.kind, class: method.class, action: method.action, available: method.available }).toEqual({
         name: method.name,
         kind: "mcp",
+        class: classes[method.name],
         action: `metaview_${method.name}`,
         available: true,
       })
@@ -353,12 +355,13 @@ describe.each(HOST_VERSIONS)("the tools RPC on stock OpenCode %s", (version) => 
     expect(JSON.stringify(output)).not.toMatch(/p_fake_1|u_fake_1/)
   })
 
-  test("never makes a known write, submit_feedback or an unknown tool a method, though OpenCode lists them all", async () => {
+  test("a write or a denied tool is a method, refused before dispatch; an unknown tool has no method, though OpenCode lists them all", async () => {
     const from = fake.calls.length
-    for (const name of [...WRITE_TOOLS, ...DENIED_TOOLS, NEW_TOOL.name]) {
-      const result = await call("build", name, { query: "q" })
-      expect({ name, type: result.type }).toEqual({ name, type: "rpc.method_not_found" })
+    for (const name of [...WRITE_TOOLS, ...DENIED_TOOLS]) {
+      const result = await call("build", name, { query: "q", rationale: "check the rule" })
+      expect({ name, code: result.code }).toEqual({ name, code: "PERMISSION_DENIED" })
     }
+    expect(await call("build", NEW_TOOL.name, { query: "q" })).toMatchObject({ type: "rpc.method_not_found" })
     expect(toolCalls(from)).toEqual([])
   })
 
@@ -372,7 +375,7 @@ describe.each(HOST_VERSIONS)("the tools RPC on stock OpenCode %s", (version) => 
     const from = fake.calls.length
     const result = await call("careful", READ_A, { query: "q" })
     expect(result).toMatchObject({ type: "failed", code: "PERMISSION_DENIED" })
-    expect(result.message).toMatch(/cannot answer an approval prompt/)
+    expect(result.message).toMatch(/would ask for this session's agent, and a script cannot answer/)
     const { data: pending } = await host.api<{ data: unknown[] }>("GET", "/api/permission/request")
     expect(pending.filter((request) => JSON.stringify(request).includes(sessions.careful!))).toEqual([])
     expect(toolCalls(from)).toEqual([])

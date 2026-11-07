@@ -116,9 +116,9 @@ after that rule:
 ]
 ```
 
-`READ_TOOLS` in `src/metaview-tools.ts` lists Metaview's read tools, `WRITE_TOOLS` its write tools, and
-`DENIED_TOOLS` the three that are off. Writes and
-tools that Metaview adds later match only `metaview_*`, so they ask. `/metaview-status` names the tools in neither
+`READ_TOOLS` in `src/metaview-tools.ts` lists Metaview's read tools, `WRITE_TOOLS` its write tools (with
+`SEND_TOOLS` the two that message a person), and `DENIED_TOOLS` the three that are off. The tools RPC's `METHODS`
+classifies exactly these. Writes and tools that Metaview adds later match only `metaview_*`, so they ask. `/metaview-status` names the tools in neither
 list. Metaview lists only the tools for the products your account has, so a known tool can be missing; that is
 normal.
 

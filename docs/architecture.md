@@ -95,10 +95,12 @@ is never shown, and a failure's reason is cut to one line of 160 characters with
 
 ## Tools RPC
 
-`metaview.workspace.tools` lets a script call the known reads with no model; [Scripting](scripting.md) is the user's
-view. Its methods are `describe` and one per name in `READ_TOOLS`, named after the upstream tool. It is an allowlist:
-`WRITE_TOOLS`, `DENIED_TOOLS` and a tool that Metaview adds later are never methods. `describe` reports each method as
-available or not from what OpenCode lists now, which follows the Metaview products the account has.
+`metaview.workspace.tools` lets a script call every known tool with no model; [Scripting](scripting.md) is the user's
+view. Its methods are `describe` and one per name in `READ_TOOLS`, `WRITE_TOOLS` and `DENIED_TOOLS`, named after the
+upstream tool and carrying a tools RPC class (`read`, `send`, `write` or `destructive`). It is an allowlist: a tool
+that Metaview adds later is not a method until it is classified, and `describe` lists it as unclassified. `describe`
+reports each method as available or not from what OpenCode lists now, which follows the Metaview products the account
+has.
 
 A call is `{ sessionID, input }`. The module:
 

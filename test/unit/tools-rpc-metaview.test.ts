@@ -3,8 +3,8 @@
 import { afterEach, describe, expect, test } from "bun:test"
 import { watchAccount } from "../../src/account.js"
 import { PLUGIN_ID as METAVIEW_PLUGIN_ID, SERVER_NAME } from "../../src/constants.js"
-import { KNOWN_READS, NEXT_STEPS, PLUGIN_ID, shapeResult, TOOLS_RPC_ID } from "../../src/host/tools-rpc.js"
-import { DENIED_TOOLS, READ_TOOLS, WRITE_TOOLS } from "../../src/metaview-tools.js"
+import { METHODS, NEXT_STEPS, PLUGIN_ID, shapeInput, shapeResult, TOOLS_RPC_ID } from "../../src/host/tools-rpc.js"
+import { DENIED_TOOLS, READ_TOOLS, SEND_TOOLS, WRITE_TOOLS } from "../../src/metaview-tools.js"
 import { defaultRules } from "../../src/permissions.js"
 
 const stops: (() => Promise<void>)[] = []
@@ -18,17 +18,20 @@ describe("Metaview's tools RPC", () => {
     expect(TOOLS_RPC_ID).toBe("metaview.workspace.tools")
   })
 
-  test("its methods are exactly the known reads, the server tools the default rules allow", () => {
-    expect([...KNOWN_READS]).toEqual([...READ_TOOLS])
-    const allowed = defaultRules().filter((rule) => rule.effect === "allow").map((rule) => rule.action)
-    expect(KNOWN_READS.map((name) => `${SERVER_NAME}_${name}`)).toEqual(allowed)
+  test("every known tool is a method, by exact name, with its class", () => {
+    expect(METHODS.map((method) => method.name)).toEqual([...READ_TOOLS, ...WRITE_TOOLS, ...DENIED_TOOLS])
+    const classOf = Object.fromEntries(METHODS.map((method) => [method.name, method.class]))
+    for (const name of READ_TOOLS) expect(classOf[name]).toBe("read")
+    for (const name of WRITE_TOOLS) expect(classOf[name]).toBe(SEND_TOOLS.includes(name) ? "send" : "write")
+    for (const name of DENIED_TOOLS) expect(classOf[name]).toBe("destructive")
+    expect(METHODS.every((method) => method.kind === "mcp")).toBe(true)
   })
 
-  test("no write, no denied tool and no unknown tool is a method", () => {
-    expect(KNOWN_READS.filter((name) => WRITE_TOOLS.includes(name) || DENIED_TOOLS.includes(name))).toEqual([])
-    expect(KNOWN_READS).not.toContain("submit_feedback")
+  test("the reads are the server tools the default rules allow; every denied tool keeps its deny", () => {
+    const allowed = defaultRules().filter((rule) => rule.effect === "allow").map((rule) => rule.action)
+    expect(READ_TOOLS.map((name) => `${SERVER_NAME}_${name}`)).toEqual(allowed)
     for (const name of DENIED_TOOLS) expect(defaultRules()).toContainEqual({ action: `metaview_${name}`, resource: "*", effect: "deny" })
-    for (const name of ["shiny_new_tool", "describe", "*"]) expect(KNOWN_READS).not.toContain(name)
+    for (const name of ["shiny_new_tool", "describe", "*"]) expect(METHODS.map((method) => method.name)).not.toContain(name)
   })
 
   test("names Metaview's own commands in its next steps, and has no per-account servers", () => {
@@ -37,6 +40,10 @@ describe("Metaview's tools RPC", () => {
     expect(NEXT_STEPS.TOOL_UNAVAILABLE).toContain("products your account has")
     for (const step of Object.values(NEXT_STEPS)) expect(step).toMatch(/[^.]\.$/)
     expect(NEXT_STEPS.ACCOUNT_UNKNOWN).toBeUndefined()
+  })
+
+  test("leaves Metaview's arguments alone: the model path has no before hook", () => {
+    expect(shapeInput("search_conversations", { query: "q" }, { sessionID: "s", agent: "a", action: "metaview_search_conversations" })).toEqual({ query: "q" })
   })
 
   test("a script's account read reaches status, and the result passes through unchanged", async () => {
@@ -48,9 +55,10 @@ describe("Metaview's tools RPC", () => {
     } as never)
     stops.push(account.stop)
     const result = { output: { workspace_name: "Acme Recruiting", is_admin: false, is_paying_plan: true, user_id: "u_fake" }, text: "{}" }
-    expect(shapeResult("search_conversations", result)).toBe(result)
+    const call = { sessionID: "ses_script", agent: "build", action: "metaview_get_user_context" }
+    expect(shapeResult("search_conversations", result, call)).toBe(result)
     expect(account.current()).toBeUndefined()
-    expect(shapeResult("get_user_context", result)).toBe(result)
+    expect(shapeResult("get_user_context", result, call)).toBe(result)
     expect(account.current()).toEqual({ workspace: "Acme Recruiting", role: "member", plan: "paid" })
   })
 })
