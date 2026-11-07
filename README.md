@@ -7,7 +7,7 @@ Unofficial; not affiliated with Metaview.
 
 ## Requirements
 
-- OpenCode `>=2.2.3 <2.3.0`, tested on 2.2.3, 2.2.4 and 2.2.5. Outside that range the plugin does not start, unless
+- OpenCode `>=2.2.3 <2.3.0`, tested on 2.2.3, 2.2.4, 2.2.5 and 2.2.6. Outside that range the plugin does not start, unless
   you set `allowUntestedHost`.
 - macOS or Linux.
 - A Metaview account in a workspace where an admin has turned on **MCP integration**. Members also need **MCP for
@@ -215,7 +215,7 @@ Run `/metaview-status` first. Its last line is the next step.
 | Plan: shared credits | Conversations unlock on your workspace's shared platform credits rather than your own plan. |
 | Answers miss rounds a colleague ran | As a member you see your own conversations and those shared with you. Ask the colleague to share them, or ask an admin. |
 | Agents without default rules | Put the default rules shown by `/metaview-status` first in each listed agent's own permissions, in `opencode.json` or the agent's Markdown file, followed by your top-level rules for Metaview tools. |
-| OpenCode: untested | OpenCode is not 2.2.3, 2.2.4 or 2.2.5. Inside `>=2.2.3 <2.3.0` the plugin runs normally; outside it, it runs only because `allowUntestedHost` is set. If Metaview misbehaves, use a tested release. |
+| OpenCode: untested | OpenCode is not 2.2.3, 2.2.4, 2.2.5 or 2.2.6. Inside `>=2.2.3 <2.3.0` the plugin runs normally; outside it, it runs only because `allowUntestedHost` is set. If Metaview misbehaves, use a tested release. |
 | Signed in to the wrong Metaview account | Run `opencode mcp logout metaview` (or remove the account in `/connect` → Metaview), then sign in again. |
 | A Metaview tool is refused in `opencode run` | Nobody could answer its prompt. Add an `allow` rule for that tool to the agent's own `permissions` (never for the two candidate tools: run those interactively). |
 | A skill seems ignored, and status names a skill to rename or move | A skill of yours with the same id, such as `metaview`, replaces the plugin's. Rename or move it. |
