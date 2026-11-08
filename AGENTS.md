@@ -63,9 +63,9 @@ It has no tool of its own. Read [docs/architecture.md](docs/architecture.md) bef
 - **TypeScript.** No enums, namespaces or parameter properties. `import type` for types, `.js` in relative imports.
 - **The tools RPC.** `src/host/tools-rpc.ts` is a copy of a module shared by several plugins. Change only its block
   between the `PLUGIN-SPECIFIC` markers here; change the rest in the shared copy first. Its methods are `METHODS`,
-  built from `READ_TOOLS`, `WRITE_TOOLS`, `SEND_TOOLS` and `DENIED_TOOLS` in `src/metaview-tools.ts`: every known tool,
-  by exact name, with its class. The rule is resolved before dispatch, so only a prior explicit `allow` runs and an
-  `ask` is refused; a denied tool stays denied. An unknown tool is never a method. Keep the RPC id
+  built from `READ_TOOLS`, `WRITE_TOOLS`, `SEND_TOOLS` and `DESTRUCTIVE_TOOLS` in `src/metaview-tools.ts`: every known
+  tool, by exact name, with its class. The rule is resolved before dispatch, so only an `allow` runs and an `ask` or a
+  `deny` is refused; at the default `access` every tool is allowed. An unknown tool is never a method. Keep the RPC id
   `metaview.workspace.tools` and its method names stable: scripts call them by name.
 - **Tests.** Unit tests use narrow `Pick<Plugin.Context, ...>` fakes. Host tests use the public `@opencode/sdk` with
   `OpenCode.create({ app: { version } })`, a loopback fake server and the temp root from `test/host/isolate.ts`.
