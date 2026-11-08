@@ -297,7 +297,7 @@ Run `/metaview-status` first. Its last line is the next step.
 | Tools: 0 available | Metaview lists no tools for your account. Ask a workspace admin to turn on **MCP integration**, and **MCP for non-admins** if you are a member. |
 | Access: every tool is allowed | The plugin's default rules let every tool run, candidates and your ATS included. Set the `access` option, or add a rule, as in [Permissions](#permissions). |
 | Access: default rules missing or not added | Some agents lack the default rules (see the agents row), or OpenCode could not add them (see the OpenCode row). Follow the next step. |
-| Tools: unknown | Metaview added tools the plugin does not know yet. They ask before they run. A known tool missing from the count is normal: Metaview lists only the tools for the products you have. |
+| Tools: unknown | Metaview added tools the plugin does not know yet. The default block's `metaview_*` rule decides them: they run at the default `access`, ask at `"ask-changes"` and are denied at `"read-only"`. A known tool missing from the count is normal: Metaview lists only the tools for the products you have. |
 | Plan: free | Transcripts, summaries and AI fields may be limited; the model passes on Metaview's upgrade text. |
 | Plan: shared credits | Conversations unlock on your workspace's shared platform credits rather than your own plan. |
 | Answers miss rounds a colleague ran | As a member you see your own conversations and those shared with you. Ask the colleague to share them, or ask an admin. |
