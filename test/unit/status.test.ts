@@ -15,6 +15,7 @@ const URL = "https://mcp.metaview.ai/mcp"
 const base: StatusFacts = { server: { status: "connected" }, source: { type: "plugin", url: URL, signIn: "oauth" }, host, tools: ["search_conversations"] }
 const guarded = { id: "build", permissions: [allow("*"), ...defaultRules()] }
 const RULES = "no agent runs new Metaview tools unasked"
+const POSTURE = "every tool runs without asking, reads and new tools included"
 
 describe("buildStatus", () => {
   test("connected, with the account read, and nothing left to do", () => {
@@ -26,8 +27,8 @@ describe("buildStatus", () => {
       workspace: "Acme Recruiting",
       role: "member",
       plan: "paid",
+      access: "all",
       tools: 1,
-      deniedTools: [],
       listing: false,
       unknownCount: 0,
       unknownTools: [],
@@ -41,7 +42,7 @@ describe("buildStatus", () => {
         "Metaview status",
         "- Connection: connected (https://mcp.metaview.ai/mcp, registered by this plugin)",
         "- Account: Acme Recruiting",
-        `- Access: member: your own conversations and those shared with you; ${RULES}`,
+        `- Access: ${POSTURE}; member: your own conversations and those shared with you; ${RULES}`,
         "- Plan: paid",
         "- Tools: 1 available, 0 unknown",
         "- Agents without default rules: none",
@@ -56,15 +57,20 @@ describe("buildStatus", () => {
     expect([status.workspace, status.role, status.plan]).toEqual([null, null, null])
     const text = formatStatus(status)
     expect(text).toContain("- Account: not read yet (it appears after the first metaview_get_user_context call since OpenCode started)")
-    expect(text).toContain(`- Access: role not read yet; ${RULES}`)
+    expect(text).toContain(`- Access: ${POSTURE}; role not read yet; ${RULES}`)
     expect(text).toContain("- Plan: not read yet")
   })
 
   test("an admin sees the whole workspace, and a free plan names its limits", () => {
     const text = formatStatus(buildStatus({ ...base, account: { role: "admin", plan: "free" } }))
-    expect(text).toContain(`- Access: admin: every conversation in the workspace; ${RULES}`)
+    expect(text).toContain(`- Access: ${POSTURE}; admin: every conversation in the workspace; ${RULES}`)
     expect(text).toContain("- Plan: free: transcripts, summaries and AI fields may be limited")
     expect(formatStatus(buildStatus({ ...base, account: { plan: "credits" } }))).toContain("- Plan: shared credits: conversations unlock on the workspace's platform credits\n")
+  })
+
+  test("the Access row states the access value's posture", () => {
+    expect(formatStatus(buildStatus({ ...base, access: "ask-changes" }))).toContain("- Access: reads run without asking; changes and new tools ask first;")
+    expect(formatStatus(buildStatus({ ...base, access: "read-only" }))).toContain("- Access: reads run without asking; every other tool is denied;")
   })
 
   test.each([
@@ -116,16 +122,15 @@ describe("buildStatus", () => {
     )
   })
 
-  test("counts the available tools, names the unknown ones, and counts denied ones apart; missing known tools are normal", () => {
+  test("counts every listed tool and names the unknown ones; missing known tools are normal", () => {
     const status = buildStatus({ ...base, tools: ["search_conversations", "create_snippet", "submit_feedback", "shiny_new_tool", "schedule_interview"] })
-    expect(status.tools).toBe(4)
-    expect(status.deniedTools).toEqual(["submit_feedback"])
+    expect(status.tools).toBe(5)
     expect(status.unknownCount).toBe(2)
     expect(status.unknownTools).toEqual(["shiny_new_tool", "schedule_interview"])
-    expect(formatStatus(status)).toContain("- Tools: 4 available, 2 unknown: shiny_new_tool, schedule_interview (unknown tools ask before running); off by default: submit_feedback\n")
+    expect(formatStatus(status)).toContain("- Tools: 5 available, 2 unknown: shiny_new_tool, schedule_interview (new tools run too)\n")
     expect(status.nextStep).toBe(NOTHING_TO_DO)
-    const denied = buildStatus({ ...base, tools: ["search_conversations", "manage_candidate_sequence", "submit_feedback"] })
-    expect(formatStatus(denied)).toContain("- Tools: 1 available, 0 unknown; off by default: manage_candidate_sequence and submit_feedback\n")
+    expect(formatStatus(buildStatus({ ...base, access: "read-only", tools: ["search_conversations", "shiny_new_tool"] }))).toContain("(new tools are denied)\n")
+    expect(formatStatus(buildStatus({ ...base, access: "ask-changes", tools: ["search_conversations", "shiny_new_tool"] }))).toContain("(unknown tools ask before running)\n")
   })
 
   test("a server that just connected and lists no tools yet is still listing them, with no advice to ask an admin", () => {
@@ -142,11 +147,11 @@ describe("buildStatus", () => {
   })
 
   test("the Access row says whether the default rules are in place, from what status can see", () => {
-    expect(formatStatus(buildStatus(base))).toContain("- Access: role not read yet; no agent runs new Metaview tools unasked\n")
+    expect(formatStatus(buildStatus(base))).toContain(`- Access: ${POSTURE}; role not read yet; no agent runs new Metaview tools unasked\n`)
     const missing = buildStatus({ ...base, agents: [{ id: "reviewer", permissions: [allow("*")] }] })
-    expect(formatStatus(missing)).toContain("- Access: role not read yet; default rules missing in the agents listed below\n")
+    expect(formatStatus(missing)).toContain(`- Access: ${POSTURE}; role not read yet; default rules missing in the agents listed below\n`)
     const problem = "RULES_NOT_ADDED: Metaview's default permission rules could not be added (boom), so Metaview tools may run without asking. Next step: Restart OpenCode."
-    expect(formatStatus(buildStatus({ ...base, account: { role: "admin" }, problems: [problem] }))).toContain("- Access: admin: every conversation in the workspace; default rules not added (see the OpenCode row)\n")
+    expect(formatStatus(buildStatus({ ...base, account: { role: "admin" }, problems: [problem] }))).toContain(`- Access: ${POSTURE}; admin: every conversation in the workspace; default rules not added (see the OpenCode row)\n`)
   })
 
   test("a failure's reason never carries a token or key the host's text echoed", () => {
@@ -161,8 +166,8 @@ describe("buildStatus", () => {
     const status = buildStatus({ ...base, tools: ["search_conversations", ...odd, ...many] })
     expect(status.unknownCount).toBe(29)
     expect(status.unknownTools).toEqual(many.slice(0, 20))
-    expect(formatStatus(status)).toContain(`- Tools: 30 available, 29 unknown: ${many.slice(0, 20).join(", ")} and 9 more (unknown tools ask before running)`)
-    expect(formatStatus(buildStatus({ ...base, tools: odd }))).toContain("- Tools: 4 available, 4 unknown (unknown tools ask before running)")
+    expect(formatStatus(status)).toContain(`- Tools: 30 available, 29 unknown: ${many.slice(0, 20).join(", ")} and 9 more (new tools run too)`)
+    expect(formatStatus(buildStatus({ ...base, tools: odd }))).toContain("- Tools: 4 available, 4 unknown (new tools run too)")
   })
 
   test("names agents without the default rules, with the block to paste, and points the next step at it", () => {

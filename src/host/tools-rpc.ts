@@ -34,7 +34,7 @@ import { Rpc } from "@opencode/plugin/rpc"
 // >>> PLUGIN-SPECIFIC >>>
 import { ACCOUNT_TOOL, captureAccount } from "../account.js"
 import { PLUGIN_ID as METAVIEW_PLUGIN_ID, SERVER_NAME } from "../constants.js"
-import { DENIED_TOOLS, READ_TOOLS, SEND_TOOLS, WRITE_TOOLS } from "../metaview-tools.js"
+import { DESTRUCTIVE_TOOLS, READ_TOOLS, SEND_TOOLS, WRITE_TOOLS } from "../metaview-tools.js"
 
 /** The plugin's id. The RPC id is `<PLUGIN_ID>.tools`. */
 export const PLUGIN_ID = METAVIEW_PLUGIN_ID
@@ -42,12 +42,13 @@ export const PLUGIN_ID = METAVIEW_PLUGIN_ID
 /**
  * Every tool this plugin knows, by exact upstream name, with the class the tools RPC reports. An allowlist: a tool the
  * server adds later is not a method until it is classified in `src/metaview-tools.ts`, and `describe` lists it as
- * unclassified. A denied tool is still a method, and stays refused: its rule resolves to `deny`.
+ * unclassified. Any tool is a method, the destructive ones included: the class says what it does, and the rules decide
+ * whether a call runs.
  */
 export const METHODS: readonly MethodSpec[] = [
   ...READ_TOOLS.map((name): MethodSpec => ({ kind: "mcp", name, class: "read" })),
   ...WRITE_TOOLS.map((name): MethodSpec => ({ kind: "mcp", name, class: SEND_TOOLS.includes(name) ? "send" : "write" })),
-  ...DENIED_TOOLS.map((name): MethodSpec => ({ kind: "mcp", name, class: "destructive" })),
+  ...DESTRUCTIVE_TOOLS.map((name): MethodSpec => ({ kind: "mcp", name, class: "destructive" })),
 ]
 
 /** What the model path's `execute.before` hooks do to an MCP call's arguments, which the executor skips. Metaview has none. */

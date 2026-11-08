@@ -89,8 +89,8 @@ source.
 `/metaview-status`'s last line is the next step. To sign in, run `/connect` and choose Metaview, then `o` or Enter (or
 `opencode mcp auth metaview` in a terminal); never ask for a password or key. Non-hiring meetings are Granola's. For an
 upcoming interview, search Metaview first; a calendar may then give only that interview's time and title (no attendees
-or descriptions), and never name other meetings. Load `metaview-write` before any change (every change asks; some reach
-candidates, some are off) or a problem report, and `metaview-candidate-brief` for prep, debriefs and comparisons.
+or descriptions), and never name other meetings. Load `metaview-write` before any change (every change is allowed by default; some reach
+candidates, so say whom it reaches) or a problem report, and `metaview-candidate-brief` for prep and comparisons.
 
 Scripts run the reads through the tools RPC `metaview.workspace.tools` (`rationale` inside `input`), as a session made
 for them (`opencode api post /api/session -d '{"title":"…","agent":"build"}'`, keep `data.id`). Never borrow an

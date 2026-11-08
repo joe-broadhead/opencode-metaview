@@ -95,7 +95,7 @@ describe("TUI plugin", () => {
     key.run()
     await view.settle()
     expect(view.alerts).toHaveLength(2)
-    expect(view.alerts[1]!.message).toContain("- Access: admin")
+    expect(view.alerts[1]!.message).toContain("admin: every conversation in the workspace")
     view.alerts[1]!.close()
     await view.settle()
     expect(key.enabled!()).toBe(false)
@@ -113,7 +113,7 @@ describe("status view", () => {
     expect(view.alerts[0]!.title).toBe("Metaview status")
     expect(view.alerts[0]!.message).toBe(`${formatStatus(answer).split("\n").slice(1).join("\n")}\n\nr refresh · esc close`)
     expect(view.alerts[0]!.message).toContain(`- Next step: ${SIGN_IN}`)
-    expect(view.alerts[0]!.message).toContain("- Access: admin")
+    expect(view.alerts[0]!.message).toContain("admin: every conversation in the workspace")
     expect(view.alerts[0]!.message).toContain("- Agents without default rules: reviewer\n")
     expect(view.sizes.at(-1)).toEqual({ size: "large" })
   })
@@ -147,7 +147,7 @@ describe("status view", () => {
     view.emit(type, { data: { server: "metaview" } })
     await view.settle()
     expect(view.alerts).toHaveLength(2)
-    expect(view.alerts[1]!.message).toContain("- Access: admin")
+    expect(view.alerts[1]!.message).toContain("admin: every conversation in the workspace")
   })
 
   test("listens to events only while the view is open", async () => {
@@ -191,7 +191,7 @@ describe("status view", () => {
     await command(view.layers).run()
     releaseFirst(status())
     await first
-    expect(view.alerts.map((alert) => alert.message.includes("- Access: admin"))).toEqual([true])
+    expect(view.alerts.map((alert) => alert.message.includes("admin: every conversation in the workspace"))).toEqual([true])
   })
 
   test("cleanup stops listening and closes an open view", async () => {

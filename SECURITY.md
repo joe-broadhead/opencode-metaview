@@ -37,11 +37,13 @@ OpenCode project.
 - Metaview content is untrusted. Transcripts, resumes and notes come from other people and can contain instructions
   aimed at the model. The skills tell the model to treat them as data, to label Metaview's AI output as Metaview's, and
   never to infer protected characteristics.
-- Three tools are denied by default: `metaview_submit_feedback`, which sends text to the Metaview team and whose
-  description invites unasked calls after an error, and the two that act on candidates and can't be undone,
-  `metaview_give_application_review_candidate_feedback` (a REJECT syncs to the ATS and can email the candidate) and
-  `metaview_manage_candidate_sequence` (adding candidates to outreach). Turning one on takes an `ask` rule in an
-  agent's own `permissions`, so each call still asks, in that agent only.
+- **Every tool is allowed by default, and an agent can act on candidates and your ATS without asking.** At the
+  default `access: "all"` an agent can record an application review decision, which can reject a candidate and sync to
+  your ATS; add candidates to an outreach sequence or restart one, sending email, LinkedIn, SMS or WhatsApp; send
+  job-post and sourcing messages; spend enrichment credits; and send feedback to the Metaview team, whose own
+  description invites unasked calls after an error. Restrict it with the one-line plugin option
+  `"access": "ask-changes"` (reads run, everything else asks) or `"access": "read-only"` (reads run, everything else is
+  denied), or with rules of your own. A `deny` rule also hides the tool from the model.
 
 ## Permissions
 
@@ -50,12 +52,13 @@ What the model can do in Metaview is limited by these layers, in this order:
 1. **Metaview's server and your role.** The sign-in is your own Metaview account: admins see every conversation in the
    workspace, members their own and those shared with them. Metaview lists only the tools for the products your account
    has. A workspace admin can turn MCP off for the workspace, or for members.
-2. **Default permission rules.** Every Metaview tool asks before it runs, except Metaview's read tools listed in
-   `src/metaview-tools.ts`, which run without a prompt. Application review decisions, adding candidates to sequences
-   and `metaview_submit_feedback` are denied. Some changes that ask still reach candidates: screening plans and
-   invitations, `metaview_update_screen_outreach` with `reject_at_deadline`, which rejects candidates automatically at
-   their deadline, and `metaview_manage_sequence`, which can restart or edit a live sequence. Posting sourced candidates
-   reaches your ATS.
+2. **Default permission rules: everything is allowed.** Every tool the plugin registers runs without a prompt, and so
+   does a tool Metaview adds later, so an agent can read every conversation, candidate and report your role can see,
+   and change them: application review decisions, candidate outreach, screening invitations, posting sourced candidates
+   to your ATS, enrichment credits and feedback to Metaview. `metaview_update_screen_outreach` with `reject_at_deadline`
+   true rejects candidates automatically at their deadline, and `metaview_manage_sequence` with `set_enabled` true
+   restarts a sequence's outreach, both without a prompt. Set `"access": "ask-changes"` or `"access": "read-only"`, or
+   add a `deny` rule, to restrict it.
 3. **Your OpenCode permissions.** Your `permissions` rules and saved "Always allow" answers override the default
    rules. A `deny` you configure always wins.
 
@@ -87,12 +90,14 @@ every known tool for a script, with no model. It adds no authority:
 - A script names a session that names an agent, and runs as them. The rule for the tool's permission action is resolved
   before it runs, in OpenCode's own order (the agent's rules, then the session's, the last match winning). Only an
   `allow` runs; an `ask` and a `deny` are refused with no tool call.
-- An ask is refused, not prompted: no one is there to answer it. A saved "Always allow" approval is not part of the
-  agent's and the session's rules, so it does not authorize an ad-hoc script. The plugin's permission hook changes only
-  an ask on one of its own script calls in flight, only to a deny, and leaves every other call alone.
-- Every known tool is a method, with its class (read, send, write or destructive) shown by `describe`. The three denied
-  tools stay refused unless the user opts one in; a tool that Metaview adds later is not a method until this plugin
-  classifies it.
+- A script gets the same default as the model: every known tool is allowed at `access: "all"`, so a script can act on
+  candidates and your ATS. Under `"ask-changes"` or `"read-only"`, an ask is refused, not prompted: no one is there to
+  answer it. A saved "Always allow" approval is not part of the agent's and the session's rules, so it does not
+  authorize an ad-hoc script; a script's grant is a rule in the agent's or the session's config, or `"access"`. The
+  plugin's permission hook changes only an ask on one of its own script calls in flight, only to a deny, and leaves
+  every other call alone.
+- Every known tool is a method, with its class (read, send, write or destructive) shown by `describe`. A tool that
+  Metaview adds later is not a method until this plugin classifies it.
 - OpenCode's own executor then checks the call against the agent's rules, the session's rules and saved approvals, as
   it does for the model.
 - The call goes through OpenCode's own MCP connection and sign-in. The plugin never sees the token, and returns none.

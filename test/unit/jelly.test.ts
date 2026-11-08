@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import { DISPLAY_NAME, SERVER_NAME } from "../../src/constants.js"
-import { DENIED_TOOLS, READ_TOOLS, WRITE_TOOLS } from "../../src/metaview-tools.js"
+import { DESTRUCTIVE_TOOLS, READ_TOOLS, WRITE_TOOLS } from "../../src/metaview-tools.js"
 import { defaultRules, evaluate, type Rule } from "../../src/permissions.js"
 import { SKILL_NAMES } from "../../src/skills.js"
 import { type Declaration, type DeclaredTool, declarationProblems, docProblems, readPackage } from "../support/jelly-kit.js"
@@ -24,22 +24,21 @@ const jelly = pkg.jelly as Declaration & {
   contributes: unknown
 }
 const byPermission = new Map(jelly.tools.map((tool) => [tool.permission, tool]))
-const known = [...READ_TOOLS, ...WRITE_TOOLS, ...DENIED_TOOLS].map((tool) => `${SERVER_NAME}_${tool}`)
+const known = [...READ_TOOLS, ...WRITE_TOOLS, ...DESTRUCTIVE_TOOLS].map((tool) => `${SERVER_NAME}_${tool}`)
 
 describe("the jelly declaration", () => {
   test("follows the plugin authors' standard, with the effects the plugin's own default rules give", () => {
     expect(declarationProblems(ROOT, { effectOf: (permission) => evaluate([BASE_ALLOW, ...defaultRules()], permission), registered: known })).toEqual([])
   })
 
-  test("declares every known tool once: reads that run, writes that ask, and the three denied tools off", () => {
+  test("declares every known tool once, each allowed at the default access", () => {
     for (const tool of READ_TOOLS) expect(byPermission.get(`metaview_${tool}`)).toMatchObject({ effect: "allow", readOnly: true })
-    for (const tool of WRITE_TOOLS) expect(byPermission.get(`metaview_${tool}`)).toMatchObject({ effect: "ask", readOnly: false })
-    for (const tool of DENIED_TOOLS) expect(byPermission.get(`metaview_${tool}`)).toMatchObject({ effect: "deny", readOnly: false })
+    for (const tool of [...WRITE_TOOLS, ...DESTRUCTIVE_TOOLS]) expect(byPermission.get(`metaview_${tool}`)).toMatchObject({ effect: "allow", readOnly: false })
     expect(jelly.tools).toHaveLength(known.length)
     for (const tool of jelly.tools) expect(Object.keys(tool).sort()).toEqual(["effect", "name", "permission", "readOnly"])
   })
 
-  test("every tool that reaches a candidate or the ATS asks or is off", () => {
+  test("keeps the tools that reach a candidate or the ATS declared as changes, so Jelly can restrict them", () => {
     const reachesPeople = [
       "post_sourcing_candidates_to_ats",
       "update_screen_outreach",
@@ -49,7 +48,7 @@ describe("the jelly declaration", () => {
       "give_application_review_candidate_feedback",
       "manage_candidate_sequence",
     ]
-    for (const tool of reachesPeople) expect(["ask", "deny"]).toContain(byPermission.get(`metaview_${tool}`)?.effect ?? "missing")
+    for (const tool of reachesPeople) expect(byPermission.get(`metaview_${tool}`)).toMatchObject({ effect: "allow", readOnly: false })
   })
 
   test("names every skill the package ships, the one sign-in, and no views, RPC, feeds or widgets", () => {

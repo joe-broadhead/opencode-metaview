@@ -99,10 +99,10 @@ export function createMetaviewPlugin(seam: MetaviewSeam) {
       const owned = () => source?.type === "plugin" || source?.type === "adopted"
       // Code Mode's catalog describes the server's namespace with this text; a server at another URL keeps its own.
       await ctx.tool.transform((editor) => void (source?.type === "conflict" ? undefined : editor.namespace({ name: SERVER_NAME, description: NAMESPACE_DESCRIPTION })))
-      await registerDefaultRules(ctx.agent, defaultRules(), report("rules"))
+      await registerDefaultRules(ctx.agent, defaultRules(options.access), report("rules"))
       const account = await watchAccount(ctx, () => source?.type === "adopted" && source.signIn === "own", owned)
       const own = skills.map((skill) => ({ id: skill.id, path: skill.path }))
-      const read = () => readStatus(ctx, { ...(source ? { source } : {}), host, problems: [...problems.values()], skills: own, account })
+      const read = () => readStatus(ctx, { access: options.access, ...(source ? { source } : {}), host, problems: [...problems.values()], skills: own, account })
       await registerSkills(ctx.skill, skills)
       await registerStatusCommand(ctx, read)
       await registerStatusRpc(ctx.rpc, read)

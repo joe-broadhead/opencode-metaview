@@ -27,7 +27,7 @@ import {
   // @ts-expect-error Failure is not exported
   type Failure as _Failure,
 } from "../../src/host/tools-rpc.js"
-import { DENIED_TOOLS, READ_TOOLS, SEND_TOOLS, WRITE_TOOLS } from "../../src/metaview-tools.js"
+import { DESTRUCTIVE_TOOLS, READ_TOOLS, SEND_TOOLS, WRITE_TOOLS } from "../../src/metaview-tools.js"
 
 type Effect = "allow" | "deny" | "ask"
 type Rule = { action: string; resource: string; effect: Effect }
@@ -682,12 +682,12 @@ describe("registration", () => {
 })
 
 describe("the shared copy's own block", () => {
-  test("is Metaview's: every known tool a method, with reads, sends, writes and destructive denies", () => {
-    expect(METHODS).toHaveLength(READ_TOOLS.length + WRITE_TOOLS.length + DENIED_TOOLS.length)
+  test("is Metaview's: every known tool a method, with reads, sends, writes and the destructive three", () => {
+    expect(METHODS).toHaveLength(READ_TOOLS.length + WRITE_TOOLS.length + DESTRUCTIVE_TOOLS.length)
     const classOf = Object.fromEntries(METHODS.map((method) => [method.name, method.class]))
     for (const name of READ_TOOLS) expect(classOf[name]).toBe("read")
     for (const name of WRITE_TOOLS) expect(classOf[name]).toBe(SEND_TOOLS.includes(name) ? "send" : "write")
-    for (const name of DENIED_TOOLS) expect(classOf[name]).toBe("destructive")
+    for (const name of DESTRUCTIVE_TOOLS) expect(classOf[name]).toBe("destructive")
     expect(METHODS.filter((method) => method.class === "send").map((method) => method.name)).toEqual([...SEND_TOOLS])
     expect(shapeInput("any", { q: 1 }, { sessionID: "s", agent: "a", action: "x" })).toEqual({ q: 1 })
   })

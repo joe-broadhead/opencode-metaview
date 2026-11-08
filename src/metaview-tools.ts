@@ -59,9 +59,9 @@ export const READ_TOOLS: readonly string[] = [
 ]
 
 /**
- * Known writes: they ask before they run. Some reach candidates (screening invitations, a live sequence's steps), the
- * ATS, the whole workspace or paid credits. Metaview marks the three noted here, and the two denied below, as
- * destructive (`destructiveHint`).
+ * Known writes: every one is allowed by default, and some reach candidates (screening invitations, a live sequence's
+ * steps), the ATS, the whole workspace or paid credits. Metaview marks the three noted here, and the three destructive
+ * tools below, as destructive (`destructiveHint`).
  */
 export const WRITE_TOOLS: readonly string[] = [
   "create_ai_field", // destructive: an update clears every existing value
@@ -88,18 +88,24 @@ export const WRITE_TOOLS: readonly string[] = [
   "upsert_job_post_template",
 ]
 
-/** The known writes that send a message to a person, which the tools RPC reports as class `send`. */
-export const SEND_TOOLS: readonly string[] = ["send_job_post_message", "send_sourcing_message"]
+/**
+ * The known writes that send a message to a person, which the tools RPC reports as class `send`. `update_screen_outreach`
+ * emails candidates, copying CC and BCC, and with `reject_at_deadline` rejects them at their deadline, so it is a send
+ * and not a plain write.
+ */
+export const SEND_TOOLS: readonly string[] = ["send_job_post_message", "send_sourcing_message", "update_screen_outreach"]
 
 /**
- * Off by default; a deny also hides them. A user or organisation turns one back on with a later `ask` rule for it.
- * - `give_application_review_candidate_feedback` (destructive): a REJECT or PROGRESS syncs to the ATS, and a REJECT can
- *   email the candidate. A hiring decision on a person, which can't be undone once sent.
- * - `manage_candidate_sequence` (destructive): starts or stops email, LinkedIn, SMS or WhatsApp outreach to candidates.
+ * The three tools Metaview marks destructive, which the tools RPC reports as class `destructive`. They are allowed by
+ * default like every other tool; the class says what they do, and it is what `describe` and a job's approval show, so a
+ * user or organisation can restrict them with a rule of its own.
+ * - `give_application_review_candidate_feedback`: a REJECT or PROGRESS syncs to the ATS, and a REJECT can email the
+ *   candidate. A hiring decision on a person, which can't be undone once sent.
+ * - `manage_candidate_sequence`: starts or stops email, LinkedIn, SMS or WhatsApp outreach to candidates.
  * - `submit_feedback`: sends text to the Metaview team, and its own description asks the model to call it after any
  *   tool error, unasked.
  */
-export const DENIED_TOOLS: readonly string[] = ["give_application_review_candidate_feedback", "manage_candidate_sequence", "submit_feedback"]
+export const DESTRUCTIVE_TOOLS: readonly string[] = ["give_application_review_candidate_feedback", "manage_candidate_sequence", "submit_feedback"]
 
 /**
  * Each known tool's input parameters, as `name:type`, with `*` after a required name, in the input schema's order.
@@ -178,11 +184,11 @@ export const PARAMETERS: Readonly<Record<string, readonly string[]>> = {
   upsert_job_post_template: ["name*:string", "sections*:array<object>", "title:string|null", "template_id:string|null", "rationale*:string"],
 }
 
-type ToolClass = "read" | "write" | "denied" | "unknown"
+type ToolClass = "read" | "write" | "destructive" | "unknown"
 
 export function classify(name: string): ToolClass {
   if (READ_TOOLS.includes(name)) return "read"
   if (WRITE_TOOLS.includes(name)) return "write"
-  if (DENIED_TOOLS.includes(name)) return "denied"
+  if (DESTRUCTIVE_TOOLS.includes(name)) return "destructive"
   return "unknown"
 }

@@ -14,23 +14,24 @@ contracts drop a top-level key they don't know, and refuse an unknown key inside
 
 ## Tools and permissions
 
-68 tools are declared (43 read-only): every tool in `src/metaview-tools.ts`, 43 reads, 22 writes and
-3 denied tools, each once: each read tool as read-only with `allow`, each write
-tool with `ask`, and each denied tool with `deny`. Jelly's agents have no base "allow everything" rule,
-so this plugin's own default rules, which it puts after that rule, never reach them. Jelly writes each
-declared `ask` or `deny` as that tool's default instead (the person's own choice replaces it), and denies
-a read-only helper every tool not marked `readOnly`. A declared `allow` changes nothing in Jelly.
+68 tools are declared (43 read-only): every tool in `src/metaview-tools.ts`, 43 reads, 22 writes and 3 destructive
+tools, each once and each with `allow`. Jelly's agents have no base "allow everything" rule, so this plugin's own
+default rules, which it puts after that rule, never reach them. Jelly writes each declared `ask` or `deny` as that
+tool's default instead (the person's own choice replaces it), and denies a read-only helper every tool not marked
+`readOnly`. A declared `allow` changes nothing in Jelly.
 
-- Ask: every write tool (`WRITE_TOOLS`): `metaview_create_ai_field`, `metaview_create_job_post_check`, `metaview_create_report`, `metaview_create_snippet`, `metaview_enrich_candidate_contacts`, `metaview_generate_notes`, `metaview_give_sourcing_feedback`, `metaview_manage_note_template`, `metaview_manage_notes_sources`, `metaview_manage_sequence`, `metaview_manage_sourcing_knowledge`, `metaview_post_sourcing_candidates_to_ats`, `metaview_resolve_job_post_suggestion`, `metaview_restore_application_review_icp`, `metaview_run_job_post_checks`, `metaview_send_job_post_message`, `metaview_send_sourcing_message`, `metaview_update_application_review_icp`, `metaview_update_application_review_rules`, `metaview_update_screen_outreach`, `metaview_update_screen_plan`, `metaview_upsert_job_post_template`.
-  Some reach candidates (`metaview_update_screen_outreach`, `metaview_update_screen_plan`, `metaview_manage_sequence`),
-  the ATS (`metaview_post_sourcing_candidates_to_ats`) or paid credits (`metaview_enrich_candidate_contacts`).
-- Off: `metaview_give_application_review_candidate_feedback` (application review decisions, which sync to the ATS and
-  can email the candidate), `metaview_manage_candidate_sequence` (candidate outreach) and `metaview_submit_feedback`
-  (text sent to the Metaview team).
-- Everything else runs, as the plugin's own rules let it: the 43 reads (`READ_TOOLS`), each of which only reads
-  from the person's own Metaview workspace, within their role, and changes nothing in the ATS or for a candidate. On a
+- Ask: none. Every tool is allowed by default, in Jelly as in OpenCode.
+- Off: none.
+- Everything else runs, as the plugin's own rules let it: the 43 reads (`READ_TOOLS`), each of which only reads from
+  the person's own Metaview workspace, within their role, and changes nothing in the ATS or for a candidate. On a
   workspace whose conversations unlock on shared platform credits, reading transcripts and summaries may draw on those
   credits; the `metaview` skill says so.
+
+Three of the declared tools change something that can't be undone once sent, and Jelly runs them unasked like the rest:
+`metaview_give_application_review_candidate_feedback` (application review decisions, which sync to the ATS and can
+email the candidate), `metaview_manage_candidate_sequence` (candidate outreach over email, LinkedIn, SMS or WhatsApp)
+and `metaview_submit_feedback` (text sent to the Metaview team). A Jelly admin turns any of them into an ask, or off,
+in Jelly's own tool settings; in OpenCode the same is a rule, or the `access` option.
 
 A tool the upstream server adds later is not declared, so in Jelly it runs without asking, even if it changes
 something, such as a write that reaches candidates, until a new version of this plugin declares it. A Jelly admin

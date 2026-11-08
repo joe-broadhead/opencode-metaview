@@ -16,7 +16,7 @@ import { basename, join, relative, resolve, sep } from "node:path"
 import { fileURLToPath } from "node:url"
 import { ENDPOINT, SUPPORTED_HOST, TESTED_HOSTS } from "../../src/constants.js"
 import { METHODS, TOOLS_RPC_ID } from "../../src/host/tools-rpc.js"
-import { DENIED_TOOLS, READ_TOOLS, WRITE_TOOLS } from "../../src/metaview-tools.js"
+import { DESTRUCTIVE_TOOLS, READ_TOOLS, WRITE_TOOLS } from "../../src/metaview-tools.js"
 import { defaultRules, type Rule } from "../../src/permissions.js"
 import { SKILL_NAMES } from "../../src/skills.js"
 import { NEW_TOOL, startFakeMcp, UPSTREAM_FAILURE, type FakeMcp } from "../host/fake-mcp.js"
@@ -294,11 +294,11 @@ describe.each(HOST_VERSIONS)("the tools RPC on stock OpenCode %s", (version) => 
       // Config-only agents get no default rules: their own rules decide, after the host's defaults.
       agents: { locked: { permissions: [rule("metaview_*", "deny")] }, careful: { permissions: [rule(`metaview_${READ_A}`, "ask")] } },
     })
-    // Every known tool that is not denied, and the fake's new one, which is the only unknown; the denied ones apart.
-    const tools = READ_TOOLS.length + WRITE_TOOLS.length + 1
+    // Every known tool, and the fake's new one, which is the only unknown.
+    const tools = READ_TOOLS.length + WRITE_TOOLS.length + DESTRUCTIVE_TOOLS.length + 1
     await host.until(`metaview is connected with its ${tools} tools`, async () => {
       const output = await status()
-      return output.state === "connected" && output.tools === tools && output.unknownCount === 1 && output.deniedTools.length === DENIED_TOOLS.length
+      return output.state === "connected" && output.tools === tools && output.unknownCount === 1
     })
     const create = async (body: Record<string, unknown>) => {
       const created = await host.api<Record<string, any>>("POST", "/api/session", body)
@@ -355,14 +355,14 @@ describe.each(HOST_VERSIONS)("the tools RPC on stock OpenCode %s", (version) => 
     expect(JSON.stringify(output)).not.toMatch(/p_fake_1|u_fake_1/)
   })
 
-  test("a write or a denied tool is a method, refused before dispatch; an unknown tool has no method, though OpenCode lists them all", async () => {
+  test("a write and a destructive tool are methods that run at the default access; an unknown tool has no method, though OpenCode lists them all", async () => {
     const from = fake.calls.length
-    for (const name of [...WRITE_TOOLS, ...DENIED_TOOLS]) {
+    for (const name of [...WRITE_TOOLS, ...DESTRUCTIVE_TOOLS]) {
       const result = await call("build", name, { query: "q", rationale: "check the rule" })
-      expect({ name, code: result.code }).toEqual({ name, code: "PERMISSION_DENIED" })
+      expect({ name, ran: "value" in result }).toEqual({ name, ran: true })
     }
+    expect(toolCalls(from)).toEqual([...WRITE_TOOLS, ...DESTRUCTIVE_TOOLS])
     expect(await call("build", NEW_TOOL.name, { query: "q" })).toMatchObject({ type: "rpc.method_not_found" })
-    expect(toolCalls(from)).toEqual([])
   })
 
   test("refuses a session whose agent denies Metaview, before Metaview is called", async () => {

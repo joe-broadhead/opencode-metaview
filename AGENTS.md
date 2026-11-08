@@ -22,16 +22,24 @@ It has no tool of its own. Read [docs/architecture.md](docs/architecture.md) bef
 - **One endpoint string.** `ENDPOINT` in `src/constants.ts` is the only place Metaview's URL is written in code; the
   pack test points the built plugin at a fake by replacing its one occurrence in `dist/index.js`.
 - **Default rules, not hooks.** Permissions come from rules inserted through `ctx.agent.transform` directly after each
-  agent's base allow. A stricter agent is never weakened. An agent counts as guarded only with the whole block after
-  its base allow. Agents that miss the rules are named in status with the per-agent fix, never patched, and the fix
-  never goes in the top-level `permissions`.
+  agent's base allow. A stricter agent is never weakened. An agent counts as guarded only with the whole block for the
+  current `access` after its base allow. Agents that miss the rules are named in status with the per-agent fix, never
+  patched, and the fix never goes in the top-level `permissions`.
+- **Every tool is allowed by default.** The one option that restricts the plugin is `access`, with `"all"` (the
+  default), `"ask-changes"` (reads run, everything else asks) and `"read-only"` (reads run, everything else is denied).
+  `defaultRules(access)` generates the block from the tool lists, status and the README print it in full, and a docs
+  test asserts the printed block equals `defaultRules(access)` for each value. A tool Metaview adds later is covered by
+  the `metaview_*` rule, so it follows `access` too. There is no deny in the default block; a user restricts with a rule
+  or with `access`.
 - **Transforms are cheap, synchronous and never throw.** Record failures for status instead.
 - **Errors** read `CODE: What happened. Next step: What to do.`, built by `metaviewError` or `errorText`. Codes have no
   service prefix; shared failures use the shared names (`HOST_UNTESTED`, `OPTIONS_INVALID`, `STATUS_UNAVAILABLE`,
-  `SKILLS_INVALID`).
+  `SKILLS_INVALID`). `PLUGIN_CODES` and `RPC_CODES` in `src/constants.ts` are the one table: `metaviewError` and
+  `errorText` take a `PluginCode`, and `test/unit/codes.test.ts` fails when a code raised in `src` is in neither table,
+  or when `README.md`'s Troubleshooting table or `docs/scripting.md`'s refusal table drifts from it.
 - **Status.** `src/status.ts` builds one model for `/metaview-status`, the `/metaview` dialog and the status RPC. The
   RPC keeps the fields every plugin of this family shares, `version`, `host` (`version`, `range`, `tested`), `state`,
-  `unguardedAgents` and `nextStep`, under those names. It never shows OpenCode's text for a needed sign-in, cuts a
+  `access`, `unguardedAgents` and `nextStep`, under those names. It never shows OpenCode's text for a needed sign-in, cuts a
   failure's reason to one line of 160 characters with `src/redact.ts` (no credentials, URL queries or tokens), and names
   at most 20 unknown tools, plain names only. A status it cannot read is the declared RPC error `unavailable`, with a
   next step. Status makes no Metaview call: the account comes only from `get_user_context` results the model or a script

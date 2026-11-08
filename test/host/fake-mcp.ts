@@ -12,14 +12,14 @@
 // accepts a client metadata document, so a host test can complete OpenCode's sign-in.
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http"
 import type { AddressInfo } from "node:net"
-import { DENIED_TOOLS, READ_TOOLS, WRITE_TOOLS } from "../../src/metaview-tools.js"
+import { DESTRUCTIVE_TOOLS, READ_TOOLS, WRITE_TOOLS } from "../../src/metaview-tools.js"
 
 const schema = { type: "object", properties: { query: { type: "string" }, rationale: { type: "string" } } }
 /** A tool the plugin has never seen. */
 export const NEW_TOOL = { name: "shiny_new_tool", description: "A tool added upstream after the tool lists were written", annotations: {} }
 const tool = (name: string, readOnlyHint: boolean) => ({ name, description: `Metaview ${name}`, annotations: { readOnlyHint }, inputSchema: schema })
-const TOOLS = [tool("search_conversations", true), tool("get_user_context", true), tool("create_snippet", false), ...DENIED_TOOLS.map((name) => tool(name, false)), { ...NEW_TOOL, inputSchema: schema }]
-const CATALOG = [...READ_TOOLS.map((name) => tool(name, true)), ...[...WRITE_TOOLS, ...DENIED_TOOLS].map((name) => tool(name, false)), { ...NEW_TOOL, inputSchema: schema }]
+const TOOLS = [tool("search_conversations", true), tool("get_user_context", true), tool("create_snippet", false), ...DESTRUCTIVE_TOOLS.map((name) => tool(name, false)), { ...NEW_TOOL, inputSchema: schema }]
+const CATALOG = [...READ_TOOLS.map((name) => tool(name, true)), ...[...WRITE_TOOLS, ...DESTRUCTIVE_TOOLS].map((name) => tool(name, false)), { ...NEW_TOOL, inputSchema: schema }]
 
 /** The upstream error a "fail" query gets: two lines, the first with a signed URL. */
 export const UPSTREAM_FAILURE = "Metaview refused https://files.metaview.ai/a.png?signature=fake-signature-123 for this input\nTraceback: second line"

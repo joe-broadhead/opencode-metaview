@@ -4,7 +4,7 @@ import { afterEach, describe, expect, test } from "bun:test"
 import { watchAccount } from "../../src/account.js"
 import { PLUGIN_ID as METAVIEW_PLUGIN_ID, SERVER_NAME } from "../../src/constants.js"
 import { METHODS, NEXT_STEPS, PLUGIN_ID, shapeInput, shapeResult, TOOLS_RPC_ID } from "../../src/host/tools-rpc.js"
-import { DENIED_TOOLS, READ_TOOLS, SEND_TOOLS, WRITE_TOOLS } from "../../src/metaview-tools.js"
+import { DESTRUCTIVE_TOOLS, READ_TOOLS, SEND_TOOLS, WRITE_TOOLS } from "../../src/metaview-tools.js"
 import { defaultRules } from "../../src/permissions.js"
 
 const stops: (() => Promise<void>)[] = []
@@ -19,18 +19,17 @@ describe("Metaview's tools RPC", () => {
   })
 
   test("every known tool is a method, by exact name, with its class", () => {
-    expect(METHODS.map((method) => method.name)).toEqual([...READ_TOOLS, ...WRITE_TOOLS, ...DENIED_TOOLS])
+    expect(METHODS.map((method) => method.name)).toEqual([...READ_TOOLS, ...WRITE_TOOLS, ...DESTRUCTIVE_TOOLS])
     const classOf = Object.fromEntries(METHODS.map((method) => [method.name, method.class]))
     for (const name of READ_TOOLS) expect(classOf[name]).toBe("read")
     for (const name of WRITE_TOOLS) expect(classOf[name]).toBe(SEND_TOOLS.includes(name) ? "send" : "write")
-    for (const name of DENIED_TOOLS) expect(classOf[name]).toBe("destructive")
+    for (const name of DESTRUCTIVE_TOOLS) expect(classOf[name]).toBe("destructive")
     expect(METHODS.every((method) => method.kind === "mcp")).toBe(true)
   })
 
-  test("the reads are the server tools the default rules allow; every denied tool keeps its deny", () => {
+  test("every known tool allows by default, and the namespace rule covers one Metaview adds later", () => {
     const allowed = defaultRules().filter((rule) => rule.effect === "allow").map((rule) => rule.action)
-    expect(READ_TOOLS.map((name) => `${SERVER_NAME}_${name}`)).toEqual(allowed)
-    for (const name of DENIED_TOOLS) expect(defaultRules()).toContainEqual({ action: `metaview_${name}`, resource: "*", effect: "deny" })
+    expect(allowed).toEqual([`${SERVER_NAME}_*`, ...[...READ_TOOLS, ...WRITE_TOOLS, ...DESTRUCTIVE_TOOLS].map((name) => `${SERVER_NAME}_${name}`)])
     for (const name of ["shiny_new_tool", "describe", "*"]) expect(METHODS.map((method) => method.name)).not.toContain(name)
   })
 

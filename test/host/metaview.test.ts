@@ -1,8 +1,8 @@
-// The plugin on the public @opencode/sdk host: H1 load and connect, H2 what runs and what asks, H3 the permission
-// model (P1-P5), H4 adoption and conflict, H5 /metaview-status and the account capture, H6 unload, the user's own
-// server with an API key that never reaches status, the account read by model turns with Code Mode off and on, the three
-// denied tools on every path and their opt-in, a server that asks for a sign-in, and the /connect entry. Each describe
-// owns one host.
+// The plugin on the public @opencode/sdk host: H1 load and connect, H2 what runs, H3 the permission model (P1-P5), H4
+// adoption and conflict, H5 /metaview-status and the account capture, H6 unload, the user's own server with an API key
+// that never reaches status, the account read by model turns with Code Mode off and on, the proofs on the tools RPC and
+// Code Mode paths with nobody present, the `access` values, a server that asks for a sign-in, and the /connect entry.
+// Each describe owns one host.
 import { ROOT } from "./isolate.js"
 import { afterAll, beforeAll, describe, expect, setDefaultTimeout, test } from "bun:test"
 import { existsSync, realpathSync } from "node:fs"
@@ -10,7 +10,7 @@ import { tmpdir } from "node:os"
 import { join, sep } from "node:path"
 import { Plugin } from "@opencode/plugin"
 import { SUPPORTED_HOST, TESTED_HOSTS } from "../../src/constants.js"
-import { DENIED_TOOLS } from "../../src/metaview-tools.js"
+import { DESTRUCTIVE_TOOLS } from "../../src/metaview-tools.js"
 import { defaultRules, type Rule } from "../../src/permissions.js"
 import { SKILL_NAMES } from "../../src/skills.js"
 import { StatusRpc } from "../../src/status.js"
@@ -22,7 +22,6 @@ const AGENT_RULES = defaultRules().map((rule, index, rules) => `  ${JSON.stringi
 const AGENTS_NEXT_STEP = "Put the default rules shown by /metaview-status first in each listed agent's own permissions, in opencode.json or the agent's Markdown file, followed by your top-level rules for Metaview tools."
 const KEY = "sk-fake-host-test-0123456789"
 const SIGN_IN = "Run /connect and choose Metaview, then press o or Enter to open the link (in a terminal, opencode mcp auth metaview opens it automatically)."
-const OFF = "give_application_review_candidate_feedback, manage_candidate_sequence and submit_feedback"
 
 // Starting a host takes several seconds, more on a busy machine.
 setDefaultTimeout(120_000)
@@ -38,10 +37,7 @@ const hidden = (rules: readonly Rule[], action: string) => {
   return last?.resource === "*" && last.effect === "deny"
 }
 
-/**
- * The host lists an MCP server's tools shortly after it connects. The registry lists the three denied tools too; the
- * deny hides them from the model's tools and refuses them.
- */
+/** The host lists an MCP server's tools shortly after it connects, the three destructive ones included. */
 const metaviewTools = (host: Host) =>
   until("Metaview's tools are registered", async () => {
     const ids = (await host.probe().tool.list()).map((tool) => tool.id).filter((id) => id.startsWith("metaview_"))
@@ -94,7 +90,7 @@ describe(`the plugin on OpenCode ${HOST_VERSION}`, () => {
     expect(plugins.find((plugin) => plugin.id === "metaview.workspace")?.state.status).toBe("active")
     const { data: servers } = await host.client.mcp.list({ location: host.location })
     expect(servers.find((server) => server.name === "metaview")?.status).toEqual({ status: "connected" })
-    expect(await metaviewTools(host)).toEqual([...["create_snippet", "get_user_context", "search_conversations", "shiny_new_tool", ...DENIED_TOOLS].map((tool) => `metaview_${tool}`)].sort())
+    expect(await metaviewTools(host)).toEqual([...["create_snippet", "get_user_context", "search_conversations", "shiny_new_tool", ...DESTRUCTIVE_TOOLS].map((tool) => `metaview_${tool}`)].sort())
     const { data: skills } = await host.client.skill.list({ location: host.location })
     expect(skills.map((skill) => skill.id).filter((id) => id.startsWith("metaview")).sort()).toEqual([...SKILL_NAMES].sort())
     const { data: commands } = await host.client.command.list({ location: host.location })
@@ -118,49 +114,46 @@ describe(`the plugin on OpenCode ${HOST_VERSION}`, () => {
     const explore = await session(host, "explore")
     expect(await attempt(host, explore, "explore", "search_conversations")).toEqual({ asked: undefined, ok: false, error: "Tool.Error: Permission denied: metaview_search_conversations" })
     const plan = await session(host, "plan")
-    expect(await attempt(host, plan, "plan", "shiny_new_tool")).toMatchObject({ asked: "metaview_shiny_new_tool", ok: false })
+    // Every tool is allowed by default, so a new tool runs there too.
+    expect(await attempt(host, plan, "plan", "shiny_new_tool")).toMatchObject({ asked: undefined, ok: true })
   })
 
-  test("P2 and H2: known reads run without a prompt, everything else asks, and the three denied tools are hidden", async () => {
+  test("P2 and H2: every tool runs without a prompt, the plugin's own reads, a write and one it does not know", async () => {
     const build = await session(host)
     const before = host.fake.calls.length
     expect(await attempt(host, build, "build", "search_conversations")).toMatchObject({ asked: undefined, ok: true })
-    expect(await attempt(host, build, "build", "shiny_new_tool")).toEqual({ asked: "metaview_shiny_new_tool", ok: false, error: "Permission.DeclinedError: " })
-    expect(await attempt(host, build, "build", "create_snippet")).toEqual({ asked: "metaview_create_snippet", ok: false, error: "Permission.DeclinedError: " })
-    expect(host.fake.calls.slice(before)).toEqual(["search_conversations"])
+    expect(await attempt(host, build, "build", "shiny_new_tool")).toMatchObject({ asked: undefined, ok: true })
+    expect(await attempt(host, build, "build", "create_snippet")).toMatchObject({ asked: undefined, ok: true })
+    expect(host.fake.calls.slice(before)).toEqual(["search_conversations", "shiny_new_tool", "create_snippet"])
     const rules = (await agentRules(host)).get("build")!
     expect(["metaview_search_conversations", "metaview_create_snippet", "metaview_shiny_new_tool"].filter((action) => hidden(rules, action))).toEqual([])
-    // DC-5: each denied tool is hidden, refused with no prompt, and never reaches Metaview, in every built-in agent.
+    // The three destructive tools are allowed too: only the read-only helpers' and Explore's own rules stop one.
     const all = await agentRules(host)
-    for (const tool of DENIED_TOOLS) {
-      for (const id of BUILT_IN) expect({ id, tool, hidden: hidden(all.get(id)!, `metaview_${tool}`) }).toEqual({ id, tool, hidden: true })
-      expect(await effect(host, "build", `metaview_${tool}`)).toBe("deny")
-      expect(await attempt(host, build, "build", tool, "always")).toEqual({ asked: undefined, ok: false, error: `Tool.Error: Permission denied: metaview_${tool}` })
-      expect(host.fake.calls).not.toContain(tool)
+    for (const tool of DESTRUCTIVE_TOOLS) {
+      for (const id of ["build", "general", "plan"]) expect({ id, tool, hidden: hidden(all.get(id)!, `metaview_${tool}`) }).toEqual({ id, tool, hidden: false })
+      expect(await effect(host, "build", `metaview_${tool}`)).toBe("allow")
     }
   })
 
-  test("DC-5: no script reaches a denied tool: each is a destructive method, refused before Metaview is called", async () => {
+  test("DC-5: each destructive tool is a method with its class, and at this access it runs", async () => {
     const sessionID = await session(host)
     const described = JSON.parse(await scriptCall(host, "describe", {})) as { methods: { name: string; class: string }[] }
     const classOf = Object.fromEntries(described.methods.map((method) => [method.name, method.class]))
-    for (const tool of DENIED_TOOLS) {
+    const before = host.fake.calls.length
+    for (const tool of DESTRUCTIVE_TOOLS) {
       expect(classOf[tool]).toBe("destructive")
       const call = (host.client.rpc as unknown as { call: (input: object) => Promise<unknown> }).call
-      const outcome = await call({ rpcID: TOOLS_RPC_ID, method: tool, input: { sessionID, input: { rationale: "record a decision" } }, location: host.location }).then(
-        (output) => ({ ran: true, output }),
-        (error: unknown) => ({ ran: false, error: JSON.stringify(error, Object.getOwnPropertyNames(error ?? {})) }),
-      )
-      expect(outcome).toMatchObject({ ran: false, error: expect.stringContaining("PERMISSION_DENIED") })
-      expect(host.fake.calls).not.toContain(tool)
+      await call({ rpcID: TOOLS_RPC_ID, method: tool, input: { sessionID, input: { rationale: "record a decision" } }, location: host.location })
     }
+    expect(host.fake.calls.slice(before)).toEqual([...DESTRUCTIVE_TOOLS])
   })
 
-  test("P4: a saved 'Always allow' removes the prompt", async () => {
-    const build = await session(host)
-    expect(await attempt(host, build, "build", "shiny_new_tool", "always")).toMatchObject({ asked: "metaview_shiny_new_tool", ok: true })
-    expect(await attempt(host, build, "build", "shiny_new_tool")).toMatchObject({ asked: undefined, ok: true })
-    const { projectID } = await host.client.sessions.get({ sessionID: build })
+  test("P4: a saved 'Always allow' removes the prompt a user's own ask rule creates", async () => {
+    // A session rule of the user's own is what asks now, the same shape a restricted access value gives.
+    const asking = (await host.client.sessions.create({ agent: "build", location: host.location, permissions: [{ action: "metaview_shiny_new_tool", resource: "*", effect: "ask" }] })).id
+    expect(await attempt(host, asking, "build", "shiny_new_tool", "always")).toMatchObject({ asked: "metaview_shiny_new_tool", ok: true })
+    expect(await attempt(host, asking, "build", "shiny_new_tool")).toMatchObject({ asked: undefined, ok: true })
+    const { projectID } = await host.client.sessions.get({ sessionID: asking })
     const saved = await host.client.permission.saved.list({ projectID })
     expect(saved.map(({ action, resource }) => ({ action, resource }))).toEqual([{ action: "metaview_shiny_new_tool", resource: "*" }])
   })
@@ -177,7 +170,7 @@ describe(`the plugin on OpenCode ${HOST_VERSION}`, () => {
     const text = await status(host, await session(host))
     expect(text).toContain(`- Connection: connected (${host.fake.url}, registered by this plugin)`)
     expect(text).toContain("- Account: not read yet")
-    expect(text).toContain(`- Tools: 4 available, 1 unknown: shiny_new_tool (unknown tools ask before running); off by default: ${OFF}\n`)
+    expect(text).toContain("- Tools: 7 available, 1 unknown: shiny_new_tool (new tools run too)\n")
     expect(text).toContain(`- Agents without default rules: reviewer\n${AGENT_RULES}\n`)
     expect(text).toContain(`- Next step: ${AGENTS_NEXT_STEP}`)
     expect(text).toContain(`- OpenCode: ${HOST_VERSION} (${TESTED_HOSTS.includes(HOST_VERSION) ? "tested" : "untested"}; supported range ${SUPPORTED_HOST})`)
@@ -189,7 +182,7 @@ describe(`the plugin on OpenCode ${HOST_VERSION}`, () => {
     await toolsRpc(host).get_user_context!({ sessionID: await session(host), input: { rationale: "who is signed in" } }, { location: host.location })
     const text = await status(host, await session(host))
     expect(text).toContain("- Account: Acme Recruiting\n")
-    expect(text).toContain("- Access: member: your own conversations and those shared with you;")
+    expect(text).toContain("member: your own conversations and those shared with you;")
     expect(text).toContain("- Plan: paid\n")
     expect(await statusRpc(host)).toMatchObject({ workspace: "Acme Recruiting", role: "member", plan: "paid", unguardedAgents: ["reviewer"] })
     // Only the three fields: no ids from the result.
@@ -221,7 +214,7 @@ describe("the user's own metaview server, signing in with an API key", () => {
 
   test("H4: is adopted unchanged: the host sends its headers, and the plugin's rules still apply", async () => {
     expect(await attempt(host, await session(host), "build", "search_conversations")).toMatchObject({ asked: undefined, ok: true })
-    expect(await attempt(host, await session(host), "build", "create_snippet")).toMatchObject({ asked: "metaview_create_snippet", ok: false })
+    expect(await attempt(host, await session(host), "build", "create_snippet")).toMatchObject({ asked: undefined, ok: true })
     expect(host.fake.markers.length).toBeGreaterThan(0)
     expect(new Set(host.fake.markers)).toEqual(new Set(["user"]))
     expect(new Set(host.fake.authorizations)).toEqual(new Set([`Bearer ${KEY}`]))
@@ -286,13 +279,13 @@ describe("a model turn that reads the account", () => {
       return posted.includes("Acme Recruiting") ? posted : undefined
     })
     expect(text).toContain("- Account: Acme Recruiting\n")
-    expect(text).toContain("- Access: member: your own conversations and those shared with you;")
+    expect(text).toContain("member: your own conversations and those shared with you;")
     expect(text).toContain("- Plan: paid\n")
     expect(text).not.toMatch(/p_fake_1|u_fake_1/)
   })
 
-  test("DC-5: the model's own calls to the three denied tools never reach Metaview, and none is offered to it", async () => {
-    host.fake.model.script = DENIED_TOOLS.map((tool) => ({ tool: `metaview_${tool}`, arguments: { rationale: "record a decision" } }))
+  test("DC-5: the model is offered the three destructive tools at this access, and each call reaches Metaview", async () => {
+    host.fake.model.script = DESTRUCTIVE_TOOLS.map((tool) => ({ tool: `metaview_${tool}`, arguments: { rationale: "record a decision" } }))
     const before = host.fake.model.requests.length
     const sessions = host.client.sessions as unknown as {
       create: (input: object) => Promise<{ id: string }>
@@ -301,12 +294,12 @@ describe("a model turn that reads the account", () => {
     const sessionID = (await sessions.create({ agent: "build", location: host.location, model: { providerID: "lmstudio", id: MODEL_ID } })).id
     await sessions.prompt({ sessionID, text: "Reject every candidate in the backend review and start outreach." })
     const turns = () => host.fake.model.requests.slice(before) as { tools?: { function?: { name?: string } }[]; messages?: { role: string }[] }[]
-    await until("the model's final turn", async () => turns().some((request) => (request.messages ?? []).filter((message) => message.role === "tool").length >= DENIED_TOOLS.length))
+    await until("the model's final turn", async () => turns().some((request) => (request.messages ?? []).filter((message) => message.role === "tool").length >= DESTRUCTIVE_TOOLS.length))
     const offered = turns().flatMap((request) => (request.tools ?? []).map((item) => item.function?.name ?? ""))
     expect(offered.filter((name) => name.startsWith("metaview_"))).toContain("metaview_get_user_context")
-    for (const tool of DENIED_TOOLS) {
-      expect(offered).not.toContain(`metaview_${tool}`)
-      expect(host.fake.calls).not.toContain(tool)
+    for (const tool of DESTRUCTIVE_TOOLS) {
+      expect(offered).toContain(`metaview_${tool}`)
+      expect(host.fake.calls).toContain(tool)
     }
   })
 })
@@ -346,29 +339,38 @@ describe("a Code Mode turn that reads the account", () => {
   })
 })
 
-describe("the documented opt-in for a denied tool", () => {
-  // DP-1's recipe: the ask goes in the agent's own permissions, which come after the plugin's block in that agent.
-  const optIn: Rule = { action: "metaview_manage_candidate_sequence", resource: "*", effect: "ask" }
+describe("a user's own rule for a destructive tool", () => {
+  // The recipe the guide gives: the rule goes in the agent's own permissions, which come after the plugin's block.
+  const asked: Rule = { action: "metaview_manage_candidate_sequence", resource: "*", effect: "ask" }
+  const denied: Rule = { action: "metaview_give_application_review_candidate_feedback", resource: "*", effect: "deny" }
   let host: Host
   beforeAll(async () => {
-    host = await startHost({ config: () => ({ agents: { build: { permissions: [optIn] } } }) })
+    host = await startHost({ config: () => ({ agents: { build: { permissions: [asked, denied] } } }) })
   })
   afterAll(() => host?.close())
 
-  test("DC-5: turns that one tool into a per-call ask in that agent, never an allow, and leaves the rest denied", async () => {
+  test("DC-5: one tool asks per call in that agent, one refuses, and the other agents and tools stay allowed", async () => {
     await metaviewTools(host)
     const rules = (await agentRules(host)).get("build")!
-    expect(rules.indexOf(rules.find((rule) => JSON.stringify(rule) === JSON.stringify(optIn))!)).toBeGreaterThan(rules.findIndex((rule) => rule.action === "metaview_manage_candidate_sequence" && rule.effect === "deny"))
+    const pluginBlock = rules.findIndex((rule) => rule.action === "metaview_*" && rule.effect === "allow")
+    expect(rules.findIndex((rule) => JSON.stringify(rule) === JSON.stringify(asked))).toBeGreaterThan(pluginBlock)
     expect(await effect(host, "build", "metaview_manage_candidate_sequence")).toBe("ask")
+    expect(await effect(host, "build", "metaview_give_application_review_candidate_feedback")).toBe("deny")
     const build = await session(host)
     expect(await attempt(host, build, "build", "manage_candidate_sequence")).toEqual({ asked: "metaview_manage_candidate_sequence", ok: false, error: "Permission.DeclinedError: " })
     expect(host.fake.calls).not.toContain("manage_candidate_sequence")
     // Each call asks again: a "once" answer runs one call and saves nothing.
     expect(await attempt(host, build, "build", "manage_candidate_sequence", "once")).toMatchObject({ asked: "metaview_manage_candidate_sequence", ok: true })
     expect(await attempt(host, build, "build", "manage_candidate_sequence")).toMatchObject({ asked: "metaview_manage_candidate_sequence", ok: false })
-    // The other agents, Explore included, and the other two tools stay denied.
-    for (const id of BUILT_IN.filter((id) => id !== "build")) expect({ id, effect: await effect(host, id, "metaview_manage_candidate_sequence") }).toEqual({ id, effect: "deny" })
-    for (const tool of DENIED_TOOLS.filter((tool) => tool !== "manage_candidate_sequence")) expect(await effect(host, "build", `metaview_${tool}`)).toBe("deny")
+    // The denied one never runs, and the other agents and the other destructive tool stay allowed.
+    expect(await attempt(host, build, "build", "give_application_review_candidate_feedback", "always")).toEqual({
+      asked: undefined,
+      ok: false,
+      error: "Tool.Error: Permission denied: metaview_give_application_review_candidate_feedback",
+    })
+    expect(hidden(rules, "metaview_give_application_review_candidate_feedback")).toBe(true)
+    for (const id of ["general", "plan"]) expect({ id, effect: await effect(host, id, "metaview_manage_candidate_sequence") }).toEqual({ id, effect: "allow" })
+    expect(await effect(host, "build", "metaview_submit_feedback")).toBe("allow")
   })
 })
 
@@ -391,15 +393,145 @@ describe("user permissions", () => {
     expect(await attempt(host, build, "build", "create_snippet")).toMatchObject({ asked: undefined, ok: true })
     expect(await attempt(host, build, "build", "search_conversations")).toEqual({ asked: undefined, ok: false, error: "Tool.Error: Permission denied: metaview_search_conversations" })
     expect(hidden((await agentRules(host)).get("build")!, "metaview_search_conversations")).toBe(true)
-    expect(await attempt(host, build, "build", "shiny_new_tool")).toMatchObject({ asked: "metaview_shiny_new_tool", ok: false })
+    expect(await attempt(host, build, "build", "shiny_new_tool")).toMatchObject({ asked: undefined, ok: true })
   })
 
   test("P5: the per-agent fix guards a config-only agent and keeps the user's rules winning", async () => {
     const reviewer = await session(host, "reviewer")
-    expect(await attempt(host, reviewer, "reviewer", "shiny_new_tool")).toMatchObject({ asked: "metaview_shiny_new_tool", ok: false })
+    expect(await attempt(host, reviewer, "reviewer", "shiny_new_tool")).toMatchObject({ asked: undefined, ok: true })
     expect(await attempt(host, reviewer, "reviewer", "create_snippet")).toMatchObject({ asked: undefined, ok: true })
     expect(await attempt(host, reviewer, "reviewer", "search_conversations")).toMatchObject({ asked: undefined, ok: false })
     expect(await status(host, reviewer)).toContain("- Agents without default rules: none\n")
+  })
+})
+
+/**
+ * Runs `code` as Code Mode does, through a schedule's check program: OpenCode checks each tool's input and output and
+ * evaluates permissions with nobody present to answer a prompt. The program reports by throwing "SEEN <json>", so no
+ * schedule is ever created and no model is involved.
+ */
+async function codeMode(host: Host, sessionID: string, code: string): Promise<{ seen: unknown } | { refused: string }> {
+  let message: string
+  try {
+    const schedule = await host.client.experimental.schedule.create({
+      sessionID,
+      name: "metaview-host-test",
+      when: { in: "6 hours" },
+      prompt: "noop",
+      if: { code },
+    })
+    await host.client.experimental.schedule.delete({ scheduleID: schedule.id })
+    throw new Error("the check program finished without reporting")
+  } catch (error) {
+    message = error instanceof Error ? error.message : String(error)
+  }
+  const seen = /SEEN (.*)$/s.exec(message)
+  if (!seen) return { refused: message }
+  try {
+    return { seen: JSON.parse(seen[1]!) }
+  } catch {
+    return { seen: seen[1]! }
+  }
+}
+
+describe(`access on OpenCode ${HOST_VERSION}`, () => {
+  // R18: one host test per value, on the tools RPC path, where a refusal must reach nothing.
+  const call = async (host: Host, sessionID: string, method: string, input: unknown = { rationale: "host test" }): Promise<{ value?: unknown; refused?: string }> =>
+    host.client.rpc
+      .call({ rpcID: TOOLS_RPC_ID, method, input: { sessionID, input } as never, location: host.location })
+      .then((result) => ({ value: result.output }))
+      .catch((error: unknown) => ({ refused: (error as { data?: { code?: string }; message?: string }).data?.code ?? String(error) }))
+
+  for (const [access, expectation] of [
+    ["ask-changes", "refuse"],
+    ["read-only", "deny"],
+  ] as const) {
+    describe(access, () => {
+      let host: Host
+      beforeAll(async () => {
+        host = await startHost({ options: { access } })
+        await metaviewTools(host)
+      })
+      afterAll(() => host?.close())
+
+      test(`the block is the ${access} one, and a read still runs on the tools RPC path`, async () => {
+        const rules = (await agentRules(host)).get("build")!
+        expect(rules.slice(1, 1 + defaultRules(access).length)).toEqual(defaultRules(access))
+        const before = host.fake.calls.length
+        expect(await call(host, await session(host), "search_conversations")).toHaveProperty("value")
+        expect(host.fake.calls.slice(before)).toEqual(["search_conversations"])
+        expect(await status(host, await session(host))).toContain(`- Access: ${access === "read-only" ? "reads run without asking; every other tool is denied" : "reads run without asking; changes and new tools ask first"};`)
+      })
+
+      test(`a change is ${expectation === "deny" ? "denied" : "refused"} before dispatch, with nothing sent and no prompt left waiting`, async () => {
+        const before = host.fake.calls.length
+        const sessionID = await session(host)
+        expect(await call(host, sessionID, "create_snippet")).toMatchObject({ refused: "PERMISSION_DENIED" })
+        // A destructive tool follows the same rule as any other change.
+        expect(await call(host, sessionID, "give_application_review_candidate_feedback")).toMatchObject({ refused: "PERMISSION_DENIED" })
+        // An unknown tool is not a method at all, whatever the access value.
+        expect((await call(host, sessionID, "shiny_new_tool")).refused ?? "").toContain("Unknown RPC method")
+        expect(host.fake.calls.slice(before)).toEqual([])
+        expect(await host.client.permission.list({ sessionID })).toEqual([])
+      })
+    })
+  }
+
+  describe("all", () => {
+    let host: Host
+    beforeAll(async () => {
+      host = await startHost()
+      await metaviewTools(host)
+    })
+    afterAll(() => host?.close())
+
+    test("the block is the all one, and a write runs through the tools RPC with no prompt", async () => {
+      const rules = (await agentRules(host)).get("build")!
+      expect(rules.slice(1, 1 + defaultRules("all").length)).toEqual(defaultRules("all"))
+      const before = host.fake.calls.length
+      const sessionID = await session(host)
+      expect(await call(host, sessionID, "create_snippet")).toHaveProperty("value")
+      expect(await call(host, sessionID, "give_application_review_candidate_feedback", { rationale: "record a decision" })).toHaveProperty("value")
+      expect(host.fake.calls.slice(before)).toEqual(["create_snippet", "give_application_review_candidate_feedback"])
+      expect(await host.client.permission.list({ sessionID })).toEqual([])
+    })
+  })
+})
+
+describe(`Code Mode proofs on OpenCode ${HOST_VERSION}`, () => {
+  // R2: the same proofs inside Code Mode's `execute`, where nobody can answer a prompt.
+  let host: Host
+  beforeAll(async () => {
+    host = await startHost()
+    await metaviewTools(host)
+  })
+  afterAll(() => host?.close())
+
+  test("a read runs; an ask and a deny are refused with nothing sent; an unknown name is refused", async () => {
+    const run = async (sessionID: string, tool: string) =>
+      codeMode(host, sessionID, `const r = await tools.metaview[${JSON.stringify(tool)}]({ rationale: "host test" }); throw new Error("SEEN " + JSON.stringify(r))`)
+    const created = async (permissions?: Rule[]) => (await host.client.sessions.create({ agent: "build", location: host.location, ...(permissions ? { permissions } : {}) })).id
+
+    // A known read runs inside Code Mode, and Metaview is called once.
+    const before = host.fake.calls.length
+    expect(await run(await created(), "search_conversations")).toHaveProperty("seen")
+    expect(host.fake.calls.slice(before)).toEqual(["search_conversations"])
+
+    // An ask is refused before the tool runs: nothing reaches Metaview and no prompt is left waiting.
+    const asking = host.fake.calls.length
+    const askSession = await created([{ action: "metaview_create_snippet", resource: "*", effect: "ask" }])
+    const asked = await run(askSession, "create_snippet")
+    expect(asked).toHaveProperty("refused")
+    expect((asked as { refused: string }).refused).toMatch(/needs approval|nobody is present|not permitted|declined/i)
+    expect(host.fake.calls.slice(asking)).toEqual([])
+    expect(await host.client.permission.list({ sessionID: askSession })).toEqual([])
+
+    // A deny refuses, and a name that is not a method is not callable.
+    const denied = await run(await created([{ action: "metaview_create_snippet", resource: "*", effect: "deny" }]), "create_snippet")
+    expect(denied).toHaveProperty("refused")
+    const unknown = await run(await created(), "no_such_tool")
+    expect(unknown).toHaveProperty("refused")
+    expect(host.fake.calls.slice(asking)).toEqual([])
   })
 })
 

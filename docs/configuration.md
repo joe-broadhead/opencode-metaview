@@ -18,6 +18,21 @@ To set options, use the object form:
 
 ## Options
 
+### `access`
+
+- Type: `"all"`, `"ask-changes"` or `"read-only"`.
+- Default: `"all"`.
+
+What the generated default permission rules allow. `"all"` lets every tool run, reads, changes and any tool Metaview
+adds later included; `"ask-changes"` lets the reads run and asks for everything else; `"read-only"` lets the reads run
+and denies everything else. Each value's block is printed in full under [Permissions](#permissions).
+
+```json
+{ "plugins": [{ "package": "@joe-broadhead/opencode-metaview", "options": { "access": "read-only" } }] }
+```
+
+A rule of your own still wins over the block, whichever value you set.
+
 ### `allowUntestedHost`
 
 - Type: `true` or `false`.
@@ -40,7 +55,7 @@ range in its `OpenCode` row, for example `2.2.5 (tested; supported range >=2.2.3
 - **Outside the range with `"allowUntestedHost": true`:** it starts anyway, and `/metaview-status` and `/metaview` show
   a warning.
 
-There is no other option. To narrow what the model may do in Metaview, use permission rules; see
+Those are the two options. To narrow what the model may do in Metaview further, use permission rules; see
 [Permissions](#permissions).
 
 ## Your own `mcp.servers.metaview`
@@ -100,29 +115,246 @@ gives the next step:
 
 ## Permissions
 
-OpenCode asserts every MCP call itself, with the action `metaview_<tool>` and the resource `*`. The plugin adds these
-rules to every agent that starts with the base rule `{ "action": "*", "resource": "*", "effect": "allow" }`, directly
-after that rule:
+**Every tool is allowed by default.** OpenCode asserts every MCP call itself, with the action `metaview_<tool>` and the
+resource `*`. The plugin adds the rules for the `access` option to every agent that starts with the base rule
+`{ "action": "*", "resource": "*", "effect": "allow" }`, directly after that rule. The block is generated from
+`defaultRules(access)` in `src/permissions.ts`, and each value's block is printed below in full.
+
+`access: "all"` (the default) allows every tool the plugin registers, and any tool Metaview adds later:
+
+```json
+[
+  { "action": "metaview_*", "resource": "*", "effect": "allow" },
+  { "action": "metaview_fetch_candidates", "resource": "*", "effect": "allow" },
+  { "action": "metaview_find_candidate_in_sequences", "resource": "*", "effect": "allow" },
+  { "action": "metaview_get_application_review_details", "resource": "*", "effect": "allow" },
+  { "action": "metaview_get_application_review_rules", "resource": "*", "effect": "allow" },
+  { "action": "metaview_get_chart_data", "resource": "*", "effect": "allow" },
+  { "action": "metaview_get_enrichment_status", "resource": "*", "effect": "allow" },
+  { "action": "metaview_get_job_post", "resource": "*", "effect": "allow" },
+  { "action": "metaview_get_job_post_template", "resource": "*", "effect": "allow" },
+  { "action": "metaview_get_job_post_thread", "resource": "*", "effect": "allow" },
+  { "action": "metaview_get_note_template", "resource": "*", "effect": "allow" },
+  { "action": "metaview_get_platform_credits", "resource": "*", "effect": "allow" },
+  { "action": "metaview_get_screen_details", "resource": "*", "effect": "allow" },
+  { "action": "metaview_get_screen_interview", "resource": "*", "effect": "allow" },
+  { "action": "metaview_get_search_details", "resource": "*", "effect": "allow" },
+  { "action": "metaview_get_sourcing_analytics", "resource": "*", "effect": "allow" },
+  { "action": "metaview_get_sourcing_messages", "resource": "*", "effect": "allow" },
+  { "action": "metaview_get_user_context", "resource": "*", "effect": "allow" },
+  { "action": "metaview_group_conversations", "resource": "*", "effect": "allow" },
+  { "action": "metaview_list_application_review_candidates", "resource": "*", "effect": "allow" },
+  { "action": "metaview_list_application_review_rejection_options", "resource": "*", "effect": "allow" },
+  { "action": "metaview_list_application_reviews", "resource": "*", "effect": "allow" },
+  { "action": "metaview_list_ats_jobs", "resource": "*", "effect": "allow" },
+  { "action": "metaview_list_ats_stages", "resource": "*", "effect": "allow" },
+  { "action": "metaview_list_connectors", "resource": "*", "effect": "allow" },
+  { "action": "metaview_list_field_values", "resource": "*", "effect": "allow" },
+  { "action": "metaview_list_fields", "resource": "*", "effect": "allow" },
+  { "action": "metaview_list_job_post_checks", "resource": "*", "effect": "allow" },
+  { "action": "metaview_list_job_post_templates", "resource": "*", "effect": "allow" },
+  { "action": "metaview_list_job_post_threads", "resource": "*", "effect": "allow" },
+  { "action": "metaview_list_job_posts", "resource": "*", "effect": "allow" },
+  { "action": "metaview_list_mailboxes", "resource": "*", "effect": "allow" },
+  { "action": "metaview_list_note_template_groups", "resource": "*", "effect": "allow" },
+  { "action": "metaview_list_note_templates", "resource": "*", "effect": "allow" },
+  { "action": "metaview_list_screen_candidates", "resource": "*", "effect": "allow" },
+  { "action": "metaview_list_screens", "resource": "*", "effect": "allow" },
+  { "action": "metaview_list_sequence_candidates", "resource": "*", "effect": "allow" },
+  { "action": "metaview_list_sequences", "resource": "*", "effect": "allow" },
+  { "action": "metaview_list_sourcing_candidates", "resource": "*", "effect": "allow" },
+  { "action": "metaview_list_sourcing_knowledge", "resource": "*", "effect": "allow" },
+  { "action": "metaview_list_sourcing_searches", "resource": "*", "effect": "allow" },
+  { "action": "metaview_search_conversations", "resource": "*", "effect": "allow" },
+  { "action": "metaview_search_reports", "resource": "*", "effect": "allow" },
+  { "action": "metaview_search_snippets", "resource": "*", "effect": "allow" },
+  { "action": "metaview_create_ai_field", "resource": "*", "effect": "allow" },
+  { "action": "metaview_create_job_post_check", "resource": "*", "effect": "allow" },
+  { "action": "metaview_create_report", "resource": "*", "effect": "allow" },
+  { "action": "metaview_create_snippet", "resource": "*", "effect": "allow" },
+  { "action": "metaview_enrich_candidate_contacts", "resource": "*", "effect": "allow" },
+  { "action": "metaview_generate_notes", "resource": "*", "effect": "allow" },
+  { "action": "metaview_give_sourcing_feedback", "resource": "*", "effect": "allow" },
+  { "action": "metaview_manage_note_template", "resource": "*", "effect": "allow" },
+  { "action": "metaview_manage_notes_sources", "resource": "*", "effect": "allow" },
+  { "action": "metaview_manage_sequence", "resource": "*", "effect": "allow" },
+  { "action": "metaview_manage_sourcing_knowledge", "resource": "*", "effect": "allow" },
+  { "action": "metaview_post_sourcing_candidates_to_ats", "resource": "*", "effect": "allow" },
+  { "action": "metaview_resolve_job_post_suggestion", "resource": "*", "effect": "allow" },
+  { "action": "metaview_restore_application_review_icp", "resource": "*", "effect": "allow" },
+  { "action": "metaview_run_job_post_checks", "resource": "*", "effect": "allow" },
+  { "action": "metaview_send_job_post_message", "resource": "*", "effect": "allow" },
+  { "action": "metaview_send_sourcing_message", "resource": "*", "effect": "allow" },
+  { "action": "metaview_update_application_review_icp", "resource": "*", "effect": "allow" },
+  { "action": "metaview_update_application_review_rules", "resource": "*", "effect": "allow" },
+  { "action": "metaview_update_screen_outreach", "resource": "*", "effect": "allow" },
+  { "action": "metaview_update_screen_plan", "resource": "*", "effect": "allow" },
+  { "action": "metaview_upsert_job_post_template", "resource": "*", "effect": "allow" },
+  { "action": "metaview_give_application_review_candidate_feedback", "resource": "*", "effect": "allow" },
+  { "action": "metaview_manage_candidate_sequence", "resource": "*", "effect": "allow" },
+  { "action": "metaview_submit_feedback", "resource": "*", "effect": "allow" }
+]
+```
+
+`access: "ask-changes"` allows the reads and asks for everything else, new tools included:
 
 ```json
 [
   { "action": "metaview_*", "resource": "*", "effect": "ask" },
   { "action": "metaview_fetch_candidates", "resource": "*", "effect": "allow" },
-  "… one allow rule for each read tool in src/metaview-tools.ts …",
+  { "action": "metaview_find_candidate_in_sequences", "resource": "*", "effect": "allow" },
+  { "action": "metaview_get_application_review_details", "resource": "*", "effect": "allow" },
+  { "action": "metaview_get_application_review_rules", "resource": "*", "effect": "allow" },
+  { "action": "metaview_get_chart_data", "resource": "*", "effect": "allow" },
+  { "action": "metaview_get_enrichment_status", "resource": "*", "effect": "allow" },
+  { "action": "metaview_get_job_post", "resource": "*", "effect": "allow" },
+  { "action": "metaview_get_job_post_template", "resource": "*", "effect": "allow" },
+  { "action": "metaview_get_job_post_thread", "resource": "*", "effect": "allow" },
+  { "action": "metaview_get_note_template", "resource": "*", "effect": "allow" },
+  { "action": "metaview_get_platform_credits", "resource": "*", "effect": "allow" },
+  { "action": "metaview_get_screen_details", "resource": "*", "effect": "allow" },
+  { "action": "metaview_get_screen_interview", "resource": "*", "effect": "allow" },
+  { "action": "metaview_get_search_details", "resource": "*", "effect": "allow" },
+  { "action": "metaview_get_sourcing_analytics", "resource": "*", "effect": "allow" },
+  { "action": "metaview_get_sourcing_messages", "resource": "*", "effect": "allow" },
+  { "action": "metaview_get_user_context", "resource": "*", "effect": "allow" },
+  { "action": "metaview_group_conversations", "resource": "*", "effect": "allow" },
+  { "action": "metaview_list_application_review_candidates", "resource": "*", "effect": "allow" },
+  { "action": "metaview_list_application_review_rejection_options", "resource": "*", "effect": "allow" },
+  { "action": "metaview_list_application_reviews", "resource": "*", "effect": "allow" },
+  { "action": "metaview_list_ats_jobs", "resource": "*", "effect": "allow" },
+  { "action": "metaview_list_ats_stages", "resource": "*", "effect": "allow" },
+  { "action": "metaview_list_connectors", "resource": "*", "effect": "allow" },
+  { "action": "metaview_list_field_values", "resource": "*", "effect": "allow" },
+  { "action": "metaview_list_fields", "resource": "*", "effect": "allow" },
+  { "action": "metaview_list_job_post_checks", "resource": "*", "effect": "allow" },
+  { "action": "metaview_list_job_post_templates", "resource": "*", "effect": "allow" },
+  { "action": "metaview_list_job_post_threads", "resource": "*", "effect": "allow" },
+  { "action": "metaview_list_job_posts", "resource": "*", "effect": "allow" },
+  { "action": "metaview_list_mailboxes", "resource": "*", "effect": "allow" },
+  { "action": "metaview_list_note_template_groups", "resource": "*", "effect": "allow" },
+  { "action": "metaview_list_note_templates", "resource": "*", "effect": "allow" },
+  { "action": "metaview_list_screen_candidates", "resource": "*", "effect": "allow" },
+  { "action": "metaview_list_screens", "resource": "*", "effect": "allow" },
+  { "action": "metaview_list_sequence_candidates", "resource": "*", "effect": "allow" },
+  { "action": "metaview_list_sequences", "resource": "*", "effect": "allow" },
+  { "action": "metaview_list_sourcing_candidates", "resource": "*", "effect": "allow" },
+  { "action": "metaview_list_sourcing_knowledge", "resource": "*", "effect": "allow" },
+  { "action": "metaview_list_sourcing_searches", "resource": "*", "effect": "allow" },
+  { "action": "metaview_search_conversations", "resource": "*", "effect": "allow" },
+  { "action": "metaview_search_reports", "resource": "*", "effect": "allow" },
   { "action": "metaview_search_snippets", "resource": "*", "effect": "allow" },
+  { "action": "metaview_create_ai_field", "resource": "*", "effect": "ask" },
+  { "action": "metaview_create_job_post_check", "resource": "*", "effect": "ask" },
+  { "action": "metaview_create_report", "resource": "*", "effect": "ask" },
+  { "action": "metaview_create_snippet", "resource": "*", "effect": "ask" },
+  { "action": "metaview_enrich_candidate_contacts", "resource": "*", "effect": "ask" },
+  { "action": "metaview_generate_notes", "resource": "*", "effect": "ask" },
+  { "action": "metaview_give_sourcing_feedback", "resource": "*", "effect": "ask" },
+  { "action": "metaview_manage_note_template", "resource": "*", "effect": "ask" },
+  { "action": "metaview_manage_notes_sources", "resource": "*", "effect": "ask" },
+  { "action": "metaview_manage_sequence", "resource": "*", "effect": "ask" },
+  { "action": "metaview_manage_sourcing_knowledge", "resource": "*", "effect": "ask" },
+  { "action": "metaview_post_sourcing_candidates_to_ats", "resource": "*", "effect": "ask" },
+  { "action": "metaview_resolve_job_post_suggestion", "resource": "*", "effect": "ask" },
+  { "action": "metaview_restore_application_review_icp", "resource": "*", "effect": "ask" },
+  { "action": "metaview_run_job_post_checks", "resource": "*", "effect": "ask" },
+  { "action": "metaview_send_job_post_message", "resource": "*", "effect": "ask" },
+  { "action": "metaview_send_sourcing_message", "resource": "*", "effect": "ask" },
+  { "action": "metaview_update_application_review_icp", "resource": "*", "effect": "ask" },
+  { "action": "metaview_update_application_review_rules", "resource": "*", "effect": "ask" },
+  { "action": "metaview_update_screen_outreach", "resource": "*", "effect": "ask" },
+  { "action": "metaview_update_screen_plan", "resource": "*", "effect": "ask" },
+  { "action": "metaview_upsert_job_post_template", "resource": "*", "effect": "ask" },
+  { "action": "metaview_give_application_review_candidate_feedback", "resource": "*", "effect": "ask" },
+  { "action": "metaview_manage_candidate_sequence", "resource": "*", "effect": "ask" },
+  { "action": "metaview_submit_feedback", "resource": "*", "effect": "ask" }
+]
+```
+
+`access: "read-only"` allows the reads and denies everything else, new tools included:
+
+```json
+[
+  { "action": "metaview_*", "resource": "*", "effect": "deny" },
+  { "action": "metaview_fetch_candidates", "resource": "*", "effect": "allow" },
+  { "action": "metaview_find_candidate_in_sequences", "resource": "*", "effect": "allow" },
+  { "action": "metaview_get_application_review_details", "resource": "*", "effect": "allow" },
+  { "action": "metaview_get_application_review_rules", "resource": "*", "effect": "allow" },
+  { "action": "metaview_get_chart_data", "resource": "*", "effect": "allow" },
+  { "action": "metaview_get_enrichment_status", "resource": "*", "effect": "allow" },
+  { "action": "metaview_get_job_post", "resource": "*", "effect": "allow" },
+  { "action": "metaview_get_job_post_template", "resource": "*", "effect": "allow" },
+  { "action": "metaview_get_job_post_thread", "resource": "*", "effect": "allow" },
+  { "action": "metaview_get_note_template", "resource": "*", "effect": "allow" },
+  { "action": "metaview_get_platform_credits", "resource": "*", "effect": "allow" },
+  { "action": "metaview_get_screen_details", "resource": "*", "effect": "allow" },
+  { "action": "metaview_get_screen_interview", "resource": "*", "effect": "allow" },
+  { "action": "metaview_get_search_details", "resource": "*", "effect": "allow" },
+  { "action": "metaview_get_sourcing_analytics", "resource": "*", "effect": "allow" },
+  { "action": "metaview_get_sourcing_messages", "resource": "*", "effect": "allow" },
+  { "action": "metaview_get_user_context", "resource": "*", "effect": "allow" },
+  { "action": "metaview_group_conversations", "resource": "*", "effect": "allow" },
+  { "action": "metaview_list_application_review_candidates", "resource": "*", "effect": "allow" },
+  { "action": "metaview_list_application_review_rejection_options", "resource": "*", "effect": "allow" },
+  { "action": "metaview_list_application_reviews", "resource": "*", "effect": "allow" },
+  { "action": "metaview_list_ats_jobs", "resource": "*", "effect": "allow" },
+  { "action": "metaview_list_ats_stages", "resource": "*", "effect": "allow" },
+  { "action": "metaview_list_connectors", "resource": "*", "effect": "allow" },
+  { "action": "metaview_list_field_values", "resource": "*", "effect": "allow" },
+  { "action": "metaview_list_fields", "resource": "*", "effect": "allow" },
+  { "action": "metaview_list_job_post_checks", "resource": "*", "effect": "allow" },
+  { "action": "metaview_list_job_post_templates", "resource": "*", "effect": "allow" },
+  { "action": "metaview_list_job_post_threads", "resource": "*", "effect": "allow" },
+  { "action": "metaview_list_job_posts", "resource": "*", "effect": "allow" },
+  { "action": "metaview_list_mailboxes", "resource": "*", "effect": "allow" },
+  { "action": "metaview_list_note_template_groups", "resource": "*", "effect": "allow" },
+  { "action": "metaview_list_note_templates", "resource": "*", "effect": "allow" },
+  { "action": "metaview_list_screen_candidates", "resource": "*", "effect": "allow" },
+  { "action": "metaview_list_screens", "resource": "*", "effect": "allow" },
+  { "action": "metaview_list_sequence_candidates", "resource": "*", "effect": "allow" },
+  { "action": "metaview_list_sequences", "resource": "*", "effect": "allow" },
+  { "action": "metaview_list_sourcing_candidates", "resource": "*", "effect": "allow" },
+  { "action": "metaview_list_sourcing_knowledge", "resource": "*", "effect": "allow" },
+  { "action": "metaview_list_sourcing_searches", "resource": "*", "effect": "allow" },
+  { "action": "metaview_search_conversations", "resource": "*", "effect": "allow" },
+  { "action": "metaview_search_reports", "resource": "*", "effect": "allow" },
+  { "action": "metaview_search_snippets", "resource": "*", "effect": "allow" },
+  { "action": "metaview_create_ai_field", "resource": "*", "effect": "deny" },
+  { "action": "metaview_create_job_post_check", "resource": "*", "effect": "deny" },
+  { "action": "metaview_create_report", "resource": "*", "effect": "deny" },
+  { "action": "metaview_create_snippet", "resource": "*", "effect": "deny" },
+  { "action": "metaview_enrich_candidate_contacts", "resource": "*", "effect": "deny" },
+  { "action": "metaview_generate_notes", "resource": "*", "effect": "deny" },
+  { "action": "metaview_give_sourcing_feedback", "resource": "*", "effect": "deny" },
+  { "action": "metaview_manage_note_template", "resource": "*", "effect": "deny" },
+  { "action": "metaview_manage_notes_sources", "resource": "*", "effect": "deny" },
+  { "action": "metaview_manage_sequence", "resource": "*", "effect": "deny" },
+  { "action": "metaview_manage_sourcing_knowledge", "resource": "*", "effect": "deny" },
+  { "action": "metaview_post_sourcing_candidates_to_ats", "resource": "*", "effect": "deny" },
+  { "action": "metaview_resolve_job_post_suggestion", "resource": "*", "effect": "deny" },
+  { "action": "metaview_restore_application_review_icp", "resource": "*", "effect": "deny" },
+  { "action": "metaview_run_job_post_checks", "resource": "*", "effect": "deny" },
+  { "action": "metaview_send_job_post_message", "resource": "*", "effect": "deny" },
+  { "action": "metaview_send_sourcing_message", "resource": "*", "effect": "deny" },
+  { "action": "metaview_update_application_review_icp", "resource": "*", "effect": "deny" },
+  { "action": "metaview_update_application_review_rules", "resource": "*", "effect": "deny" },
+  { "action": "metaview_update_screen_outreach", "resource": "*", "effect": "deny" },
+  { "action": "metaview_update_screen_plan", "resource": "*", "effect": "deny" },
+  { "action": "metaview_upsert_job_post_template", "resource": "*", "effect": "deny" },
   { "action": "metaview_give_application_review_candidate_feedback", "resource": "*", "effect": "deny" },
   { "action": "metaview_manage_candidate_sequence", "resource": "*", "effect": "deny" },
   { "action": "metaview_submit_feedback", "resource": "*", "effect": "deny" }
 ]
 ```
 
-`READ_TOOLS` in `src/metaview-tools.ts` lists Metaview's read tools, `WRITE_TOOLS` its write tools (with
-`SEND_TOOLS` the two that message a person), and `DENIED_TOOLS` the three that are off. The tools RPC's `METHODS`
-classifies exactly these. Writes and tools that Metaview adds later match only `metaview_*`, so they ask. `/metaview-status` names the tools in neither
-list. Metaview lists only the tools for the products your account has, so a known tool can be missing; that is
-normal.
+`READ_TOOLS` in `src/metaview-tools.ts` lists Metaview's read tools, `WRITE_TOOLS` its write tools (with `SEND_TOOLS`
+the three that message a person), and `DESTRUCTIVE_TOOLS` the three Metaview marks destructive. The tools RPC's
+`METHODS` classifies exactly these. Writes, the destructive three and tools that Metaview adds later match only
+`metaview_*`, so their effect follows `access`. `/metaview-status` names the tools in neither list. Metaview lists only
+the tools for the products your account has, so a known tool can be missing; that is normal.
 
-The last three rules turn tools off:
+The three destructive tools are the ones to think about before you leave the default alone:
 
 - `metaview_give_application_review_candidate_feedback` records application review decisions. A REJECT or PROGRESS
   syncs to your ATS, and a REJECT can send the candidate a rejection email. It is a hiring decision about a person, and
@@ -132,29 +364,22 @@ The last three rules turn tools off:
 - `metaview_submit_feedback` sends text to the Metaview team, and its own description asks the model to call it after
   any tool error, unasked; text written after a failed candidate lookup could carry candidate data.
 
-To turn one on, add a rule that makes it ask to the agent's own `permissions`, which come after the plugin's block in
-that agent. Each call then asks. For the build agent:
+Two more reach people when they run: `update_screen_outreach` emails candidates, copying CC and BCC, and with
+`reject_at_deadline` true rejects them automatically at their deadline; `manage_sequence` with `set_enabled` true
+restarts a sequence's outreach. The `metaview-write` skill says whom each change reaches before the call.
+
+To keep one tool off while everything else runs, add a `deny` rule: in the top-level `permissions`, where it only
+tightens and reaches every agent, or in one agent's own `permissions`:
 
 ```json
-{
-  "agents": {
-    "build": {
-      "permissions": [
-        { "action": "metaview_give_application_review_candidate_feedback", "resource": "*", "effect": "ask" },
-        { "action": "metaview_manage_candidate_sequence", "resource": "*", "effect": "ask" },
-        { "action": "metaview_submit_feedback", "resource": "*", "effect": "ask" }
-      ]
-    }
-  }
-}
+[
+  { "action": "metaview_give_application_review_candidate_feedback", "resource": "*", "effect": "deny" },
+  { "action": "metaview_manage_candidate_sequence", "resource": "*", "effect": "deny" },
+  { "action": "metaview_submit_feedback", "resource": "*", "effect": "deny" }
+]
 ```
 
-Don't put these in the top-level `permissions`: a top-level rule comes after every agent's own rules, so it would
-reach every agent, Explore included, which otherwise can't use Metaview. For an agent that exists only in your config,
-put them after the plugin's block (see [Agents that miss the rules](#agents-that-miss-the-rules)).
-
-Use only the rules you need. Never make the two candidate tools `allow`, and don't answer "Always allow" when they ask:
-OpenCode would save an allow for every agent in the project, and every later decision or outreach would run unasked.
+A deny on resource `*` also hides the tool from the model.
 
 OpenCode uses the last rule that matches, so everything after the plugin's rules wins:
 
@@ -162,8 +387,8 @@ OpenCode uses the last rule that matches, so everything after the plugin's rules
 2. your top-level `permissions`, which OpenCode adds to every agent;
 3. your saved "Always allow" answers, which beat an `ask` but never a configured `deny`.
 
-A `deny` on resource `*` also hides the tool from the model. In an unattended run such as `opencode run`, a tool that
-asks is refused. An agent without the base rule gets no Metaview rules and keeps its own behaviour.
+In an unattended run such as `opencode run`, a tool that asks is refused. An agent without the base rule gets no
+Metaview rules and keeps its own behaviour.
 
 ### Recipes
 
@@ -180,8 +405,10 @@ tools):
 ]
 ```
 
-Run one write tool without a prompt in the build agent (answering "Always allow" once does the same, for every agent
-in the project):
+Never work around a tool your workspace turned off: if a Metaview change is refused, say so and stop.
+
+Run one write tool without a prompt in the build agent (it is allowed by default, so this is only needed under a
+restricted `access`, or for an agent of your own):
 
 ```json
 {
@@ -193,9 +420,16 @@ in the project):
 }
 ```
 
-A strict agent where every Metaview tool asks, reads included: put these in that agent's own `permissions`, after the
-block. The last match wins, so the `metaview_*` ask alone would turn the three denied tools into asks too; repeating
-their denies after it keeps them off:
+A strict agent where every Metaview tool asks, reads included: put this in that agent's own `permissions`, after the
+block. The last match wins, so this one rule overrides the reads the plugin allows for that agent:
+
+```json
+[
+  { "action": "metaview_*", "resource": "*", "effect": "ask" }
+]
+```
+
+To stop the destructive three there as well, add their denies after it:
 
 ```json
 [
@@ -231,9 +465,75 @@ own:
       "description": "Reviews changes",
       "mode": "subagent",
       "permissions": [
-        { "action": "metaview_*", "resource": "*", "effect": "ask" },
+        { "action": "metaview_*", "resource": "*", "effect": "allow" },
         { "action": "metaview_fetch_candidates", "resource": "*", "effect": "allow" },
-        "… the rest of the block from /metaview-status …",
+        { "action": "metaview_find_candidate_in_sequences", "resource": "*", "effect": "allow" },
+        { "action": "metaview_get_application_review_details", "resource": "*", "effect": "allow" },
+        { "action": "metaview_get_application_review_rules", "resource": "*", "effect": "allow" },
+        { "action": "metaview_get_chart_data", "resource": "*", "effect": "allow" },
+        { "action": "metaview_get_enrichment_status", "resource": "*", "effect": "allow" },
+        { "action": "metaview_get_job_post", "resource": "*", "effect": "allow" },
+        { "action": "metaview_get_job_post_template", "resource": "*", "effect": "allow" },
+        { "action": "metaview_get_job_post_thread", "resource": "*", "effect": "allow" },
+        { "action": "metaview_get_note_template", "resource": "*", "effect": "allow" },
+        { "action": "metaview_get_platform_credits", "resource": "*", "effect": "allow" },
+        { "action": "metaview_get_screen_details", "resource": "*", "effect": "allow" },
+        { "action": "metaview_get_screen_interview", "resource": "*", "effect": "allow" },
+        { "action": "metaview_get_search_details", "resource": "*", "effect": "allow" },
+        { "action": "metaview_get_sourcing_analytics", "resource": "*", "effect": "allow" },
+        { "action": "metaview_get_sourcing_messages", "resource": "*", "effect": "allow" },
+        { "action": "metaview_get_user_context", "resource": "*", "effect": "allow" },
+        { "action": "metaview_group_conversations", "resource": "*", "effect": "allow" },
+        { "action": "metaview_list_application_review_candidates", "resource": "*", "effect": "allow" },
+        { "action": "metaview_list_application_review_rejection_options", "resource": "*", "effect": "allow" },
+        { "action": "metaview_list_application_reviews", "resource": "*", "effect": "allow" },
+        { "action": "metaview_list_ats_jobs", "resource": "*", "effect": "allow" },
+        { "action": "metaview_list_ats_stages", "resource": "*", "effect": "allow" },
+        { "action": "metaview_list_connectors", "resource": "*", "effect": "allow" },
+        { "action": "metaview_list_field_values", "resource": "*", "effect": "allow" },
+        { "action": "metaview_list_fields", "resource": "*", "effect": "allow" },
+        { "action": "metaview_list_job_post_checks", "resource": "*", "effect": "allow" },
+        { "action": "metaview_list_job_post_templates", "resource": "*", "effect": "allow" },
+        { "action": "metaview_list_job_post_threads", "resource": "*", "effect": "allow" },
+        { "action": "metaview_list_job_posts", "resource": "*", "effect": "allow" },
+        { "action": "metaview_list_mailboxes", "resource": "*", "effect": "allow" },
+        { "action": "metaview_list_note_template_groups", "resource": "*", "effect": "allow" },
+        { "action": "metaview_list_note_templates", "resource": "*", "effect": "allow" },
+        { "action": "metaview_list_screen_candidates", "resource": "*", "effect": "allow" },
+        { "action": "metaview_list_screens", "resource": "*", "effect": "allow" },
+        { "action": "metaview_list_sequence_candidates", "resource": "*", "effect": "allow" },
+        { "action": "metaview_list_sequences", "resource": "*", "effect": "allow" },
+        { "action": "metaview_list_sourcing_candidates", "resource": "*", "effect": "allow" },
+        { "action": "metaview_list_sourcing_knowledge", "resource": "*", "effect": "allow" },
+        { "action": "metaview_list_sourcing_searches", "resource": "*", "effect": "allow" },
+        { "action": "metaview_search_conversations", "resource": "*", "effect": "allow" },
+        { "action": "metaview_search_reports", "resource": "*", "effect": "allow" },
+        { "action": "metaview_search_snippets", "resource": "*", "effect": "allow" },
+        { "action": "metaview_create_ai_field", "resource": "*", "effect": "allow" },
+        { "action": "metaview_create_job_post_check", "resource": "*", "effect": "allow" },
+        { "action": "metaview_create_report", "resource": "*", "effect": "allow" },
+        { "action": "metaview_create_snippet", "resource": "*", "effect": "allow" },
+        { "action": "metaview_enrich_candidate_contacts", "resource": "*", "effect": "allow" },
+        { "action": "metaview_generate_notes", "resource": "*", "effect": "allow" },
+        { "action": "metaview_give_sourcing_feedback", "resource": "*", "effect": "allow" },
+        { "action": "metaview_manage_note_template", "resource": "*", "effect": "allow" },
+        { "action": "metaview_manage_notes_sources", "resource": "*", "effect": "allow" },
+        { "action": "metaview_manage_sequence", "resource": "*", "effect": "allow" },
+        { "action": "metaview_manage_sourcing_knowledge", "resource": "*", "effect": "allow" },
+        { "action": "metaview_post_sourcing_candidates_to_ats", "resource": "*", "effect": "allow" },
+        { "action": "metaview_resolve_job_post_suggestion", "resource": "*", "effect": "allow" },
+        { "action": "metaview_restore_application_review_icp", "resource": "*", "effect": "allow" },
+        { "action": "metaview_run_job_post_checks", "resource": "*", "effect": "allow" },
+        { "action": "metaview_send_job_post_message", "resource": "*", "effect": "allow" },
+        { "action": "metaview_send_sourcing_message", "resource": "*", "effect": "allow" },
+        { "action": "metaview_update_application_review_icp", "resource": "*", "effect": "allow" },
+        { "action": "metaview_update_application_review_rules", "resource": "*", "effect": "allow" },
+        { "action": "metaview_update_screen_outreach", "resource": "*", "effect": "allow" },
+        { "action": "metaview_update_screen_plan", "resource": "*", "effect": "allow" },
+        { "action": "metaview_upsert_job_post_template", "resource": "*", "effect": "allow" },
+        { "action": "metaview_give_application_review_candidate_feedback", "resource": "*", "effect": "allow" },
+        { "action": "metaview_manage_candidate_sequence", "resource": "*", "effect": "allow" },
+        { "action": "metaview_submit_feedback", "resource": "*", "effect": "allow" },
         { "action": "metaview_enrich_candidate_contacts", "resource": "*", "effect": "deny" }
       ]
     }
@@ -241,7 +541,8 @@ own:
 }
 ```
 
-Copy the full block from your own `/metaview-status` output; the lines in quotes above stand for it.
+The block is the one `/metaview-status` prints, which follows the `access` option, so copy it from your own output when
+you change `access`.
 
 ## Errors
 
@@ -259,7 +560,7 @@ Every error from the plugin reads `CODE: What happened. Next step: What to do.`
 For example:
 
 ```text
-OPTIONS_INVALID: Unknown option "apiKey". Accepted options: "allowUntestedHost". Next step: Fix the plugin options in opencode.json, for example "plugins": [{ "package": "@joe-broadhead/opencode-metaview", "options": { "allowUntestedHost": true } }].
+OPTIONS_INVALID: Unknown option "apiKey". Accepted options: "allowUntestedHost", "access". Next step: Fix the plugin options in opencode.json, for example "plugins": [{ "package": "@joe-broadhead/opencode-metaview", "options": { "allowUntestedHost": true } }].
 ```
 
 Errors from Metaview's server and from OpenCode pass through unchanged, except in the tools RPC for scripts, whose codes
@@ -280,8 +581,8 @@ model. It holds no token, no header and no URL query, and makes no Metaview call
 | `workspace` | The Metaview workspace's name, or `null` until the first `get_user_context` call since OpenCode started |
 | `role` | `admin` (every conversation in the workspace), `member` (your own and those shared with you), or `null` until read |
 | `plan` | `paid`, `free` (transcripts, summaries and AI fields may be limited), `credits` (conversations unlock on the workspace's shared platform credits), or `null` until read |
-| `tools` | How many Metaview tools OpenCode lists that the default rules let run or ask: the listed ones, without the denied ones |
-| `deniedTools` | The listed tools that the default rules deny, such as `submit_feedback`. The `Tools` row shows them as "off by default"; your own later `ask` rule may have turned one on. |
+| `access` | `all`, `ask-changes` or `read-only`: what the generated default rules allow |
+| `tools` | How many Metaview tools OpenCode lists: every one the default rules let run or ask |
 | `listing` | True while a server that connected moments ago lists no tools yet. The next step is then to run `/metaview-status` again in a few seconds, not to ask an admin. |
 | `unknownCount`, `unknownTools` | How many of them the plugin does not know, and at most 20 of their names, only those made of lowercase letters, digits and `_` |
 | `unguardedAgents` | Agents where a new Metaview tool would run without asking; empty when there are none. An agent whose own rules already ask or deny for every Metaview tool is not listed. |

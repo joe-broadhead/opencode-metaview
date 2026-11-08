@@ -6,7 +6,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { fileURLToPath } from "node:url"
-import { DENIED_TOOLS, PARAMETERS, READ_TOOLS, WRITE_TOOLS } from "../../src/metaview-tools.js"
+import { DESTRUCTIVE_TOOLS, PARAMETERS, READ_TOOLS, WRITE_TOOLS } from "../../src/metaview-tools.js"
 
 const SCRIPT = fileURLToPath(new URL("../../scripts/check-metaview-tools.mjs", import.meta.url))
 const FIXTURE = fileURLToPath(new URL("./metaview-live-tools.json", import.meta.url))
@@ -15,7 +15,7 @@ afterAll(() => rmSync(dir, { recursive: true, force: true }))
 
 type LiveTool = { id: string; name: string; description?: string; inputSchema: { properties: Record<string, unknown>; required?: string[] } }
 const live = () => (JSON.parse(readFileSync(FIXTURE, "utf8")) as { tools: LiveTool[] }).tools
-const ALL = [...READ_TOOLS, ...WRITE_TOOLS, ...DENIED_TOOLS]
+const ALL = [...READ_TOOLS, ...WRITE_TOOLS, ...DESTRUCTIVE_TOOLS]
 /** One tool in the research form, from the recorded parameters. */
 const research = (name: string) => ({ name, annotations: { readOnlyHint: READ_TOOLS.includes(name), destructiveHint: false }, inputs: [...PARAMETERS[name]!] })
 

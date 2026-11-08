@@ -13,16 +13,16 @@ adds no tool of its own, makes no Metaview call of its own, and has no runtime d
 | `src/plugin.ts` | Setup, and server registration or adoption |
 | `src/integration.ts` | The `/connect` entry: its name "Metaview", and the sign-in problem on its account |
 | `src/account.ts` | The account capture: workspace name, role and plan from a `get_user_context` result, in memory |
-| `src/options.ts` | Option parsing and validation |
+| `src/options.ts` | Option parsing and validation, including the `access` values |
 | `src/host-version.ts` | The host check: the supported range, and the tested releases |
-| `src/metaview-tools.ts` | `READ_TOOLS`, `WRITE_TOOLS`, `DENIED_TOOLS`, `PARAMETERS` and `classify()`: every fact the plugin keeps about Metaview's tools. No runtime imports, so `scripts/check-metaview-tools.mjs` (`npm run drift`) can load it. `PARAMETERS` is used by that script and the tests only, and the build leaves it out |
-| `src/permissions.ts` | The default rules, their placement, and detection of agents without them |
+| `src/metaview-tools.ts` | `READ_TOOLS`, `WRITE_TOOLS`, `SEND_TOOLS`, `DESTRUCTIVE_TOOLS`, `PARAMETERS` and `classify()`: every fact the plugin keeps about Metaview's tools. No runtime imports, so `scripts/check-metaview-tools.mjs` (`npm run drift`) can load it. `PARAMETERS` is used by that script and the tests only, and the build leaves it out |
+| `src/permissions.ts` | `defaultRules(access)`: the default rules, their placement, and detection of agents without them |
 | `src/status.ts` | The status model and text, `/metaview-status`, and the status RPC method |
 | `src/redact.ts` | Redaction for everything status shows: URL credentials, queries and token shapes removed, one line, controls and bidi characters stripped, cut by whole characters |
 | `src/skills.ts` | Loading and registering the skills |
 | `src/host/tools-rpc.ts` | The tools RPC for scripts, `metaview.workspace.tools`; a copy of a module shared by several plugins, with Metaview's part in one marked block |
 | `src/tui.ts` | The terminal UI part: the plugin `metaview.workspace.tui` and the `/metaview` dialog |
-| `src/constants.ts` | IDs, the server name and URL, the OAuth scope, the Code Mode namespace description, the supported host range, the tested releases (`TESTED_HOSTS`, the one list the checks and status use) and the error shape. No imports, so `scripts/check.mjs` can load it |
+| `src/constants.ts` | IDs, the server name and URL, the OAuth scope, the Code Mode namespace description, the supported host range, the tested releases (`TESTED_HOSTS`, the one list the checks and status use), the error shape and the typed code tables (`PLUGIN_CODES`, `RPC_CODES`). No imports, so `scripts/check.mjs` can load it |
 | `src/version.ts` | The plugin's version from `package.json`; the build replaces it with the version string alone |
 
 The default rules, the tools RPC's methods, status's unknown tools, the fake server in the tests and the checks of
@@ -96,7 +96,7 @@ is never shown, and a failure's reason is cut to one line of 160 characters with
 ## Tools RPC
 
 `metaview.workspace.tools` lets a script call every known tool with no model; [Scripting](scripting.md) is the user's
-view. Its methods are `describe` and one per name in `READ_TOOLS`, `WRITE_TOOLS` and `DENIED_TOOLS`, named after the
+view. Its methods are `describe` and one per name in `READ_TOOLS`, `WRITE_TOOLS` and `DESTRUCTIVE_TOOLS`, named after the
 upstream tool and carrying a tools RPC class (`read`, `send`, `write` or `destructive`). It is an allowlist: a tool
 that Metaview adds later is not a method until it is classified, and `describe` lists it as unclassified. `describe`
 reports each method as available or not from what OpenCode lists now, which follows the Metaview products the account

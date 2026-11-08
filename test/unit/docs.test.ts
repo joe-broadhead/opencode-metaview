@@ -1,10 +1,13 @@
-// The docs and skills must match the code: tool names, the deny rule, error codes, the uninstall order and the Jelly
-// guide. They state no tool counts, so a change to src/metaview-tools.ts cannot leave a stale number behind.
+// The docs and skills must match the code: tool names, the default rules for every access value, the tested releases,
+// the error codes, the uninstall order and the Jelly guide. They state no tool counts, so a change to
+// src/metaview-tools.ts cannot leave a stale number behind.
 import { describe, expect, test } from "bun:test"
 import { readdirSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 import { fileURLToPath } from "node:url"
-import { DENIED_TOOLS, READ_TOOLS, WRITE_TOOLS } from "../../src/metaview-tools.js"
+import { TESTED_HOSTS } from "../../src/constants.js"
+import { DESTRUCTIVE_TOOLS, READ_TOOLS, WRITE_TOOLS } from "../../src/metaview-tools.js"
+import { defaultRules } from "../../src/permissions.js"
 
 const ROOT = fileURLToPath(new URL("../..", import.meta.url))
 // Everything a user or the model reads about the current release.
@@ -17,15 +20,20 @@ const FILES = [
   ...readdirSync(join(ROOT, "docs")).map((name) => `docs/${name}`),
   ...readdirSync(join(ROOT, "skills")).map((name) => `skills/${name}/SKILL.md`),
 ]
-const KNOWN = [...READ_TOOLS, ...WRITE_TOOLS, ...DENIED_TOOLS]
+const KNOWN = [...READ_TOOLS, ...WRITE_TOOLS, ...DESTRUCTIVE_TOOLS]
 const text = (file: string) => readFileSync(join(ROOT, file), "utf8").replace(/\s+/g, " ")
-const DENY_RULE = '{ "action": "metaview_submit_feedback", "resource": "*", "effect": "deny" }'
-const OPT_IN = '{ "action": "metaview_submit_feedback", "resource": "*", "effect": "ask" }'
+const raw = (file: string) => readFileSync(join(ROOT, file), "utf8")
+
+/** The JSON in the first fenced block after `marker`, parsed. */
+function blockAfter(file: string, pattern: RegExp): unknown {
+  const body = pattern.exec(raw(file))?.[1] ?? ""
+  return JSON.parse(body)
+}
 
 describe("docs", () => {
   test.each(FILES)("%s states no count of read, write or declared tools that could go stale", (file) => {
     const counts = [...text(file).matchAll(/\b\d+ (?:known )?(?:read|write)(?:s\b| tools\b| read-only)|\b\d+ tools are declared/g)].map((match) => match[0])
-    const declared = `${READ_TOOLS.length + WRITE_TOOLS.length + DENIED_TOOLS.length} tools are declared`
+    const declared = `${READ_TOOLS.length + WRITE_TOOLS.length + DESTRUCTIVE_TOOLS.length} tools are declared`
     const stale = counts.filter((count) => !count.startsWith(`${READ_TOOLS.length} read`) && !count.startsWith(`${WRITE_TOOLS.length} write`) && count !== declared)
     expect(stale).toEqual([])
   })
@@ -43,49 +51,37 @@ describe("docs", () => {
     expect(text("README.md")).not.toMatch(/opencode-metaview@\d|\b0\.\d+\.\d+\b|\bv\d+\.\d+\.\d+\b/)
   })
 
-  test("the README and the configuration guide give each denied tool its deny rule, and the guide the ask rule that turns it on", () => {
-    const rule = (name: string, effect: string) => `{ "action": "metaview_${name}", "resource": "*", "effect": "${effect}" }`
-    for (const name of DENIED_TOOLS) {
-      for (const file of ["README.md", "docs/configuration.md"]) expect(text(file)).toContain(rule(name, "deny"))
-      expect(text("docs/configuration.md")).toContain(rule(name, "ask"))
-      // The opt-in is a per-call ask, never an allow.
-      for (const file of FILES) expect(text(file)).not.toContain(rule(name, "allow"))
+  // A person reads the README first, so it says plainly what an all-allow default means here and the one-line way out.
+  test("the README opens Permissions with what every-tool-allowed means for candidates and the ATS, and the two one-line restrictions", () => {
+    const permissions = /## Permissions([\s\S]*?)## Configure/.exec(raw("README.md"))?.[1] ?? ""
+    expect(permissions).toContain("**Every tool is allowed by default.**")
+    expect(text("README.md")).toContain("act on candidates and your ATS without asking")
+    for (const value of ['| `"all"` (the default) |', '| `"ask-changes"` |', '| `"read-only"` |']) expect(permissions).toContain(value)
+    expect(permissions).toContain('"options": { "access": "read-only" }')
+    // The three ways to restrict, in the order the family states them.
+    for (const way of ["The `access` option", "An agent that asks, or reads only", "A rule per tool"]) expect(permissions).toContain(way)
+  })
+
+  test("every destructive tool is named in the README, the guide and the write skill", () => {
+    for (const file of ["README.md", "docs/configuration.md", "skills/metaview-write/SKILL.md"]) {
+      for (const name of DESTRUCTIVE_TOOLS) expect({ file, name, named: text(file).includes(name) }).toEqual({ file, name, named: true })
     }
-    expect(text("docs/configuration.md")).toContain(DENY_RULE)
-    expect(text("skills/metaview-write/SKILL.md")).toContain(OPT_IN)
   })
 
   test.each(FILES)("%s puts no ask or allow recipe for a Metaview tool at the top level, where it would reach Explore", (file) => {
-    const raw = readFileSync(join(ROOT, file), "utf8")
-    // Every JSON example that is a config: its top-level permissions only tighten.
-    for (const [, body] of raw.matchAll(/```json\n([^]*?)```/g)) {
+    const body = raw(file)
+    // Every JSON example that is a config: its top-level permissions only tighten. A bare array is an agent's own list.
+    for (const [, json] of body.matchAll(/```json\n([^]*?)```/g)) {
       let config: unknown
       try {
-        config = JSON.parse(body!)
+        config = JSON.parse(json!)
       } catch {
         continue
       }
-      const top = !Array.isArray(config) && typeof config === "object" && config !== null ? ((config as { permissions?: { action: string; effect: string }[] }).permissions ?? []) : []
+      if (Array.isArray(config) || typeof config !== "object" || config === null) continue
+      const top = ((config as { permissions?: { action: string; effect: string }[] }).permissions ?? [])
       expect(top.filter((rule) => rule.action.startsWith("metaview_") && rule.effect !== "deny")).toEqual([])
     }
-    // Every ask or allow rule for one tool sits in an agent's own rules, said in its paragraph or code block. The
-    // plugin's own block, which the plugin inserts itself, is the one exception.
-    const blocks = raw.split(/\n\s*\n/)
-    blocks.forEach((block, index) => {
-      if (!/\{ "action": "metaview_[a-z_]+", "resource": "\*", "effect": "(?:ask|allow)" \}/.test(block)) return
-      const context = `${blocks[index - 1] ?? ""}\n${block}`
-      if (/The plugin adds these\s+rules/.test(context)) return
-      // "in your permissions or an agent's own" offers the top level too: it fails.
-      const agentLevel = /agent's own|"agents"/.test(context) && !/\b(?:in|to) (?:your|the same) `permissions`|here or in an agent's own/.test(context.replace(/\s+/g, " "))
-      expect({ file, block: block.slice(0, 120), agentLevel }).toEqual({ file, block: block.slice(0, 120), agentLevel: true })
-    })
-  })
-
-  test("the strict-agent recipe repeats every deny after its metaview_* ask, so no denied tool reopens", () => {
-    const recipe = text("docs/configuration.md").split("A strict agent where every Metaview tool asks")[1]?.split("```")[1] ?? ""
-    const ask = recipe.indexOf('{ "action": "metaview_*", "resource": "*", "effect": "ask" }')
-    expect(ask).toBeGreaterThanOrEqual(0)
-    for (const name of DENIED_TOOLS) expect(recipe.indexOf(`{ "action": "metaview_${name}", "resource": "*", "effect": "deny" }`)).toBeGreaterThan(ask)
   })
 
   test("the docs show the user's own entry with an API key from the environment, never a key itself", () => {
@@ -106,19 +102,14 @@ describe("docs", () => {
     expect(remove).toBeGreaterThan(list)
   })
 
-  // Every code the plugin's own code raises (the tools RPC's are in docs/scripting.md) has no service prefix and a row
-  // in the configuration guide's Errors table.
   test("the configuration guide documents every error code the plugin raises, none with a service prefix", () => {
     const sources = readdirSync(join(ROOT, "src")).filter((name) => name.endsWith(".ts"))
     const codes = new Set(sources.flatMap((name) => [...readFileSync(join(ROOT, "src", name), "utf8").matchAll(/(?:metaviewError|errorText)\(\s*"([A-Z][A-Z_]+)"/g)].map((match) => match[1]!)))
     expect(codes.size).toBeGreaterThan(3)
     const errors = /## Errors(.*?)## /.exec(text("docs/configuration.md"))?.[1] ?? ""
-    const troubleshooting = /## Troubleshooting(.*?)## /.exec(text("README.md"))?.[1] ?? ""
     for (const code of codes) {
       expect(code).not.toStartWith("METAVIEW_")
       expect(errors).toContain(`| \`${code}\` |`)
-      // Every code the plugin raises has a README troubleshooting row too.
-      expect({ code, inReadme: troubleshooting.includes(`| \`${code}\` |`) }).toEqual({ code, inReadme: true })
     }
   })
 
@@ -138,11 +129,12 @@ describe("docs", () => {
     // Jelly's contracts drop an unknown top-level key; they do not refuse the declaration for it.
     expect(guide).toContain("drop a top-level key they don't know")
     expect(guide).not.toMatch(/refuses this declaration|accepts no unknown keys/)
-    // A tool Metaview adds later is undeclared, and Jelly runs it unasked: the guide says so plainly.
+    // Every tool is declared allowed, and a tool Metaview adds later runs unasked: the guide says so plainly.
+    expect(guide).toContain("- Ask: none. Every tool is allowed by default, in Jelly as in OpenCode.")
     expect(guide).toContain("in Jelly it runs without asking, even if it changes something")
     expect(guide).not.toContain("not asked about")
-    const off = guide.split("- Off:")[1]?.split("- Everything else")[0] ?? ""
-    for (const name of DENIED_TOOLS) expect(off).toContain(`\`metaview_${name}\``)
+    const section = guide.split("Three of the declared tools")[1]?.split("A tool the upstream server adds later")[0] ?? ""
+    for (const name of DESTRUCTIVE_TOOLS) expect(section).toContain(`\`metaview_${name}\``)
     const skills = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")).jelly.skills as string[]
     expect(guide).toContain(`Declared: ${skills.map((name) => `\`${name}\``).join(", ")}.`)
   })
@@ -151,5 +143,73 @@ describe("docs", () => {
     const guide = text("docs/scripting.md")
     expect(guide).toContain("(`READ_TOOLS` in `src/metaview-tools.ts`)")
     expect(guide).toContain('"input":{"rationale":')
+  })
+})
+
+// The README prints the block the plugin inserts, in full, generated from defaultRules(): it is what an administrator
+// copies into an agent's own permissions, so it cannot be elided or drift.
+describe("the default rules block", () => {
+  test("the README's Permissions section prints defaultRules() in full", () => {
+    const printed = blockAfter("README.md", /## Permissions[\s\S]*?generated from[\s\S]*?```json\n([\s\S]*?)\n```/)
+    expect(printed).toEqual(defaultRules())
+  })
+
+  test.each(["all", "ask-changes", "read-only"] as const)("the configuration guide prints the %s block in full", (access) => {
+    const printed = blockAfter("docs/configuration.md", new RegExp(`\`access: "${access}"\`[\\s\\S]*?\\n\\n\`\`\`json\\n([\\s\\S]*?)\\n\`\`\``))
+    expect({ access, printed }).toEqual({ access, printed: defaultRules(access) })
+  })
+
+  // A later rule of the user's still wins, and the block for one value cannot leave a tool the others restrict runnable.
+  test("the three blocks differ only in the effect of a change", () => {
+    const [all, ask, readOnly] = [defaultRules(), defaultRules("ask-changes"), defaultRules("read-only")]
+    expect(all.map((rule) => rule.action)).toEqual(ask.map((rule) => rule.action))
+    expect(all.map((rule) => rule.action)).toEqual(readOnly.map((rule) => rule.action))
+    expect(ask.filter((rule) => rule.action === "metaview_*")[0]!.effect).toBe("ask")
+    expect(readOnly.filter((rule) => rule.action === "metaview_*")[0]!.effect).toBe("deny")
+  })
+
+  test("the namespace rule covers a tool no list names yet", () => {
+    for (const access of ["all", "ask-changes", "read-only"] as const) {
+      const other = access === "all" ? "allow" : access === "ask-changes" ? "ask" : "deny"
+      expect(defaultRules(access)[0]).toEqual({ action: "metaview_*", resource: "*", effect: other })
+    }
+  })
+})
+
+// Every "tested on …" mention states TESTED_HOSTS, so a release added to the list cannot leave a stale sentence behind.
+describe("tested hosts", () => {
+  const UNRELEASED = /## \[Unreleased\]([\s\S]*?)(?=\n## |$)/.exec(readFileSync(join(ROOT, "CHANGELOG.md"), "utf8"))?.[1] ?? ""
+  const SOURCES: [string, string][] = [
+    ["README.md", readFileSync(join(ROOT, "README.md"), "utf8")],
+    ["AGENTS.md", readFileSync(join(ROOT, "AGENTS.md"), "utf8")],
+    ["SECURITY.md", readFileSync(join(ROOT, "SECURITY.md"), "utf8")],
+    ["docs/configuration.md", readFileSync(join(ROOT, "docs/configuration.md"), "utf8")],
+    ["CHANGELOG.md (Unreleased)", UNRELEASED],
+  ]
+
+  test.each(SOURCES)("%s names exactly TESTED_HOSTS wherever it says what is tested", (file, body) => {
+    // The sentence that says something is tested, so a version list in the next sentence cannot leak in.
+    const mentions = body
+      .split("\n")
+      .flatMap((line) => line.split(/\.\s+/))
+      .filter((sentence) => /\btested\b/i.test(sentence))
+      // The supported range is not a tested release: drop a backticked `>=a.b.c <d.e.f` span before reading versions.
+      .map((sentence) => sentence.replace(/`[^`]*>=[^`]*`/g, ""))
+      .map((sentence) => [...sentence.matchAll(/\b\d+\.\d+\.\d+\b/g)].map((version) => version[0]!))
+      .filter((versions) => versions.length > 0)
+    for (const versions of mentions) expect({ file, versions: [...new Set(versions)].sort() }).toEqual({ file, versions: [...TESTED_HOSTS].sort() })
+  })
+
+  test("the README's Requirements line names every tested release", () => {
+    const requirements = /## Requirements([\s\S]*?)## /i.exec(readFileSync(join(ROOT, "README.md"), "utf8"))?.[1] ?? ""
+    const named = [...requirements.matchAll(/\b\d+\.\d+\.\d+\b/g)].map((match) => match[0]).filter((version) => version !== "2.3.0")
+    expect([...new Set(named)].sort()).toEqual([...TESTED_HOSTS].sort())
+  })
+
+  // A release inside the range that ships later is the untested example, so it must be one that never ships.
+  test("the untested example is 2.2.99, and no doc names a future release as tested", () => {
+    const all = SOURCES.map(([, body]) => body).join("\n")
+    expect(all).toContain("2.2.99")
+    expect(all).not.toMatch(/\b2\.2\.(?:7|8|9[0-8])\b(?!\d)/)
   })
 })

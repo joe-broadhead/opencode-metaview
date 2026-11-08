@@ -3,6 +3,7 @@ import type { Account } from "./account.js"
 import { PLUGIN_ID, SERVER_NAME, TESTED_HOSTS } from "./constants.js"
 import { isSupportedHost, type HostCheck } from "./host-version.js"
 import { classify } from "./metaview-tools.js"
+import type { Access } from "./options.js"
 import { defaultRules, unguardedAgents, type Rule } from "./permissions.js"
 import { shortReason } from "./redact.js"
 import { VERSION } from "./version.js"
@@ -31,6 +32,8 @@ export interface StatusFacts {
   readonly server?: { readonly status: "connected" | "pending" | "disabled" | "failed" | "needs_auth"; readonly error?: string }
   readonly source?: ServerSource
   readonly account?: Account
+  /** What the default rules allow: the `access` option, `all` when the plugin options were not read. */
+  readonly access?: Access
   readonly host: HostCheck
   /** The names of the tools the `metaview` server serves, without the `metaview_` prefix. */
   readonly tools?: readonly string[]
@@ -62,10 +65,10 @@ export interface Status {
   readonly role: "admin" | "member" | null
   /** A free plan may limit transcripts, summaries and AI fields; `credits` unlocks conversations on shared credits. */
   readonly plan: "paid" | "free" | "credits" | null
-  /** How many Metaview tools OpenCode lists and the default rules let run or ask: the listed ones that are not denied. */
+  /** What the default rules allow: `all`, `ask-changes` or `read-only`. */
+  readonly access: Access
+  /** How many Metaview tools OpenCode lists: every one the default rules let run or ask. */
   readonly tools: number
-  /** The listed tools that the default rules deny, such as submit_feedback; a later rule of the user's can turn one on. */
-  readonly deniedTools: readonly string[]
   /** True while a server that just connected may still be listing its tools. */
   readonly listing: boolean
   /** How many of them the plugin does not know. */
@@ -85,9 +88,10 @@ export interface Status {
 const SIGN_IN = `Run /connect and choose Metaview, then press o or Enter to open the link (in a terminal, opencode mcp auth ${SERVER_NAME} opens it automatically).`
 
 /** The default rules to paste into an agent's own permissions, one rule a line, as a JSON array body. */
-const AGENT_RULES = defaultRules()
-  .map((rule, index, rules) => `  ${JSON.stringify(rule)}${index < rules.length - 1 ? "," : ""}`)
-  .join("\n")
+const agentRulesText = (access: Access) =>
+  defaultRules(access)
+    .map((rule, index, rules) => `  ${JSON.stringify(rule)}${index < rules.length - 1 ? "," : ""}`)
+    .join("\n")
 
 /** The next step while agents lack the rules: the family's one fixed sentence. */
 const AGENTS_NEXT_STEP =
@@ -112,9 +116,9 @@ const STATE_OF = { connected: "connected", pending: "connecting", needs_auth: "s
 
 export function buildStatus(facts: StatusFacts): Status {
   const state: State = facts.source?.type === "conflict" ? "conflict" : facts.server ? STATE_OF[facts.server.status] : "not_configured"
+  const access = facts.access ?? "all"
   const listed = facts.tools ?? []
   const unknown = listed.filter((tool) => classify(tool) === "unknown")
-  const denied = listed.filter((tool) => classify(tool) === "denied")
   // OpenCode's text for a needed sign-in can hold an authorization URL, so only a failure's reason is kept.
   const error = facts.server?.status === "failed" && facts.server.error ? shortReason(facts.server.error) : undefined
   const shadowed = shadowedOf(facts)
@@ -126,12 +130,12 @@ export function buildStatus(facts: StatusFacts): Status {
     workspace: facts.account?.workspace ?? null,
     role: facts.account?.role ?? null,
     plan: facts.account?.plan ?? null,
-    tools: listed.length - denied.length,
-    deniedTools: denied,
+    access,
+    tools: listed.length,
     listing: state === "connected" && listed.length === 0 && facts.settling === true,
     unknownCount: unknown.length,
     unknownTools: unknown.filter((name) => SAFE_NAME.test(name)).slice(0, LISTED_UNKNOWN),
-    unguardedAgents: unguardedAgents(facts.agents ?? []),
+    unguardedAgents: unguardedAgents(facts.agents ?? [], access),
     ...(shadowed.length ? { shadowedSkills: shadowed } : {}),
     host: facts.host,
     problems: facts.problems ?? [],
@@ -162,7 +166,7 @@ function nextStepOf(status: Omit<Status, "nextStep">): string {
       return "Check your network, then run /metaview-status again."
   }
   if (status.listing) return "Metaview is still listing its tools. Run /metaview-status again in a few seconds."
-  if (status.tools === 0 && status.deniedTools.length === 0) {
+  if (status.tools === 0) {
     return 'Metaview lists no tools for this account. Ask a Metaview workspace admin to turn on "MCP integration", and "MCP for non-admins" if you are a member, in Workspace settings.'
   }
   if (status.unguardedAgents.length) return AGENTS_NEXT_STEP
@@ -203,25 +207,33 @@ function serverText(source: ServerSource) {
   return `your mcp.servers.${SERVER_NAME} points at ${source.url}`
 }
 
-function toolsText({ tools, unknownCount, unknownTools, deniedTools, listing }: Status) {
+function toolsText(status: Status) {
+  const { tools, unknownCount, unknownTools, listing } = status
   if (listing) return "none listed yet (Metaview is still listing them)"
-  const off = deniedTools.length ? `; off by default: ${list(deniedTools)}` : ""
-  if (unknownCount === 0) return `${tools} available, 0 unknown${off}`
+  if (unknownCount === 0) return `${tools} available, 0 unknown`
   const more = unknownCount - unknownTools.length
   const names = unknownTools.length ? `: ${unknownTools.join(", ")}${more > 0 ? ` and ${more} more` : ""}` : ""
-  return `${tools} available, ${unknownCount} unknown${names} (unknown tools ask before running)${off}`
+  return `${tools} available, ${unknownCount} unknown${names} (${unknownPosture(status)})`
 }
 
-const list = (names: readonly string[]) => (names.length < 2 ? names.join("") : `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`)
+/** What a tool the plugin does not know does, which follows the `access` option. */
+const unknownPosture = ({ access }: Status) =>
+  access === "all" ? "new tools run too" : access === "read-only" ? "new tools are denied" : "unknown tools ask before running"
 
-/** The role, if read, and whether the default rules are in place: facts status can check, not a fixed claim. */
-function accessText({ role, problems, unguardedAgents }: Status) {
+/** The permission posture for the `access` value, then the role, if read, and whether the default rules are in place. */
+function accessText({ role, problems, unguardedAgents, access }: Status) {
+  const posture =
+    access === "all"
+      ? "every tool runs without asking, reads and new tools included"
+      : access === "read-only"
+        ? "reads run without asking; every other tool is denied"
+        : "reads run without asking; changes and new tools ask first"
   const rules = problems.some((problem) => problem.startsWith(RULES_NOT_ADDED))
     ? "default rules not added (see the OpenCode row)"
     : unguardedAgents.length
       ? "default rules missing in the agents listed below"
       : "no agent runs new Metaview tools unasked"
-  return `${role ? ROLE_TEXT[role] : `role ${NOT_READ}`}; ${rules}`
+  return `${posture}; ${role ? ROLE_TEXT[role] : `role ${NOT_READ}`}; ${rules}`
 }
 
 /** The OpenCode row: the version, whether it is tested, the supported range, then any setup problems. */
@@ -245,7 +257,7 @@ export function formatStatus(status: Status) {
     `- Access: ${accessText(status)}`,
     `- Plan: ${status.plan ? PLAN_TEXT[status.plan] : NOT_READ}`,
     `- Tools: ${toolsText(status)}`,
-    `- Agents without default rules: ${agents.length ? `${agents.join(", ")}\n${AGENT_RULES}` : "none"}`,
+    `- Agents without default rules: ${agents.length ? `${agents.join(", ")}\n${agentRulesText(status.access)}` : "none"}`,
     `- OpenCode: ${hostText(status)}`,
     `- Next step: ${status.nextStep}`,
   ].join("\n")
@@ -272,7 +284,7 @@ const LISTING_MS = 15_000
 /** Reads the live facts through public host APIs. Optional lookups that fail leave their field empty. */
 export async function readStatus(
   ctx: StatusContext,
-  facts: Pick<StatusFacts, "source" | "host" | "problems"> & { readonly skills?: readonly SkillPath[]; readonly account?: AccountState },
+  facts: Pick<StatusFacts, "source" | "host" | "problems" | "access"> & { readonly skills?: readonly SkillPath[]; readonly account?: AccountState },
 ) {
   const [servers, agents, tools, listed] = await Promise.all([
     ctx.mcp.list(),
@@ -325,7 +337,7 @@ export const StatusRpc = {
       input: { type: "object" },
       output: {
         type: "object",
-        required: ["version", "state", "workspace", "role", "plan", "tools", "deniedTools", "listing", "unknownCount", "unknownTools", "unguardedAgents", "host", "problems", "nextStep"],
+        required: ["version", "state", "workspace", "role", "plan", "access", "tools", "listing", "unknownCount", "unknownTools", "unguardedAgents", "host", "problems", "nextStep"],
         properties: {
           version: { type: "string" },
           state: { enum: ["connected", "sign_in_required", "connecting", "disabled", "failed", "not_configured", "conflict"] },
@@ -338,8 +350,8 @@ export const StatusRpc = {
           workspace: nullableString,
           role: { enum: ["admin", "member", null] },
           plan: { enum: ["paid", "free", "credits", null] },
+          access: { enum: ["all", "ask-changes", "read-only"] },
           tools: count,
-          deniedTools: strings,
           listing: { type: "boolean" },
           unknownCount: count,
           unknownTools: strings,

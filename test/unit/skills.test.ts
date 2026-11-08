@@ -3,11 +3,11 @@
 import { describe, expect, test } from "bun:test"
 import { readdirSync, readFileSync } from "node:fs"
 import { join } from "node:path"
-import { DENIED_TOOLS, PARAMETERS, READ_TOOLS, WRITE_TOOLS } from "../../src/metaview-tools.js"
+import { DESTRUCTIVE_TOOLS, PARAMETERS, READ_TOOLS, WRITE_TOOLS } from "../../src/metaview-tools.js"
 import { parseSkill, SKILL_NAMES, SKILLS_DIR } from "../../src/skills.js"
 
 const NAMES = [...SKILL_NAMES]
-const KNOWN = [...READ_TOOLS, ...WRITE_TOOLS, ...DENIED_TOOLS]
+const KNOWN = [...READ_TOOLS, ...WRITE_TOOLS, ...DESTRUCTIVE_TOOLS]
 const MAX_LINES = 100
 // Parameter names that look like tool names.
 const PARAMETER_NAMES = ["group_by"]
@@ -175,11 +175,10 @@ describe("skills", () => {
     expect(text).toMatch(/no shortened, partial or variant terms, and no retry on `default:contact`/)
   })
 
-  test("no text says outreach is off while two asking writes still act on candidates", () => {
+  test("no text says outreach is off, and the two changes that reach people automatically are named", () => {
     const write = read("metaview-write").replace(/\s+/g, " ")
     expect(write).toContain("`update_screen_outreach` with `reject_at_deadline: true` rejects candidates automatically at their deadline")
     expect(write).toContain("`manage_sequence` with `set_enabled: true` restarts outreach to everyone enrolled. Before either call, say whom it reaches")
-    expect(write).toContain("Two changes that only ask still act on candidates")
     for (const text of [...NAMES.map(read), readFileSync(new URL("../../SECURITY.md", import.meta.url), "utf8")]) {
       expect(text.replace(/\s+/g, " ")).not.toMatch(/(?:rejecting candidates|candidate outreach|decisions and outreach|decisions, candidate outreach)(?: and [^.]*)? are (?:off|denied)/)
     }
@@ -195,7 +194,7 @@ describe("skills", () => {
     }
   })
 
-  test("metaview-write says whom each kind of change reaches before asking, and that submit_feedback is off", () => {
+  test("metaview-write says whom each kind of change reaches before asking, and how to make a report ask", () => {
     const text = read("metaview-write")
     for (const words of ["whom it reaches", "**Candidates:**", "**The ATS:**", "**The whole workspace:**", "**Credits:**", "**Anyone with the link:**"]) expect(text).toContain(words)
     expect(text).toContain('{ "action": "metaview_submit_feedback", "resource": "*", "effect": "ask" }')
@@ -205,7 +204,7 @@ describe("skills", () => {
   test("metaview-write says what a write does and whom it reaches, then makes the call: the permission prompt is the yes", () => {
     const text = read("metaview-write").replace(/\s+/g, " ")
     expect(text).toMatch(/Before each write call, write one sentence in your reply on what the call does and \*\*whom it reaches\*\* \(a job post edit: every workspace member who can see the post\), then make the call in the same turn/)
-    expect(text).toMatch(/That sentence is chat text, not a question: the permission prompt shows only the tool input and is the user's yes/)
+    expect(text).toMatch(/That sentence is chat text, not a question: the prompt shows only the tool input and is the user's yes/)
     expect(text).toMatch(/Ask in chat first only when something must be chosen/)
     expect(text).toMatch(/Declined: say nothing changed, and offer your drafted text or a retry, never a workaround/)
     expect(text).not.toMatch(/wait for a yes|get a yes|only after a yes/)
@@ -218,16 +217,15 @@ describe("skills", () => {
     expect(text).toMatch(/`run_job_post_checks\(\{ job_post_id, check_ids, rationale \}\)` records new results on the post/)
   })
 
-  test("metaview-write names every denied tool as off, gives the ask rule that turns it on, and never works around it", () => {
-    const text = read("metaview-write")
-    const off = text.split("## Off by default")[1]?.split("\n## ")[0] ?? ""
-    for (const name of DENIED_TOOLS) expect(off).toContain(`\`${name}\``)
-    expect(off).toContain('{ "action": "metaview_manage_candidate_sequence", "resource": "*", "effect": "ask" }')
-    expect(off).toMatch(/Never\s+work around the deny/)
-    // The manual route, and no catalog probe for a tool the deny hides.
-    expect(off).toMatch(/make the decision themselves in\s+Metaview's web app/)
-    expect(off).toMatch(/Don't `search\(\)` for these tools/)
-    expect(off).not.toMatch(/"effect": "allow"/)
+  test("metaview-write names every destructive tool, says they run unasked, gives the rule that makes one ask, and never works around it", () => {
+    const section = read("metaview-write").split("## Destructive changes")[1]?.split("\n## ")[0]?.replace(/\s+/g, " ") ?? ""
+    for (const name of DESTRUCTIVE_TOOLS) expect(section).toContain(`\`${name}\``)
+    expect(section).toContain("The plugin's default rules allow them, like every other tool, so no prompt appears")
+    expect(section).toContain('{ "action": "metaview_manage_candidate_sequence", "resource": "*", "effect": "ask" }')
+    expect(section).toContain("Never work around a rule that asks, denies or hides a tool")
+    // The manual route, and no catalog probe for a tool that is not there.
+    expect(section).toContain("decide in Metaview's web app")
+    expect(section).toContain("Don't `search()` for a tool that is not there")
   })
 
   test.each(NAMES)("%s links only to plain files an agent can read, never to a GitHub page", (name) => {

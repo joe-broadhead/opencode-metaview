@@ -88,11 +88,13 @@ runs offline, in its own temporary home, on its own port with a password. The st
 are registered, that `/connect` lists the server as "Metaview", and that the status RPC answers. It then points a
 copy of the installed plugin at a local fake of Metaview and calls the tools RPC as a script would.
 
-To use `opencode` binaries you already have, set `OPENCODE_BIN_2_2_3`, `OPENCODE_BIN_2_2_4` and `OPENCODE_BIN_2_2_5`:
+To use `opencode` binaries you already have, set `OPENCODE_BIN_2_2_3`, `OPENCODE_BIN_2_2_4`, `OPENCODE_BIN_2_2_5` and
+`OPENCODE_BIN_2_2_6`:
 
 ```sh
 OPENCODE_BIN_2_2_3=/path/to/opencode-2.2.3 OPENCODE_BIN_2_2_4=/path/to/opencode-2.2.4 \
-  OPENCODE_BIN_2_2_5=/path/to/opencode-2.2.5 node scripts/check.mjs pack
+  OPENCODE_BIN_2_2_5=/path/to/opencode-2.2.5 OPENCODE_BIN_2_2_6=/path/to/opencode-2.2.6 \
+  node scripts/check.mjs pack
 ```
 
 Otherwise the stage installs `@opencode/cli` with the binary for your platform (macOS or Linux, arm64 or x64), a few
@@ -102,10 +104,11 @@ CI (`.github/workflows/ci.yml`) runs `npm ci --ignore-scripts` and `npm run chec
 
 ## Metaview's tools
 
-`src/metaview-tools.ts` is the one record of the Metaview tools the plugin knows: `READ_TOOLS` run without a prompt and
-are the tools RPC's methods, `WRITE_TOOLS` ask, `DENIED_TOOLS` are off, and `PARAMETERS` holds each tool's input
-parameters. The default rules, the tools RPC, status's unknown and denied tools, the fake server in the host and pack
-tests, and the checks of `jelly.tools`, the docs and the skills all derive from it. Metaview can add, rename or remove
+`src/metaview-tools.ts` is the one record of the Metaview tools the plugin knows: `READ_TOOLS`, `WRITE_TOOLS` and
+`DESTRUCTIVE_TOOLS` are the tools RPC's methods, and `PARAMETERS` holds each tool's input parameters. Every one is
+allowed by default, and `access` decides whether the changes run, ask or are denied. The default rules, the tools RPC,
+status's unknown tools, the fake server in the host and pack tests, and the checks of `jelly.tools`, the docs and the
+skills all derive from it. Metaview can add, rename or remove
 tools at any time, and lists only the tools for the products an account has, so a known tool missing from one
 account's list is not drift.
 
@@ -153,7 +156,8 @@ newly saved list (the same fields, and a `source` line with no local path) when 
 3. Add a tool to `READ_TOOLS` only if it never changes anything and sends nothing beyond its query, because reads run
    without a prompt and each one is also a method of the tools RPC for scripts. Add tools that change anything to
    `WRITE_TOOLS`. A tool that sends data to Metaview unasked, or acts on candidates in a way that can't be undone, goes
-   to `DENIED_TOOLS`. Leave a tool out if you are not sure: it then asks before every call, and scripts cannot call it.
+   to `DESTRUCTIVE_TOOLS`. A tool left out is unknown: it is not a method, and `access` decides whether what
+   OpenCode lists runs, asks or is denied.
 4. Update `PARAMETERS` from the schemas, `jelly.tools` in `package.json`, and any skill example that names a changed
    tool or parameter. Run `npm run check`: the Jelly test fails if `jelly.tools` differs from the lists, the skills
    test if a skill's call names a tool or parameter that `PARAMETERS` doesn't have or leaves out `rationale`, and the

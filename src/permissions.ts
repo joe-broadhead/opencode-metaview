@@ -1,7 +1,8 @@
 import type { Plugin } from "@opencode/plugin"
 import { errorText, SERVER_NAME } from "./constants.js"
 import { reasonOf } from "./redact.js"
-import { DENIED_TOOLS, READ_TOOLS } from "./metaview-tools.js"
+import type { Access } from "./options.js"
+import { DESTRUCTIVE_TOOLS, READ_TOOLS, WRITE_TOOLS } from "./metaview-tools.js"
 
 export interface Rule {
   readonly action: string
@@ -14,10 +15,18 @@ const actionOf = (tool: string) => `${SERVER_NAME}_${tool}`
 const rule = (tool: string, effect: Rule["effect"]): Rule => ({ action: actionOf(tool), resource: "*", effect })
 
 /**
- * Broad first, narrow last, because the last matching rule wins: every Metaview tool asks, including tools Metaview
- * adds later, then the known reads run, and the tool that sends feedback to Metaview is off.
+ * Broad first, narrow last, because the last matching rule wins. Every tool the plugin registers is allowed at `access:
+ * "all"`, and so is one Metaview adds later; `ask-changes` asks for anything that is not a read, and `read-only` denies
+ * it. The reads are always allowed, which is why the first rule alone decides a tool the plugin does not know yet.
  */
-export const defaultRules = (): Rule[] => [rule("*", "ask"), ...READ_TOOLS.map((tool) => rule(tool, "allow")), ...DENIED_TOOLS.map((tool) => rule(tool, "deny"))]
+export const defaultRules = (access: Access = "all"): Rule[] => {
+  const other: Rule["effect"] = access === "all" ? "allow" : access === "ask-changes" ? "ask" : "deny"
+  return [
+    rule("*", other),
+    ...READ_TOOLS.map((tool) => rule(tool, "allow")),
+    ...[...WRITE_TOOLS, ...DESTRUCTIVE_TOOLS].map((tool) => rule(tool, other)),
+  ]
+}
 
 const same = (a: Rule, b: Rule) => a.action === b.action && a.resource === b.resource && a.effect === b.effect
 const BASE_ALLOW: Rule = { action: "*", resource: "*", effect: "allow" }
@@ -27,23 +36,23 @@ const BASE_ALLOW: Rule = { action: "*", resource: "*", effect: "allow" }
  * the plugin or pasted by the user. Other plugins insert their blocks at the same place, so the block need not come
  * first. False without a base allow.
  */
-export function hasDefaultRules(permissions: readonly Rule[]) {
+export function hasDefaultRules(permissions: readonly Rule[], access: Access = "all") {
   const base = permissions.findIndex((item) => same(item, BASE_ALLOW))
   if (base === -1) return false
-  const rules = defaultRules()
+  const rules = defaultRules(access)
   return permissions.some((_, start) => start > base && rules.every((item, offset) => permissions[start + offset] !== undefined && same(permissions[start + offset]!, item)))
 }
 
 /**
  * Splices `rules` in right after the agent's base `* * allow`, by index. Everything later still wins: the agent's
  * own stricter rules (Plan, Explore), the user's `permissions`, and saved approvals. Agents without a base allow,
- * or that already carry the rules, are left alone: there the block's ask would loosen a default deny. Returns whether
- * it inserted.
+ * or that already carry `rules`, are left alone. Returns whether it inserted.
  */
 export function insertRules(permissions: Rule[], rules: readonly Rule[]) {
-  if (hasDefaultRules(permissions)) return false
   const base = permissions.findIndex((item) => same(item, BASE_ALLOW))
   if (base === -1) return false
+  const present = permissions.some((_, start) => start > base && rules.every((item, offset) => permissions[start + offset] !== undefined && same(permissions[start + offset]!, item)))
+  if (present) return false
   permissions.splice(base + 1, 0, ...rules.map((item) => ({ ...item })))
   return true
 }
@@ -73,11 +82,11 @@ export function evaluate(permissions: readonly Rule[], action: string): Rule["ef
 }
 
 /**
- * Agents where a new Metaview tool would run without asking: a base allow, no default rules after it, and nothing
- * else in the agent's own rules that asks or denies for it. An agent whose rules already stop every Metaview tool
- * needs no fix, and one without a base allow gets no rules.
+ * Agents where a new Metaview tool would run without asking: a base allow, no block for this `access` after it, and
+ * nothing else in the agent's own rules that asks or denies for it. An agent whose rules already stop every Metaview
+ * tool needs no fix, and one without a base allow gets no rules.
  */
-export const unguardedAgents = (agents: readonly { readonly id: string; readonly permissions: readonly Rule[] }[]) =>
+export const unguardedAgents = (agents: readonly { readonly id: string; readonly permissions: readonly Rule[] }[], access: Access = "all") =>
   agents
-    .filter((agent) => agent.permissions.some((item) => same(item, BASE_ALLOW)) && !hasDefaultRules(agent.permissions) && evaluate(agent.permissions, actionOf("new_tool")) === "allow")
+    .filter((agent) => agent.permissions.some((item) => same(item, BASE_ALLOW)) && !hasDefaultRules(agent.permissions, access) && evaluate(agent.permissions, actionOf("new_tool")) === "allow")
     .map((agent) => agent.id)
