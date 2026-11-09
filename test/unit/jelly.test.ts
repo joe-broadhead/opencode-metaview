@@ -58,7 +58,7 @@ describe("the jelly declaration", () => {
     expect(jelly.signIns).toEqual([{ id: SERVER_NAME, label: DISPLAY_NAME, server: SERVER_NAME }])
     expect(jelly.rpc).toEqual([])
     expect(jelly.views).toEqual([])
-    expect(jelly.contributes).toEqual({ homeFeeds: [], homeWidgets: [], workKinds: [], settings: [{ key: "access", label: "Access", type: "string", description: expect.any(String) }] })
+    expect(jelly.contributes).toEqual({ homeFeeds: [], homeWidgets: [], workKinds: [], settings: [{ key: "access", label: "Access", type: "string", default: parseOptions({}).access, description: expect.any(String) }] })
     expect(parseOptions({ access: "read-only" }).access).toBe("read-only")
   })
 })
