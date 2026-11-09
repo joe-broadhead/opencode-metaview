@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import { DISPLAY_NAME, SERVER_NAME } from "../../src/constants.js"
+import { parseOptions } from "../../src/options.js"
 import { DESTRUCTIVE_TOOLS, READ_TOOLS, WRITE_TOOLS } from "../../src/metaview-tools.js"
 import { defaultRules, evaluate, type Rule } from "../../src/permissions.js"
 import { SKILL_NAMES } from "../../src/skills.js"
@@ -57,7 +58,8 @@ describe("the jelly declaration", () => {
     expect(jelly.signIns).toEqual([{ id: SERVER_NAME, label: DISPLAY_NAME, server: SERVER_NAME }])
     expect(jelly.rpc).toEqual([])
     expect(jelly.views).toEqual([])
-    expect(jelly.contributes).toEqual({ homeFeeds: [], homeWidgets: [], workKinds: [], settings: [] })
+    expect(jelly.contributes).toEqual({ homeFeeds: [], homeWidgets: [], workKinds: [], settings: [{ key: "access", label: "Access", type: "string", description: expect.any(String) }] })
+    expect(parseOptions({ access: "read-only" }).access).toBe("read-only")
   })
 })
 
