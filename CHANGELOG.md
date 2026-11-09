@@ -14,6 +14,8 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Changed
 
+- Each Metaview skill's first line says how to sign in when the tools are absent: `/connect`, or on Jelly `jelly_connection_request`.
+
 - **Every Metaview tool is allowed by default.** The plugin's generated block allows every known tool and the
   `metaview_*` namespace, so a tool Metaview adds later runs without a prompt too. That includes the three Metaview
   marks destructive: application review decisions, candidate outreach and feedback to the Metaview team. Restrict them

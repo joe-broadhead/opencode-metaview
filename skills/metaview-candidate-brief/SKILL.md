@@ -3,6 +3,8 @@ name: metaview-candidate-brief
 description: Prep me for my interview with a candidate, brief me before a round, build a debrief or evidence pack, compare candidates or finalists for a role, check a scorecard against the transcript, or draft my interview feedback or scorecard, from Metaview. Builds a sourced brief and leaves every hiring decision to the user. Load with metaview before the first Metaview tool call. Not for non-hiring meetings or calls (granola-meeting-brief).
 ---
 
+If Metaview's tools are absent, run `/connect` and choose Metaview, or on Jelly call jelly_connection_request.
+
 # Candidate brief
 
 Uses the `metaview` skill's steps to find people and conversations; this skill decides what to read and how to write it

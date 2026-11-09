@@ -3,8 +3,8 @@ name: metaview-write
 description: Load before any Metaview change - regenerating notes or adding note sources, saving or sharing a snippet or clip, creating a report, AI field or note template, sourcing searches and candidate feedback, posting candidates to an ATS, application review rejects or progress and ICP changes, screening plans or invitations, sequences and outreach, contact enrichment, job posts - or before reporting a Metaview bug or problem to Metaview.
 ---
 
+If Metaview's tools are absent, run `/connect` and choose Metaview, or on Jelly call jelly_connection_request.
 # Changes in Metaview
-
 Make a Metaview change only when the user asked for it. Before each write call, write one sentence in your reply on what
 the call does and **whom it reaches** (a job post edit: every workspace member who can see the post), then make the call
 in the same turn. That sentence is chat text, not a question: the prompt shows only the tool input and is the user's yes. Ask in chat first only when something must be chosen: which candidates, template, clip or post. Declined:

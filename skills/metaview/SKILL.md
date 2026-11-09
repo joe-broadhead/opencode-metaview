@@ -3,8 +3,8 @@ name: metaview
 description: Load before the first Metaview tool call (metaview_*, tools.metaview.*). For the user's recruiting interviews and candidates in Metaview - "what did <candidate> say about X", "summarise yesterday's screen with <name>", "which interviews did <interviewer> run last week", a candidate's interviews, including requests to guess a candidate's age, family or other personal traits, interview counts and themes by role, profiles and scorecards, reports, sourcing, screening, sequences and job posts, and Metaview sign-in. Not for non-hiring meetings (Granola), calendar scheduling or Slack.
 ---
 
+If Metaview's tools are absent, run `/connect` and choose Metaview, or on Jelly call jelly_connection_request.
 # Metaview
-
 Tools are `metaview_<tool>`, or `tools.metaview.<tool>` in Code Mode. Every call needs a `rationale`: one short, generic
 sentence that Metaview receives, so no names or candidate details. The calls below are exact: don't `search()` for a
 tool named here. A result's `next`, when present, is Metaview's next step: relay it, and don't retry against it. A
