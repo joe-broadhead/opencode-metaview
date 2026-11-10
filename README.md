@@ -26,17 +26,19 @@ opencode plugin add github:joe-broadhead/opencode-metaview#v0.0.0
 Run `opencode reload`, or restart OpenCode. Then run `/metaview-status`: it shows `sign-in required` until you sign in
 (see [Sign in](#sign-in)).
 
-A Git install is removed and updated by its installed spec: `opencode plugin remove github:joe-broadhead/opencode-metaview#v0.0.0`. `opencode plugin update` and `opencode plugin check` take the same spec.
-
 The install takes the GitHub release tag. Its commit carries the built `dist/`, so the install runs no build.
-A new release is a new tag: install it with its own `#v<version>` spec.
 
 The plugin registers Metaview's MCP server under the name `metaview`, adds default permission rules, the
 `/metaview-status` command, the `/metaview` status view and three skills. Every tool is Metaview's, and OpenCode handles
 the connection, the sign-in and the stored credentials.
 
-**Update** with `opencode plugin update github:joe-broadhead/opencode-metaview#v0.0.0`, then run `opencode reload`. An entry
-pinned to a tag does not update on its own: install the new release's tag, as above.
+Each release has its own tag, and a Git install does not update by itself. To move to a newer release, remove the old entry with `opencode plugin remove github:joe-broadhead/opencode-metaview#v0.0.0`, then add the new tag with `opencode plugin add github:joe-broadhead/opencode-metaview#v<version>`.
+
+Or add the plugin to `opencode.json` instead, with the same spec:
+
+```json
+{ "plugins": [{ "package": "github:joe-broadhead/opencode-metaview#v0.0.0" }] }
+```
 
 ## Sign in
 
@@ -343,6 +345,7 @@ credential store.
 - **Role and plan limits.** What you can read follows your Metaview role, and reports, AI fields and full transcripts may need a paid plan. The plugin does not change either.
 - **No retries.** The plugin does not retry a failed call. The error names the next step.
 - **Hosts and platforms.** The plugin is tested on 2.2.3, 2.2.4, 2.2.5 and 2.2.6, and runs on macOS or Linux. A later 2.2 release starts and is reported as untested.
+- Updates are not automatic for a Git install, and `opencode plugin update` and `opencode plugin check` do not work on one: to move to a newer release, remove the old entry and add the new tag.
 
 ## Links
 
