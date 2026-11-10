@@ -32,13 +32,15 @@ The plugin registers Metaview's MCP server under the name `metaview`, adds defau
 `/metaview-status` command, the `/metaview` status view and three skills. Every tool is Metaview's, and OpenCode handles
 the connection, the sign-in and the stored credentials.
 
-Each release has its own tag, and a Git install does not update by itself. To move to a newer release, remove the old entry with `opencode plugin remove github:joe-broadhead/opencode-metaview#v0.0.0`, then add the new tag with `opencode plugin add github:joe-broadhead/opencode-metaview#v<version>`.
-
 Or add the plugin to `opencode.json` instead, with the same spec:
 
 ```json
 { "plugins": [{ "package": "github:joe-broadhead/opencode-metaview#v0.0.0" }] }
 ```
+
+### Update
+
+Each release has its own tag, and a Git install does not update by itself. To move to a newer release, remove the old entry with `opencode plugin remove github:joe-broadhead/opencode-metaview#v0.0.0`, then add the new tag with `opencode plugin add github:joe-broadhead/opencode-metaview#v<version>`.
 
 ## Sign in
 
