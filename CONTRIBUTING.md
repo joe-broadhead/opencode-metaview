@@ -186,8 +186,9 @@ check (`SUPPORTED_HOST` in `src/constants.ts`). Both must change together, with 
 ### Releasing
 
 1. Update `version` in `package.json` and add the `CHANGELOG.md` entry, then run `npm run check`.
-2. Push the release commit to `master` and tag it `v<version>`. The release workflow refuses a
-   private package or a tag that differs from `version`.
+2. Push the release commit to `master`, then create a signed, annotated tag `v<version>` on it
+   (`git tag -s -a v<version> -m "v<version>"`) and push the tag. The release workflow refuses a private package or a
+   tag that differs from `version`.
 3. Approve the run in the GitHub environment `release`.
 
 CI then runs `npm run check`, packs the tree, runs the pack test against that exact tarball
