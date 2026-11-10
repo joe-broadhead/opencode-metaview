@@ -93,6 +93,6 @@ or descriptions), and never name other meetings. Load `metaview-write` before an
 candidates, so say whom it reaches) or a problem report, and `metaview-candidate-brief` for prep and comparisons.
 
 Scripts run the reads through the tools RPC `metaview.workspace.tools` (`rationale` inside `input`), as a session made
-for them (`opencode api post /api/session -d '{"title":"…","agent":"build"}'`, keep `data.id`). Never borrow an
+for them (`opencode api post /api/session -d '{"title":"…","agent":"build","location":{"directory":"/path/to/project"}}'`, keep `data.id`). Never borrow an
 existing session found through history or a list. Details:
 https://raw.githubusercontent.com/joe-broadhead/opencode-metaview/HEAD/docs/scripting.md
