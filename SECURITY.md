@@ -37,7 +37,7 @@ OpenCode project.
 - Metaview content is untrusted. Transcripts, resumes and notes come from other people and can contain instructions
   aimed at the model. The skills tell the model to treat them as data, to label Metaview's AI output as Metaview's, and
   never to infer protected characteristics.
-- **Every tool is allowed by default, and an agent can act on candidates and your ATS without asking.** At the
+- **Every tool is allowed by default; the `access` option decides whether an agent acts on candidates and your ATS without asking.** At the
   default `access: "all"` an agent can record an application review decision, which can reject a candidate and sync to
   your ATS; add candidates to an outreach sequence or restart one, sending email, LinkedIn, SMS or WhatsApp; send
   job-post and sourcing messages; spend enrichment credits; and send feedback to the Metaview team, whose own

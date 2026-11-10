@@ -84,7 +84,7 @@ Three skills teach the model to use Metaview well:
 
 A script or a cron job can call every tool this plugin knows with no model, through `opencode api`. It runs as a
 session and its agent, under that agent's permission rules and the session's own. The rule is resolved first, and a
-script gets the same default as the model: every tool is allowed, so restrict a script with `"access"` or with a rule
+script gets the same default as the model: every tool is allowed by default, and `access` decides what it runs; restrict a script with `"access"` or with a rule
 in the session's agent or the session. An `ask` is refused, because no one can answer it, and so is a `deny`. A saved
 "Always allow" does not authorize an ad-hoc script:
 
@@ -101,7 +101,7 @@ See [Scripting](https://github.com/joe-broadhead/opencode-metaview/blob/HEAD/doc
 
 ## Permissions
 
-**Every tool is allowed by default.** An agent can act on candidates and your ATS without asking: it can record an
+**Every tool is allowed by default.** The `access` option decides whether each tool runs, asks or is denied. At its default, `"all"`, an agent can act on candidates and your ATS without asking: it can record an
 application review decision, which can reject a candidate and sync to your ATS; add candidates to an outreach sequence
 or restart one, sending email, LinkedIn, SMS or WhatsApp; send job-post and sourcing messages; spend enrichment
 credits; and send feedback to the Metaview team. Every read runs without asking too, such as `search_conversations` and
@@ -295,7 +295,7 @@ Run `/metaview-status` first. Its last line is the next step.
 | Connection: conflict | Your config has an `mcp.servers.metaview` entry with a URL other than `https://mcp.metaview.ai/mcp`. Point it at `https://mcp.metaview.ai/mcp` or remove it, then restart OpenCode. |
 | Tools: none listed yet | Metaview connected moments ago and is still listing its tools. Run `/metaview-status` again, or press `r` in the dialog, in a few seconds. |
 | Tools: 0 available | Metaview lists no tools for your account. Ask a workspace admin to turn on **MCP integration**, and **MCP for non-admins** if you are a member. |
-| Access: every tool is allowed | The plugin's default rules let every tool run, candidates and your ATS included. Set the `access` option, or add a rule, as in [Permissions](#permissions). |
+| Access: every tool runs without asking | At `access: "all"`, the plugin's default rules let every tool run, candidates and your ATS included. Set the `access` option, or add a rule, as in [Permissions](#permissions). |
 | Access: default rules missing or not added | Some agents lack the default rules (see the agents row), or OpenCode could not add them (see the OpenCode row). Follow the next step. |
 | Tools: unknown | Metaview added tools the plugin does not know yet. The default block's `metaview_*` rule decides them: they run at the default `access`, ask at `"ask-changes"` and are denied at `"read-only"`. A known tool missing from the count is normal: Metaview lists only the tools for the products you have. |
 | Plan: free | Transcripts, summaries and AI fields may be limited; the model passes on Metaview's upgrade text. |
