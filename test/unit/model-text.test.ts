@@ -39,7 +39,7 @@ describe("the model-facing text at access all", () => {
   })
 
   test("says the changes reach people, and that they run by default", () => {
-    expect(NAMESPACE_DESCRIPTION).toContain("Changes are allowed by default")
+    expect(NAMESPACE_DESCRIPTION).toContain("By default every tool is allowed; the `access` option decides")
     expect(NAMESPACE_DESCRIPTION).toContain("rejects candidates")
   })
 })
