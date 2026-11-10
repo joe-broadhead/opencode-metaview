@@ -23,10 +23,20 @@ Unofficial; not affiliated with Metaview.
 opencode plugin add github:joe-broadhead/opencode-metaview#v0.0.0
 ```
 
-Run `opencode reload`, or restart OpenCode, then run `/metaview-status`.
+Run `opencode reload`, or restart OpenCode. Then run `/metaview-status`: it shows `sign-in required` until you sign in
+(see [Sign in](#sign-in)).
+
+A Git install is removed and updated by its installed spec: `opencode plugin remove github:joe-broadhead/opencode-metaview#v0.0.0`. `opencode plugin update` and `opencode plugin check` take the same spec.
 
 The install takes the GitHub release tag. Its commit carries the built `dist/`, so the install runs no build.
 A new release is a new tag: install it with its own `#v<version>` spec.
+
+The plugin registers Metaview's MCP server under the name `metaview`, adds default permission rules, the
+`/metaview-status` command, the `/metaview` status view and three skills. Every tool is Metaview's, and OpenCode handles
+the connection, the sign-in and the stored credentials.
+
+**Update** with `opencode plugin update github:joe-broadhead/opencode-metaview#v0.0.0`, then run `opencode reload`. An entry
+pinned to a tag does not update on its own: install the new release's tag, as above.
 
 ## Sign in
 
