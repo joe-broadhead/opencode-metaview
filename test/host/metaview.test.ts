@@ -705,3 +705,53 @@ describe("the /connect entry", () => {
     expect((await entry())?.name).toBe("Metaview")
   })
 })
+
+describe(`a change inside Code Mode on OpenCode ${HOST_VERSION}`, () => {
+  // MV-02: the ask and deny classes inside Code Mode's execute, where the model calls Metaview. Nothing may reach Metaview.
+  const codeModeConfig = (url: string) => ({
+    mcp: { servers: { metaview: { type: "remote", url, oauth: false } } },
+    providers: { lmstudio: { settings: { baseURL: `${new URL(url).origin}/v1` } }, ollama: { settings: { baseURL: "" } }, vllm: { settings: { baseURL: "" } } },
+  })
+  const sessionsOf = (host: Host) =>
+    host.client.sessions as unknown as { create: (input: object) => Promise<{ id: string }>; prompt: (input: object) => Promise<unknown> }
+  const modelListed = async (host: Host) => {
+    const models = host.client as unknown as { model: { list: (input: object) => Promise<{ data: { id: string; providerID: string }[] }> } }
+    await until("the scripted model is listed", async () => (await models.model.list({ location: host.location })).data.find((model) => model.providerID === "lmstudio" && model.id === MODEL_ID))
+  }
+  const toolResultSent = (host: Host) => async () =>
+    host.fake.model.requests.some((request) => (request as { messages?: { role: string }[] }).messages?.some((message) => message.role === "tool"))
+
+  test("at ask-changes an unattended create_snippet inside execute asks; a decline sends nothing to Metaview", async () => {
+    const host = await startHost({ options: { access: "ask-changes" }, config: codeModeConfig })
+    try {
+      await modelListed(host)
+      await metaviewTools(host)
+      host.fake.model.script = [{ tool: "execute", arguments: { code: 'return await tools.metaview.create_snippet({ rationale: "host test", title: "Pad", body: "x" })' } }]
+      const sessionID = (await sessionsOf(host).create({ agent: "build", location: host.location, model: { providerID: "lmstudio", id: MODEL_ID } })).id
+      const turn = sessionsOf(host).prompt({ sessionID, text: "Save a snippet." }).catch(() => undefined)
+      const asked = await until("the change asks", async () => (await host.client.permission.list({ sessionID })).find((item) => item.action === "metaview_create_snippet"))
+      await host.client.permission.reply({ sessionID, requestID: asked.id, decision: "reject" })
+      await until("the model's final turn", toolResultSent(host))
+      await turn
+      expect(host.fake.calls).not.toContain("create_snippet")
+    } finally {
+      await host.close()
+    }
+  })
+
+  test("at read-only a destructive call inside execute is denied without a prompt, and nothing is sent", async () => {
+    const host = await startHost({ options: { access: "read-only" }, config: codeModeConfig })
+    try {
+      await modelListed(host)
+      await metaviewTools(host)
+      host.fake.model.script = [{ tool: "execute", arguments: { code: 'return await tools.metaview.give_application_review_candidate_feedback({ rationale: "host test" })' } }]
+      const sessionID = (await sessionsOf(host).create({ agent: "build", location: host.location, model: { providerID: "lmstudio", id: MODEL_ID } })).id
+      await sessionsOf(host).prompt({ sessionID, text: "Send the feedback." })
+      await until("the model's final turn", toolResultSent(host))
+      expect(host.fake.calls).not.toContain("give_application_review_candidate_feedback")
+      expect(await host.client.permission.list({ sessionID })).toEqual([])
+    } finally {
+      await host.close()
+    }
+  })
+})
