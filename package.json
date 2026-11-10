@@ -1,6 +1,6 @@
 {
   "name": "@joe-broadhead/opencode-metaview",
-  "version": "0.0.2",
+  "version": "0.0.0",
   "description": "Unofficial OpenCode plugin for Metaview: find, read and cite your recruiting interviews, notes and candidates through Metaview's official MCP server",
   "keywords": [
     "opencode",

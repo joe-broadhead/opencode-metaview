@@ -20,18 +20,13 @@ Unofficial; not affiliated with Metaview.
 ## Install
 
 ```sh
-opencode plugin add @joe-broadhead/opencode-metaview
+opencode plugin add github:joe-broadhead/opencode-metaview#v0.0.0
 ```
 
-Run `opencode reload`, or restart OpenCode. Then run `/metaview-status`: it shows `sign-in required` until you sign in
-(see [Sign in](#sign-in)).
+Run `opencode reload`, or restart OpenCode, then run `/metaview-status`.
 
-The plugin registers Metaview's MCP server under the name `metaview`, adds default permission rules, the
-`/metaview-status` command, the `/metaview` status view and three skills. Every tool is Metaview's, and OpenCode handles
-the connection, the sign-in and the stored credentials.
-
-**Update** with `opencode plugin update @joe-broadhead/opencode-metaview`, then run `opencode reload`. An entry pinned
-to a version does not update: remove the `@version` from its `plugins` entry first.
+The install takes the GitHub release tag. Its commit carries the built `dist/`, so the install runs no build.
+A new release is a new tag: install it with its own `#v<version>` spec.
 
 ## Sign in
 
@@ -116,7 +111,7 @@ credits; and send feedback to the Metaview team. Every read runs without asking 
    | `"read-only"` | the read tools | nothing: everything else is **denied** |
 
    ```json
-   { "plugins": [{ "package": "@joe-broadhead/opencode-metaview", "options": { "access": "read-only" } }] }
+   { "plugins": [{ "package": "github:joe-broadhead/opencode-metaview#v0.0.0", "options": { "access": "read-only" } }] }
    ```
 
 2. **An agent that asks, or reads only**, with rules of its own, later than the plugin's. Put them in the agent: a
@@ -242,7 +237,7 @@ Set options with the object form of the plugin entry:
 
 ```json
 {
-  "plugins": [{ "package": "@joe-broadhead/opencode-metaview", "options": { "allowUntestedHost": true } }]
+  "plugins": [{ "package": "github:joe-broadhead/opencode-metaview#v0.0.0", "options": { "allowUntestedHost": true } }]
 }
 ```
 
@@ -264,7 +259,7 @@ candidates to the ATS, and spending enrichment credits:
 
 ```json
 {
-  "plugins": ["@joe-broadhead/opencode-metaview"],
+  "plugins": ["github:joe-broadhead/opencode-metaview#v0.0.0"],
   "permissions": [
     { "action": "metaview_post_sourcing_candidates_to_ats", "resource": "*", "effect": "deny" },
     { "action": "metaview_enrich_candidate_contacts", "resource": "*", "effect": "deny" }
@@ -326,7 +321,7 @@ credential store.
 1. Sign out: `opencode mcp logout metaview`. Right after OpenCode starts or reloads, it can answer
    `MCP server not found: metaview` for a few seconds; wait, then run it again.
 2. Check: `opencode auth list` no longer lists **Metaview**.
-3. Remove the plugin: `opencode plugin remove @joe-broadhead/opencode-metaview`, then `opencode reload`.
+3. Remove the plugin: `opencode plugin remove github:joe-broadhead/opencode-metaview#v0.0.0`, then `opencode reload`.
    `opencode mcp list` no longer lists `metaview`.
 4. Remove any Metaview rules you copied into your agents' own `permissions`. If you used an API key, delete it in
    Metaview: Settings, MCP.

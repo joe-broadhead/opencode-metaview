@@ -48,7 +48,8 @@ describe("docs", () => {
   })
 
   test("the README names no version of the plugin, not even in an example", () => {
-    expect(text("README.md")).not.toMatch(/opencode-metaview@\d|\b0\.\d+\.\d+\b|\bv\d+\.\d+\.\d+\b/)
+    // The install and uninstall specs name the release tag (D19), and nothing else may name a version.
+    expect(text("README.md").replaceAll("opencode-metaview#v0.0.0", "")).not.toMatch(/opencode-metaview@\d|\b0\.\d+\.\d+\b|\bv\d+\.\d+\.\d+\b/)
   })
 
   // A person reads the README first, so it says plainly what an all-allow default means here and the one-line way out.
@@ -96,7 +97,7 @@ describe("docs", () => {
     const uninstall = /## Uninstall(.*?)## Links/.exec(text("README.md"))?.[1] ?? ""
     const logout = uninstall.indexOf("opencode mcp logout metaview")
     const list = uninstall.indexOf("opencode auth list")
-    const remove = uninstall.indexOf("opencode plugin remove @joe-broadhead/opencode-metaview")
+    const remove = uninstall.indexOf("opencode plugin remove github:joe-broadhead/opencode-metaview#v0.0.0")
     expect(logout).toBeGreaterThanOrEqual(0)
     expect(list).toBeGreaterThan(logout)
     expect(remove).toBeGreaterThan(list)
