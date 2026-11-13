@@ -347,6 +347,8 @@ credential store.
 - **Role and plan limits.** What you can read follows your Metaview role, and reports, AI fields and full transcripts may need a paid plan. The plugin does not change either.
 - **No retries.** The plugin does not retry a failed call. The error names the next step.
 - **Hosts and platforms.** The plugin is tested on 2.2.3, 2.2.4, 2.2.5 and 2.2.6, and runs on macOS or Linux. A later 2.2 release starts and is reported as untested.
+- **Jelly's settings need a recent Jelly.** The `jelly` settings declare their choices, which a Jelly without app#1301
+  does not read: it refuses the plugin's declaration.
 - Updates are not automatic for a Git install, and `opencode plugin update` and `opencode plugin check` do not work on one: to move to a newer release, remove the old entry and add the new tag.
 
 ## Links

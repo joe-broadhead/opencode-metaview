@@ -1,10 +1,11 @@
 import { describe, expect, test } from "bun:test"
 import { DISPLAY_NAME, SERVER_NAME } from "../../src/constants.js"
-import { parseOptions } from "../../src/options.js"
+import { ACCESS_VALUES, parseOptions } from "../../src/options.js"
 import { DESTRUCTIVE_TOOLS, READ_TOOLS, WRITE_TOOLS } from "../../src/metaview-tools.js"
 import { defaultRules, evaluate, type Rule } from "../../src/permissions.js"
 import { SKILL_NAMES } from "../../src/skills.js"
 import { type Declaration, type DeclaredTool, declarationProblems, docProblems, readPackage } from "../support/jelly-kit.js"
+import { ACCESS_CHOICES, type PluginSetting, settingChoices, settingsProblems, settingValueIssue } from "../support/jelly-settings.js"
 
 /**
  * The `jelly` section of package.json, which Jelly reads without loading the plugin. Jelly's agents have no base allow
@@ -58,7 +59,7 @@ describe("the jelly declaration", () => {
     expect(jelly.signIns).toEqual([{ id: SERVER_NAME, label: DISPLAY_NAME, server: SERVER_NAME }])
     expect(jelly.rpc).toEqual([])
     expect(jelly.views).toEqual([])
-    expect(jelly.contributes).toEqual({ homeFeeds: [], homeWidgets: [], workKinds: [], settings: [{ key: "access", label: "Access", type: "string", default: parseOptions({}).access, description: expect.any(String) }] })
+    expect(jelly.contributes).toEqual({ homeFeeds: [], homeWidgets: [], workKinds: [], settings: [{ key: "access", label: "Access", type: "string", default: parseOptions({}).access, choices: [...ACCESS_CHOICES], description: expect.any(String) }] })
     expect(parseOptions({ access: "read-only" }).access).toBe("read-only")
   })
 })
@@ -66,5 +67,32 @@ describe("the jelly declaration", () => {
 describe("docs/jelly.md", () => {
   test("follows the plugin authors' standard", () => {
     expect(docProblems(ROOT)).toEqual([])
+  })
+})
+
+describe("the jelly settings declare their choices", () => {
+  const settings = (pkg.jelly as unknown as { contributes: { settings: PluginSetting[] } }).contributes.settings
+  const access = settings.find((setting) => setting.key === "access")!
+  const accepts = (options: Record<string, unknown>) => {
+    try {
+      parseOptions(options)
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  test("Jelly's setting schema reads them", () => {
+    expect(settingsProblems(settings)).toEqual([])
+  })
+
+  test("access offers Jelly's three choices, word for word, and the options parser takes exactly those", () => {
+    expect(access.choices).toEqual([...ACCESS_CHOICES])
+    expect(settingChoices(access)?.map((choice) => choice.value)).toEqual([...ACCESS_VALUES])
+    for (const { value } of ACCESS_CHOICES) expect(accepts({ access: value })).toBe(true)
+    for (const value of ["read", "write", "none", "ALL"]) {
+      expect(settingValueIssue(access, value)).not.toBeNull()
+      expect(accepts({ access: value })).toBe(false)
+    }
   })
 })
