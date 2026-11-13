@@ -4,7 +4,7 @@ Every option is optional. The smallest setup is one entry in `plugins`:
 
 ```json
 {
-  "plugins": ["github:joe-broadhead/opencode-metaview#v0.0.0"]
+  "plugins": ["github:joe-broadhead/opencode-metaview#v0.0.1"]
 }
 ```
 
@@ -12,7 +12,7 @@ To set options, use the object form:
 
 ```json
 {
-  "plugins": [{ "package": "github:joe-broadhead/opencode-metaview#v0.0.0", "options": { "allowUntestedHost": true } }]
+  "plugins": [{ "package": "github:joe-broadhead/opencode-metaview#v0.0.1", "options": { "allowUntestedHost": true } }]
 }
 ```
 
@@ -28,7 +28,7 @@ adds later included; `"ask-changes"` lets the reads run and asks for everything 
 and denies everything else. Each value's block is printed in full under [Permissions](#permissions).
 
 ```json
-{ "plugins": [{ "package": "github:joe-broadhead/opencode-metaview#v0.0.0", "options": { "access": "read-only" } }] }
+{ "plugins": [{ "package": "github:joe-broadhead/opencode-metaview#v0.0.1", "options": { "access": "read-only" } }] }
 ```
 
 A rule of your own still wins over the block, whichever value you set.
@@ -560,7 +560,7 @@ Every error from the plugin reads `CODE: What happened. Next step: What to do.`
 For example:
 
 ```text
-OPTIONS_INVALID: Unknown option "apiKey". Accepted options: "allowUntestedHost", "access". Next step: Fix the plugin options in opencode.json, for example "plugins": [{ "package": "github:joe-broadhead/opencode-metaview#v0.0.0", "options": { "allowUntestedHost": true } }].
+OPTIONS_INVALID: Unknown option "apiKey". Accepted options: "allowUntestedHost", "access". Next step: Fix the plugin options in opencode.json, for example "plugins": [{ "package": "github:joe-broadhead/opencode-metaview#v0.0.1", "options": { "allowUntestedHost": true } }].
 ```
 
 Errors from Metaview's server and from OpenCode pass through unchanged, except in the tools RPC for scripts, whose codes
