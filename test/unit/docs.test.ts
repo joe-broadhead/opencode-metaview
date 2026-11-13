@@ -30,6 +30,11 @@ function blockAfter(file: string, pattern: RegExp): unknown {
   return JSON.parse(body)
 }
 
+/** The release the install specs name: package.json's version. */
+const VERSION = (JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")) as { version: string }).version
+/** The README's upgrade example removes an earlier release's entry; it must name one before VERSION. */
+const UPGRADE_FROM = /remove the old entry with `opencode plugin remove github:joe-broadhead\/opencode-metaview#v(\d+)\.(\d+)\.(\d+)`/
+
 describe("docs", () => {
   test.each(FILES)("%s states no count of read, write or declared tools that could go stale", (file) => {
     const counts = [...text(file).matchAll(/\b\d+ (?:known )?(?:read|write)(?:s\b| tools\b| read-only)|\b\d+ tools are declared/g)].map((match) => match[0])
@@ -49,7 +54,7 @@ describe("docs", () => {
 
   test("the README names no version of the plugin, not even in an example", () => {
     // The install and uninstall specs name the release tag (D19), and nothing else may name a version.
-    expect(text("README.md").replaceAll("opencode-metaview#v0.0.0", "")).not.toMatch(/opencode-metaview@\d|\b0\.\d+\.\d+\b|\bv\d+\.\d+\.\d+\b/)
+    expect(text("README.md").replaceAll(`opencode-metaview#v${VERSION}`, "").replace(UPGRADE_FROM, "")).not.toMatch(/opencode-metaview@\d|\b0\.\d+\.\d+\b|\bv\d+\.\d+\.\d+\b/)
   })
 
   // A person reads the README first, so it says plainly what an all-allow default means here and the one-line way out.
@@ -97,7 +102,7 @@ describe("docs", () => {
     const uninstall = /## Uninstall(.*?)## Links/.exec(text("README.md"))?.[1] ?? ""
     const logout = uninstall.indexOf("opencode mcp logout metaview")
     const list = uninstall.indexOf("opencode auth list")
-    const remove = uninstall.indexOf("opencode plugin remove github:joe-broadhead/opencode-metaview#v0.0.0")
+    const remove = uninstall.indexOf(`opencode plugin remove github:joe-broadhead/opencode-metaview#v${VERSION}`)
     expect(logout).toBeGreaterThanOrEqual(0)
     expect(list).toBeGreaterThan(logout)
     expect(remove).toBeGreaterThan(list)
@@ -212,5 +217,16 @@ describe("tested hosts", () => {
     const all = SOURCES.map(([, body]) => body).join("\n")
     expect(all).toContain("2.2.99")
     expect(all).not.toMatch(/\b2\.2\.(?:7|8|9[0-8])\b(?!\d)/)
+  })
+})
+
+describe("the upgrade example", () => {
+  test("removes an earlier release than the one the install specs name", () => {
+    const match = UPGRADE_FROM.exec(text("README.md"))
+    expect(match).not.toBeNull()
+    const earlier = match!.slice(1, 4).map(Number)
+    const current = VERSION.split(".").map(Number)
+    const order = earlier.map((part, index) => part - current[index]!).find((difference) => difference !== 0) ?? 0
+    expect(order).toBeLessThan(0)
   })
 })
