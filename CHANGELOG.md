@@ -2,6 +2,14 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- `test/fixtures/live-tools.json`, Metaview's tool list for a signed-in user, captured live on 14 November 2026, and a
+  test that fails when the declaration and that list disagree. The declaration already matches it: 68 tools, each
+  `readOnly` as Metaview's `readOnlyHint` says, each `allow`.
+
 ## [0.0.1] - 2026-11-13
 
 ### Added
