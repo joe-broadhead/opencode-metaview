@@ -2,13 +2,20 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.0.2] - 2026-11-14
 
 ### Added
 
 - `test/fixtures/live-tools.json`, Metaview's tool list for a signed-in user, captured live on 14 November 2026, and a
   test that fails when the declaration and that list disagree. The declaration already matches it: 68 tools, each
   `readOnly` as Metaview's `readOnlyHint` says, each `allow`.
+
+### Changed
+
+- `package.json` is `"private": true`, so nothing can be published to npm; an install from the release tag is
+  unaffected. It is kept in its canonical form, which the kit tests check in `npm run check`.
+- The release kit's plan, build and release scripts check the package's `"private": true` and canonical form, and a
+  `build` script is added to `package.json`.
 
 ## [0.0.1] - 2026-11-13
 
