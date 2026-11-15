@@ -12,6 +12,10 @@ or outside reference. The mark is Metaview's own symbol. Jelly's declaration
 contracts drop a top-level key they don't know, and refuse an unknown key inside a tool, sign-in or
 `contributes` entry, so the section uses only the keys Jelly reads.
 
+`jelly.admin` is the step Jelly shows on the plugin's review before it installs, after "Before anyone signs in, your
+admin needs to": "turn on MCP integration in Metaview's Workspace settings, and MCP for non-admins so members can sign
+in too". It grants and blocks nothing; the README's Organisation rollout gives the steps.
+
 ## Tools and permissions
 
 68 tools are declared (43 read-only): every tool in `src/metaview-tools.ts`, 43 reads, 22 writes and 3 destructive

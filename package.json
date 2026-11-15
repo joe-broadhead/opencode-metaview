@@ -94,6 +94,7 @@
     "title": "Metaview",
     "summary": "Your Metaview recruiting interviews, notes and candidates.",
     "icon": "assets/icon.svg",
+    "admin": "turn on MCP integration in Metaview's Workspace settings, and MCP for non-admins so members can sign in too",
     "tools": [
       {
         "name": "metaview.fetch_candidates",
