@@ -2,12 +2,6 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
-
-### Changed
-
-- The icon is now Metaview's own mark, Metaview's six-tile symbol in white on a black circle, as in Metaview's own app icon, in place of the family's drawn mark; `opencode.vendor.mark` is `true`, and the README says Metaview is a trademark of Metaview Labs Inc.
-
 ## [0.0.3] - 2026-11-15
 
 ### Changed
@@ -18,6 +12,7 @@ All notable changes to this project are documented here. The format follows [Kee
 - Apart from the status fix below, OpenCode 2.3 needs nothing else from this plugin. It does not call the `subagent` tool or read
   `session.tool.failed`; Metaview's tools are Metaview's MCP tools, which OpenCode runs and stops itself when the person presses Stop; and it has no use
   for the new `session.fork` hook.
+- The icon is now Metaview's own mark, Metaview's six-tile symbol in white on a black circle, as in Metaview's own app icon, in place of the family's drawn mark; `opencode.vendor.mark` is `true`, and the README says Metaview is a trademark of Metaview Labs Inc.
 
 ### Fixed
 
