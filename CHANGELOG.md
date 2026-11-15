@@ -6,7 +6,7 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Changed
 
-- The icon is now Metaview's own mark, Metaview's six-tile symbol in white on a black circle, as in Metaview's own app icon, in place of the family's drawn mark; `opencode.vendor.mark` is `true`, and the README says Metaview is a trademark of Metaview Labs Inc..
+- The icon is now Metaview's own mark, Metaview's six-tile symbol in white on a black circle, as in Metaview's own app icon, in place of the family's drawn mark; `opencode.vendor.mark` is `true`, and the README says Metaview is a trademark of Metaview Labs Inc.
 
 ## [0.0.3] - 2026-11-15
 
