@@ -1,6 +1,6 @@
 {
   "name": "@joe-broadhead/opencode-metaview",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "private": true,
   "description": "Unofficial OpenCode plugin for Metaview: find, read and cite your recruiting interviews, notes and candidates through Metaview's official MCP server",
   "keywords": [
@@ -94,6 +94,7 @@
     "title": "Metaview",
     "summary": "Your Metaview recruiting interviews, notes and candidates.",
     "icon": "assets/icon.svg",
+    "admin": "turn on MCP integration in Metaview's Workspace settings, and MCP for non-admins so members can sign in too",
     "tools": [
       {
         "name": "metaview.fetch_candidates",
