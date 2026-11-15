@@ -63,7 +63,8 @@
     "vendor": {
       "id": "metaview",
       "name": "Metaview",
-      "domain": "metaview.ai"
+      "domain": "metaview.ai",
+      "mark": true
     }
   },
   "scripts": {
