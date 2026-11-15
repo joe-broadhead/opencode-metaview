@@ -102,7 +102,7 @@ export function createMetaviewPlugin(seam: MetaviewSeam) {
       await registerDefaultRules(ctx.agent, defaultRules(options.access), report("rules"))
       const account = await watchAccount(ctx, () => source?.type === "adopted" && source.signIn === "own", owned)
       const own = skills.map((skill) => ({ id: skill.id, path: skill.path }))
-      const read = () => readStatus(ctx, { access: options.access, ...(source ? { source } : {}), host, problems: [...problems.values()], skills: own, account })
+      const read = () => readStatus(ctx, () => ({ access: options.access, ...(source ? { source } : {}), host, problems: [...problems.values()], skills: own, account }))
       await registerSkills(ctx.skill, skills)
       await registerStatusCommand(ctx, read)
       await registerStatusRpc(ctx.rpc, read)
