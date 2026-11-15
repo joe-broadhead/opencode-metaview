@@ -7,7 +7,7 @@ Unofficial; not affiliated with Metaview.
 
 ## Requirements
 
-- OpenCode `>=2.2.3 <2.3.0`, tested on 2.2.3, 2.2.4, 2.2.5 and 2.2.6. Outside that range the plugin does not start, unless
+- OpenCode `>=2.2.3 <2.4.0`, tested on 2.2.3, 2.2.4, 2.2.5, 2.2.6, 2.2.7 and 2.3.0. Outside that range the plugin does not start, unless
   you set `allowUntestedHost`.
 - macOS or Linux.
 - A Metaview account in a workspace where an admin has turned on **MCP integration**. Members also need **MCP for
@@ -258,7 +258,7 @@ Set options with the object form of the plugin entry:
 | Option | Values | Default | Effect |
 | --- | --- | --- | --- |
 | `access` | `"all"`, `"ask-changes"` or `"read-only"` | `"all"` | What the default rules allow: every tool, the reads only with everything else asking, or the reads only with everything else denied. See [Permissions](#permissions). |
-| `allowUntestedHost` | `true` or `false` | `false` | Starts on an OpenCode version outside `>=2.2.3 <2.3.0`, with a warning in status. |
+| `allowUntestedHost` | `true` or `false` | `false` | Starts on an OpenCode version outside `>=2.2.3 <2.4.0`, with a warning in status. |
 
 [docs/configuration.md](https://github.com/joe-broadhead/opencode-metaview/blob/HEAD/docs/configuration.md) has the
 details, including your own `mcp.servers.metaview` entry (also with a Metaview API key), permission recipes and every
@@ -311,13 +311,13 @@ Run `/metaview-status` first. Its last line is the next step.
 | Plan: shared credits | Conversations unlock on your workspace's shared platform credits rather than your own plan. |
 | Answers miss rounds a colleague ran | As a member you see your own conversations and those shared with you. Ask the colleague to share them, or ask an admin. |
 | Agents without default rules | Put the default rules shown by `/metaview-status` first in each listed agent's own permissions, in `opencode.json` or the agent's Markdown file, followed by your top-level rules for Metaview tools. |
-| OpenCode: untested | OpenCode is not 2.2.3, 2.2.4, 2.2.5 or 2.2.6. Inside `>=2.2.3 <2.3.0` the plugin runs normally; outside it, it runs only because `allowUntestedHost` is set. If Metaview misbehaves, use a tested release. |
+| OpenCode: untested | OpenCode is not 2.2.3, 2.2.4, 2.2.5, 2.2.6, 2.2.7 or 2.3.0. Inside `>=2.2.3 <2.4.0` the plugin runs normally; outside it, it runs only because `allowUntestedHost` is set. If Metaview misbehaves, use a tested release. |
 | Signed in to the wrong Metaview account | Run `opencode mcp logout metaview` (or remove the account in `/connect` → Metaview), then sign in again. |
 | A Metaview tool is refused in `opencode run` | Nobody could answer its prompt, so an `access: "ask-changes"` or a rule of yours asked for it. Add an `allow` rule for that tool to the agent's own `permissions`, or set `access: "all"`. |
 | A skill seems ignored, and status names a skill to rename or move | A skill of yours with the same id, such as `metaview`, replaces the plugin's. Rename or move it. |
 | `/metaview` is missing | The plugin did not start. Run `/plugins` to see the error. |
 | `OPTIONS_INVALID` | An option is unknown or has a wrong value. The message names the option and the accepted values. |
-| `HOST_UNTESTED` | Your OpenCode is outside `>=2.2.3 <2.3.0`, so the plugin did not start. Use OpenCode `>=2.2.3 <2.3.0`, or set `"allowUntestedHost": true` to run anyway. |
+| `HOST_UNTESTED` | Your OpenCode is outside `>=2.2.3 <2.4.0`, so the plugin did not start. Use OpenCode `>=2.2.3 <2.4.0`, or set `"allowUntestedHost": true` to run anyway. |
 | `STATUS_UNAVAILABLE` | The status could not be read, or the plugin is not running. Follow the next step in the message. |
 | `SKILLS_INVALID` | A skill file in the package is missing or broken. Reinstall the plugin. |
 | `SERVER_NOT_REGISTERED` | The plugin could not register the `metaview` server. Restart OpenCode. |
@@ -346,7 +346,7 @@ credential store.
 - **Metaview's server decides the tools.** The plugin classifies the tools it knows. A tool Metaview adds later is not classed by the plugin: the `access` option decides whether it runs, asks or is denied, and `/metaview-status` counts it as unknown.
 - **Role and plan limits.** What you can read follows your Metaview role, and reports, AI fields and full transcripts may need a paid plan. The plugin does not change either.
 - **No retries.** The plugin does not retry a failed call. The error names the next step.
-- **Hosts and platforms.** The plugin is tested on 2.2.3, 2.2.4, 2.2.5 and 2.2.6, and runs on macOS or Linux. A later 2.2 release starts and is reported as untested.
+- **Hosts and platforms.** The plugin is tested on 2.2.3, 2.2.4, 2.2.5, 2.2.6, 2.2.7 and 2.3.0, and runs on macOS or Linux. A later 2.2 or 2.3 release starts and is reported as untested.
 - **Jelly's settings need a recent Jelly.** The `jelly` settings declare their choices, which a Jelly without app#1301
   does not read: it refuses the plugin's declaration.
 - Updates are not automatic for a Git install, and `opencode plugin update` and `opencode plugin check` do not work on one: to move to a newer release, remove the old entry and add the new tag.

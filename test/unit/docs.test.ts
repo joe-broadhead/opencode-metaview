@@ -208,7 +208,7 @@ describe("tested hosts", () => {
 
   test("the README's Requirements line names every tested release", () => {
     const requirements = /## Requirements([\s\S]*?)## /i.exec(readFileSync(join(ROOT, "README.md"), "utf8"))?.[1] ?? ""
-    const named = [...requirements.matchAll(/\b\d+\.\d+\.\d+\b/g)].map((match) => match[0]).filter((version) => version !== "2.3.0")
+    const named = [...requirements.matchAll(/\b\d+\.\d+\.\d+\b/g)].map((match) => match[0]).filter((version) => version !== "2.4.0")
     expect([...new Set(named)].sort()).toEqual([...TESTED_HOSTS].sort())
   })
 
@@ -216,7 +216,7 @@ describe("tested hosts", () => {
   test("the untested example is 2.2.99, and no doc names a future release as tested", () => {
     const all = SOURCES.map(([, body]) => body).join("\n")
     expect(all).toContain("2.2.99")
-    expect(all).not.toMatch(/\b2\.2\.(?:7|8|9[0-8])\b(?!\d)/)
+    expect(all).not.toMatch(/\b2\.(?:2\.(?:8|9[0-8])|3\.(?:[1-8]\d?|9[0-8]?))\b(?!\d)/)
   })
 })
 
