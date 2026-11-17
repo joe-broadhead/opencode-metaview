@@ -4,7 +4,7 @@ Every option is optional. The smallest setup is one entry in `plugins`:
 
 ```json
 {
-  "plugins": ["github:joe-broadhead/opencode-metaview#v0.0.4"]
+  "plugins": ["github:joe-broadhead/opencode-metaview#v0.0.5"]
 }
 ```
 
@@ -12,7 +12,7 @@ To set options, use the object form:
 
 ```json
 {
-  "plugins": [{ "package": "github:joe-broadhead/opencode-metaview#v0.0.4", "options": { "allowUntestedHost": true } }]
+  "plugins": [{ "package": "github:joe-broadhead/opencode-metaview#v0.0.5", "options": { "allowUntestedHost": true } }]
 }
 ```
 
@@ -28,7 +28,7 @@ adds later included; `"ask-changes"` lets the reads run and asks for everything 
 and denies everything else. Each value's block is printed in full under [Permissions](#permissions).
 
 ```json
-{ "plugins": [{ "package": "github:joe-broadhead/opencode-metaview#v0.0.4", "options": { "access": "read-only" } }] }
+{ "plugins": [{ "package": "github:joe-broadhead/opencode-metaview#v0.0.5", "options": { "access": "read-only" } }] }
 ```
 
 A rule of your own still wins over the block, whichever value you set.
@@ -168,6 +168,8 @@ resource `*`. The plugin adds the rules for the `access` option to every agent t
   { "action": "metaview_search_conversations", "resource": "*", "effect": "allow" },
   { "action": "metaview_search_reports", "resource": "*", "effect": "allow" },
   { "action": "metaview_search_snippets", "resource": "*", "effect": "allow" },
+  { "action": "metaview_events_list", "resource": "*", "effect": "allow" },
+  { "action": "metaview_probe", "resource": "*", "effect": "allow" },
   { "action": "metaview_create_ai_field", "resource": "*", "effect": "allow" },
   { "action": "metaview_create_job_post_check", "resource": "*", "effect": "allow" },
   { "action": "metaview_create_report", "resource": "*", "effect": "allow" },
@@ -244,6 +246,8 @@ resource `*`. The plugin adds the rules for the `access` option to every agent t
   { "action": "metaview_search_conversations", "resource": "*", "effect": "allow" },
   { "action": "metaview_search_reports", "resource": "*", "effect": "allow" },
   { "action": "metaview_search_snippets", "resource": "*", "effect": "allow" },
+  { "action": "metaview_events_list", "resource": "*", "effect": "allow" },
+  { "action": "metaview_probe", "resource": "*", "effect": "allow" },
   { "action": "metaview_create_ai_field", "resource": "*", "effect": "ask" },
   { "action": "metaview_create_job_post_check", "resource": "*", "effect": "ask" },
   { "action": "metaview_create_report", "resource": "*", "effect": "ask" },
@@ -320,6 +324,8 @@ resource `*`. The plugin adds the rules for the `access` option to every agent t
   { "action": "metaview_search_conversations", "resource": "*", "effect": "allow" },
   { "action": "metaview_search_reports", "resource": "*", "effect": "allow" },
   { "action": "metaview_search_snippets", "resource": "*", "effect": "allow" },
+  { "action": "metaview_events_list", "resource": "*", "effect": "allow" },
+  { "action": "metaview_probe", "resource": "*", "effect": "allow" },
   { "action": "metaview_create_ai_field", "resource": "*", "effect": "deny" },
   { "action": "metaview_create_job_post_check", "resource": "*", "effect": "deny" },
   { "action": "metaview_create_report", "resource": "*", "effect": "deny" },
@@ -509,6 +515,8 @@ own:
         { "action": "metaview_search_conversations", "resource": "*", "effect": "allow" },
         { "action": "metaview_search_reports", "resource": "*", "effect": "allow" },
         { "action": "metaview_search_snippets", "resource": "*", "effect": "allow" },
+        { "action": "metaview_events_list", "resource": "*", "effect": "allow" },
+        { "action": "metaview_probe", "resource": "*", "effect": "allow" },
         { "action": "metaview_create_ai_field", "resource": "*", "effect": "allow" },
         { "action": "metaview_create_job_post_check", "resource": "*", "effect": "allow" },
         { "action": "metaview_create_report", "resource": "*", "effect": "allow" },
@@ -560,7 +568,7 @@ Every error from the plugin reads `CODE: What happened. Next step: What to do.`
 For example:
 
 ```text
-OPTIONS_INVALID: Unknown option "apiKey". Accepted options: "allowUntestedHost", "access". Next step: Fix the plugin options in opencode.json, for example "plugins": [{ "package": "github:joe-broadhead/opencode-metaview#v0.0.4", "options": { "allowUntestedHost": true } }].
+OPTIONS_INVALID: Unknown option "apiKey". Accepted options: "allowUntestedHost", "access". Next step: Fix the plugin options in opencode.json, for example "plugins": [{ "package": "github:joe-broadhead/opencode-metaview#v0.0.5", "options": { "allowUntestedHost": true } }].
 ```
 
 Errors from Metaview's server and from OpenCode pass through unchanged, except in the tools RPC for scripts, whose codes

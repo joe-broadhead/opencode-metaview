@@ -18,8 +18,9 @@ in too". It grants and blocks nothing; the README's Organisation rollout gives t
 
 ## Tools and permissions
 
-68 tools are declared (43 read-only): every tool in `src/metaview-tools.ts`, 43 reads, 22 writes and 3 destructive
-tools, each once and each with `allow`. Jelly's agents have no base "allow everything" rule, so this plugin's own
+69 tools are declared (44 read-only): every tool in `src/metaview-tools.ts`, 43 reads, 22 writes and 3 destructive
+tools, and the plugin's own `metaview_events_list` (the conversations source's listing, a read), each once and each
+with `allow`. Jelly's agents have no base "allow everything" rule, so this plugin's own
 default rules, which it puts after that rule, never reach them. Jelly writes each declared `ask` or `deny` as that
 tool's default instead (the person's own choice replaces it), and denies a read-only helper every tool not marked
 `readOnly`. A declared `allow` changes nothing in Jelly.
@@ -81,4 +82,4 @@ Jelly folds the declared sign-in into this plugin's one card, which shows it as 
 Jelly's curated catalogue pins an exact version, so publish each release under a new version: a review in Jelly
 can then tell the two apart.
 
-The declaration test runs the shared kit, `test/support/jelly-kit.ts`, which checks the declaration and this page against Jelly's plugin authors' standard. `scripts/check-copies.mjs` holds the kit, and the shared part of the tools RPC (`src/host/tools-rpc.ts`), equal to the copy every plugin carries.
+The declaration test runs the shared kit, `test/support/jelly-kit.ts`, which checks the declaration and this page against Jelly's plugin authors' standard. `scripts/check-copies.mjs` holds the kit equal to the copy every plugin carries; the tools RPC is the source contract's module, bundled.

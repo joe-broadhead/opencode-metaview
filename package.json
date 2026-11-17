@@ -1,6 +1,6 @@
 {
   "name": "@joe-broadhead/opencode-metaview",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "private": true,
   "description": "Unofficial OpenCode plugin for Metaview: find, read and cite your recruiting interviews, notes and candidates through Metaview's official MCP server",
   "keywords": [
@@ -67,6 +67,45 @@
       "mark": true
     }
   },
+  "sources": {
+    "contractVersion": 1,
+    "rpc": "metaview.workspace.tools",
+    "probe": {
+      "action": "metaview_probe"
+    },
+    "items": [
+      {
+        "id": "metaview.conversations",
+        "kind": "events",
+        "reads": "meeting",
+        "tool": "events_list",
+        "input": {
+          "source": "metaview"
+        },
+        "accounts": {
+          "named": true
+        },
+        "permission": {
+          "events": "metaview_events_list",
+          "operations": [
+            "get_user_context",
+            "search_conversations"
+          ],
+          "identity": [
+            "get_user_context"
+          ]
+        },
+        "private": true,
+        "cost": {
+          "class": "free"
+        },
+        "maxBytes": 65536,
+        "urlHosts": [
+          "app.metaview.ai"
+        ]
+      }
+    ]
+  },
   "scripts": {
     "check": "node scripts/check.mjs",
     "typecheck": "node scripts/check.mjs typecheck",
@@ -76,7 +115,8 @@
     "test:pack": "node scripts/check.mjs pack",
     "lint": "node scripts/check.mjs forbidden",
     "drift": "node scripts/check-metaview-tools.mjs",
-    "capture": "node scripts/capture-tools.mjs"
+    "capture": "node scripts/capture-tools.mjs",
+    "conformance": "bun scripts/conformance.ts"
   },
   "devDependencies": {
     "@opencode/client": "2.2.3",
@@ -86,6 +126,7 @@
     "@opentui/solid": "0.8.0",
     "@types/bun": "1.4.4",
     "@types/node": "24.19.2",
+    "@we-the-rebel-alliance/source-contract": "github:we-the-rebel-alliance/source-contract#v0.2.0",
     "esbuild": "0.28.2",
     "solid-js": "1.9.17",
     "typescript": "5.9.3"
@@ -351,6 +392,12 @@
       {
         "name": "metaview.search_snippets",
         "permission": "metaview_search_snippets",
+        "effect": "allow",
+        "readOnly": true
+      },
+      {
+        "name": "metaview.events_list",
+        "permission": "metaview_events_list",
         "effect": "allow",
         "readOnly": true
       },

@@ -6,7 +6,7 @@ import { readdirSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { TESTED_HOSTS } from "../../src/constants.js"
-import { DESTRUCTIVE_TOOLS, READ_TOOLS, WRITE_TOOLS } from "../../src/metaview-tools.js"
+import { DESTRUCTIVE_TOOLS, PLUGIN_METHODS, PLUGIN_READS, READ_TOOLS, WRITE_TOOLS } from "../../src/metaview-tools.js"
 import { defaultRules } from "../../src/permissions.js"
 
 const ROOT = fileURLToPath(new URL("../..", import.meta.url))
@@ -20,7 +20,8 @@ const FILES = [
   ...readdirSync(join(ROOT, "docs")).map((name) => `docs/${name}`),
   ...readdirSync(join(ROOT, "skills")).map((name) => `skills/${name}/SKILL.md`),
 ]
-const KNOWN = [...READ_TOOLS, ...WRITE_TOOLS, ...DESTRUCTIVE_TOOLS]
+// Metaview's tools, and the plugin's own reads in the namespace: the conversations source's events_list and probe.
+const KNOWN = [...READ_TOOLS, ...WRITE_TOOLS, ...DESTRUCTIVE_TOOLS, ...PLUGIN_READS, ...PLUGIN_METHODS]
 const text = (file: string) => readFileSync(join(ROOT, file), "utf8").replace(/\s+/g, " ")
 const raw = (file: string) => readFileSync(join(ROOT, file), "utf8")
 
@@ -38,7 +39,7 @@ const UPGRADE_FROM = /remove the old entry with `opencode plugin remove github:j
 describe("docs", () => {
   test.each(FILES)("%s states no count of read, write or declared tools that could go stale", (file) => {
     const counts = [...text(file).matchAll(/\b\d+ (?:known )?(?:read|write)(?:s\b| tools\b| read-only)|\b\d+ tools are declared/g)].map((match) => match[0])
-    const declared = `${READ_TOOLS.length + WRITE_TOOLS.length + DESTRUCTIVE_TOOLS.length} tools are declared`
+    const declared = `${READ_TOOLS.length + PLUGIN_READS.length + WRITE_TOOLS.length + DESTRUCTIVE_TOOLS.length} tools are declared`
     const stale = counts.filter((count) => !count.startsWith(`${READ_TOOLS.length} read`) && !count.startsWith(`${WRITE_TOOLS.length} write`) && count !== declared)
     expect(stale).toEqual([])
   })

@@ -5,12 +5,15 @@ import { describe, expect, test } from "bun:test"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { fileURLToPath } from "node:url"
-import { METHODS, TOOLS_RPC_ID } from "../../src/host/tools-rpc.js"
+import { eventsMethod, probeMethod } from "../../src/events/index.js"
+import { METHODS, TOOLS_RPC_ID } from "../../src/tools-rpc.js"
 import { PARAMETERS } from "../../src/metaview-tools.js"
 
 const ROOT = fileURLToPath(new URL("../..", import.meta.url))
 const FILES = ["docs/scripting.md", "README.md"]
-const METHODS_BY_NAME = new Map(METHODS.map((method) => [method.name, method]))
+// The plugin's own methods, the conversations source's, which setup adds to the table; only their schemas are read here.
+const OWN = [eventsMethod(undefined as never), probeMethod(undefined as never)]
+const METHODS_BY_NAME = new Map([...METHODS, ...OWN].map((method) => [method.name, method]))
 
 interface Example {
   readonly file: string
@@ -96,10 +99,17 @@ describe("the scripting examples", () => {
   })
 
   test.each(examples.filter((example) => example.method !== "describe"))("$file:$line names only fields $method accepts", (example) => {
-    expect(METHODS_BY_NAME.get(example.method)!.kind).toBe("mcp")
+    const method = METHODS_BY_NAME.get(example.method)!
+    const input = ((example.body as { input?: { input?: unknown } } | undefined)?.input?.input ?? {}) as Record<string, unknown>
+    if (method.kind === "plugin") {
+      // The plugin's own method: its input's JSON Schema is the contract.
+      const schema = method.input as { properties?: Record<string, unknown>; required?: string[] }
+      for (const key of Object.keys(input)) expect({ key, known: key in (schema.properties ?? {}) }).toEqual({ key, known: true })
+      for (const key of schema.required ?? []) expect({ key, given: key in input }).toEqual({ key, given: true })
+      return
+    }
     const parameters = PARAMETERS[example.method]!
     const names = parameters.map(parameterName)
-    const input = ((example.body as { input?: { input?: unknown } } | undefined)?.input?.input ?? {}) as Record<string, unknown>
     for (const key of Object.keys(input)) expect({ key, known: names.includes(key) }).toEqual({ key, known: true })
     for (const parameter of parameters.filter((entry) => entry.includes("*"))) {
       expect({ key: parameterName(parameter), given: parameterName(parameter) in input }).toEqual({ key: parameterName(parameter), given: true })

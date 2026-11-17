@@ -20,7 +20,8 @@ adds no tool of its own, makes no Metaview call of its own, and has no runtime d
 | `src/status.ts` | The status model and text, `/metaview-status`, and the status RPC method |
 | `src/redact.ts` | Redaction for everything status shows: URL credentials, queries and token shapes removed, one line, controls and bidi characters stripped, cut by whole characters |
 | `src/skills.ts` | Loading and registering the skills |
-| `src/host/tools-rpc.ts` | The tools RPC for scripts, `metaview.workspace.tools`; a copy of a module shared by several plugins, with Metaview's part in one marked block |
+| `src/tools-rpc.ts` | Metaview's part of the tools RPC for scripts, `metaview.workspace.tools`: the method table, next steps, shapers and error mapping that the source contract's `tools-rpc` module takes (bundled into `dist/index.js`) |
+| `src/events/` | The `metaview.conversations` source (`package.json`'s `sources`): `events_list` and `probe` (`index.ts`), Metaview's answers read as metadata only (`metaview.ts`), and the contract's error codes (`errors.ts`), with the source contract's `events` and `cursor` modules |
 | `src/tui.ts` | The terminal UI part: the plugin `metaview.workspace.tui` and the `/metaview` dialog |
 | `src/constants.ts` | IDs, the server name and URL, the OAuth scope, the Code Mode namespace description, the supported host range, the tested releases (`TESTED_HOSTS`, the one list the checks and status use), the error shape and the typed code tables (`PLUGIN_CODES`, `RPC_CODES`). No imports, so `scripts/check.mjs` can load it |
 | `src/version.ts` | The plugin's version from `package.json`; the build replaces it with the version string alone |
@@ -52,7 +53,9 @@ typechecks. The package exports `.` (`dist/index.js`) and `./tui` (`dist/tui.js`
 7. `watchAccount` adds one `execute.after` hook, which reads the account from `metaview_get_user_context` results, and
    forgets it on `credential.switched` and when the server is no longer connected.
 8. `ctx.skill.transform`, `ctx.command.transform` (`/metaview-status`) and `ctx.rpc.register` (`metaview.workspace/status`).
-9. `registerToolsRpc` registers the tools RPC, `metaview.workspace.tools`, and its `evaluate` hook.
+9. `registerEvents` adds `events_list` to the `metaview` namespace, and the source contract's `registerToolsRpc`
+   registers the tools RPC, `metaview.workspace.tools`, with Metaview's methods, `events_list` and `probe`, and its
+   `evaluate` hook.
 10. `watchIntegration` starts. Setup returns one cleanup that stops it, disposes the tools RPC and stops the account
     capture.
 

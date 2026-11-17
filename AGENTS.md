@@ -62,12 +62,21 @@ It has no tool of its own. Read [docs/architecture.md](docs/architecture.md) bef
   checked by `scripts/check-icons.mjs`, which is a byte-identical copy of the kit's: only `opencode.icons`, the three
   `exports` and the three `files` entries describe them, and `opencode.vendor` declares Metaview as the vendor.
 - **TypeScript.** No enums, namespaces or parameter properties. `import type` for types, `.js` in relative imports.
-- **The tools RPC.** `src/host/tools-rpc.ts` is a copy of a module shared by several plugins. Change only its block
-  between the `PLUGIN-SPECIFIC` markers here; change the rest in the shared copy first. Its methods are `METHODS`,
+- **The tools RPC.** The transport is the source contract's `tools-rpc` module
+  (`@we-the-rebel-alliance/source-contract/tools-rpc`, bundled into `dist/index.js`); never copy it. Metaview's part,
+  the plugin value and its next steps, is `src/tools-rpc.ts`. Its methods are `METHODS`,
   built from `READ_TOOLS`, `WRITE_TOOLS`, `SEND_TOOLS` and `DESTRUCTIVE_TOOLS` in `src/metaview-tools.ts`: every known
   tool, by exact name, with its class. The rule is resolved before dispatch, so only an `allow` runs and an `ask` or a
   `deny` is refused; at the default `access` every tool is allowed. An unknown tool is never a method. Keep the RPC id
-  `metaview.workspace.tools` and its method names stable: scripts call them by name.
+  `metaview.workspace.tools` and its method names stable: scripts call them by name. Setup adds the plugin's own
+  `events_list` and `probe`, the conversations source's (`src/events/`).
+- **The conversations source.** `package.json`'s `sources` declares `metaview.conversations`; `src/events/` reads it
+  with the source contract's `events` and `cursor` modules. Candidate data is personal data: an event carries
+  metadata only (ids, the start, the title, the link, the conversation type, and participant ids and names as Metaview
+  labels them), never a transcript, note, score, feedback, email or phone number, and `text` stays empty. Every
+  `rationale` sent is fixed text. Declare or send no key that consumers on source-contract 0.1.x refuse
+  (`permission.readsIdentity`, `removals[]`, `owner.verified` and the others its CHANGELOG lists) until they move.
+  `npm run conformance` must stay ok.
 - **Tests.** Unit tests use narrow `Pick<Plugin.Context, ...>` fakes. Host tests use the public `@opencode/sdk` with
   `OpenCode.create({ app: { version } })`, a loopback fake server and the temp root from `test/host/isolate.ts`.
   Every temp root of the host and pack tests is a git repository under the system's `/tmp`, never under `TMPDIR` or
@@ -102,8 +111,8 @@ It has no tool of its own. Read [docs/architecture.md](docs/architecture.md) bef
   `permission.ask`;
 - the deprecated `ctx.generate.text` and `experimental.policies`;
 - importing `@opencode/ai`;
-- a permission hook, except the one `permission.hook("evaluate")` in `src/host/tools-rpc.ts` (and the bundle that
-  inlines it), exactly once each: it turns an `ask` on one of the tools RPC's own script calls in flight into a deny,
+- a permission hook, except the one `permission.hook("evaluate")` in the source contract's `tools-rpc` module, in
+  the bundle that inlines it (`dist/index.js`), exactly once: it turns an `ask` on one of the tools RPC's own script calls in flight into a deny,
   because no one can answer it, and touches nothing else;
 - references to private host source or host checkouts;
 - machine-local home and temp paths;

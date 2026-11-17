@@ -75,6 +75,14 @@ export const RPC_CODES: readonly RpcCode[] = [
   "UPSTREAM_ERROR",
 ]
 
+/**
+ * The source contract's codes that the conversations source's `events_list` and `probe` raise (`ERROR_CODES` in the
+ * contract's `events` module). `docs/scripting.md` documents them in its own table.
+ */
+type SourceCode = "ACCOUNT_MISMATCH" | "CURSOR_INVALID" | "INPUT_INVALID" | "NEEDS_SIGN_IN" | "SOURCE_UNKNOWN" | "UNAVAILABLE"
+
+export const SOURCE_CODES: readonly SourceCode[] = ["ACCOUNT_MISMATCH", "CURSOR_INVALID", "INPUT_INVALID", "NEEDS_SIGN_IN", "SOURCE_UNKNOWN", "UNAVAILABLE"]
+
 export function metaviewError(code: PluginCode, message: string, nextStep: string) {
   return Object.assign(new Error(errorText(code, message, nextStep)), { code, nextStep })
 }

@@ -4,7 +4,8 @@
 // tool call, its path and every request header. A `tools/call` answers with the tool's name, the path and its
 // arguments as structured content; for a `query` that starts with "text", with text alone; or, for a `query` that
 // starts with "fail", with an upstream error (`isError`) whose first line holds a signed URL. `get_user_context`
-// answers with a fake account, in Metaview's shape. The same server is also an LM Studio-compatible model API for a
+// answers with a fake account, in Metaview's shape; `search_conversations` asked for the conversations source's fields
+// answers with one conversation, in Metaview's shape. The same server is also an LM Studio-compatible model API for a
 // scripted model (`model.script`), so a host test can run a real session turn that calls Metaview's tools.
 //
 // While `challenge` is set, every MCP request gets 401 with the bearer challenge Metaview's server sends, and the same
@@ -25,7 +26,33 @@ const CATALOG = [...READ_TOOLS.map((name) => tool(name, true)), ...[...WRITE_TOO
 export const UPSTREAM_FAILURE = "Metaview refused https://files.metaview.ai/a.png?signature=fake-signature-123 for this input\nTraceback: second line"
 
 /** A fake account, in get_user_context's shape. */
-export const ACCOUNT = { workspace_name: "Acme Recruiting", participant_id: "p_fake_1", user_id: "u_fake_1", is_admin: false, is_paying_plan: true, data_access: "Your own conversations" }
+export const ACCOUNT = { organization_id: 4100, workspace_name: "Acme Recruiting", participant_id: "p_fake_1", user_id: 770077001, is_admin: false, is_paying_plan: true, data_access: "Your own conversations" }
+
+/** The fake conversation's start: two days before now, at a whole hour, in Metaview's "YYYY-MM-DD HH:MM:SS+00:00". */
+export const CONVERSATION_START = new Date(Math.floor(Date.now() / 3_600_000) * 3_600_000 - 2 * 86_400_000)
+const metaviewTime = (time: Date) => time.toISOString().replace("T", " ").replace(/\.\d{3}Z$/, "+00:00")
+
+/** One recorded conversation, as search_conversations answers the conversations source's request; the candidate's contact details must never reach an event. */
+export const CONVERSATIONS = {
+  access_scope: "You can see only your own conversations.",
+  field_definitions: [{ field_id: "default:start_time", name: "Date", type: "date" }],
+  conversations: [
+    {
+      id: 5001,
+      url: "https://app.metaview.ai/notes/5001",
+      has_transcript: true,
+      fields: {
+        "default:start_time": [{ value: metaviewTime(CONVERSATION_START), label: metaviewTime(CONVERSATION_START) }],
+        "default:calendar_event_title": [{ value: "Fake interview", label: "Fake interview" }],
+        "default:candidate": [{ value: "0c0c0c0c-0000-4000-8000-000000000001", label: "Fake Candidate", details: { name: "Fake Candidate", emails: ["candidate@example.test"], phone_numbers: ["+1 555 0100"] } }],
+        "default:interviewer": [{ value: "0e0e0e0e-0000-4000-8000-000000000001", label: "Fake Interviewer", details: { name: "Fake Interviewer", emails: ["interviewer@example.test"], phone_numbers: [] } }],
+        "default:conversation_type": [{ value: "t_fake_1", label: "Phone Screen" }],
+      },
+    },
+  ],
+  total_count: 1,
+  has_more: false,
+}
 
 /** The scopes Metaview's plug-in sign-in asks for, and the fake's challenge names. */
 export const SCOPES = "openid offline_access"
@@ -79,7 +106,7 @@ export interface FakeMcp {
   close(): Promise<void>
 }
 
-type Message = { jsonrpc: "2.0"; id?: number | string; method: string; params?: { protocolVersion?: string; name?: string; arguments?: { query?: unknown } } }
+type Message = { jsonrpc: "2.0"; id?: number | string; method: string; params?: { protocolVersion?: string; name?: string; arguments?: { query?: unknown; fields?: unknown } } }
 
 export async function startFakeMcp(options: FakeMcpOptions = {}): Promise<FakeMcp> {
   const calls: string[] = []
@@ -103,6 +130,9 @@ export async function startFakeMcp(options: FakeMcpOptions = {}): Promise<FakeMc
         const args = message.params?.arguments ?? {}
         inputs.push({ tool: name, arguments: args })
         if (name === "get_user_context") return reply({ content: [{ type: "text", text: JSON.stringify(ACCOUNT) }], structuredContent: ACCOUNT })
+        if (name === "search_conversations" && Array.isArray(args.fields) && args.fields.includes("default:start_time")) {
+          return reply({ content: [{ type: "text", text: JSON.stringify(CONVERSATIONS) }], structuredContent: CONVERSATIONS })
+        }
         if (String(args.query ?? "").startsWith("fail")) return reply({ content: [{ type: "text", text: UPSTREAM_FAILURE }], isError: true })
         if (String(args.query ?? "").startsWith("text")) return reply({ content: [{ type: "text", text: `text from ${name}` }] })
         return reply({ content: [{ type: "text", text: `called ${name}` }], structuredContent: { tool: name, path, arguments: args } })

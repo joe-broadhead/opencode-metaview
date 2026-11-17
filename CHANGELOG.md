@@ -2,6 +2,33 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.5] - 2026-11-17
+
+### Added
+
+- **A shared-data source, `metaview.conversations`** ([#21](https://github.com/joe-broadhead/opencode-metaview/issues/21)):
+  `package.json` declares source-contract `sources` (contract version 1), so Memory, Artifacts and other consumers can
+  read Metaview's recorded conversations as events through the shared contract. `events_list` (a tool in the `metaview`
+  namespace and a tools RPC method) lists them oldest first, once they started 3 hours ago, from
+  `search_conversations`, with a cursor bound to the plugin, the source and the account; `probe` names the signed-in
+  account from `get_user_context`. Metaview's retention is each organization's own setting, so the source vouches for
+  the last 30 days: an older cursor or `since` answers a `gap` once per read and reads on from the window's edge. A
+  conversation Metaview adds behind the cursor within 7 days of it, such as an upload listed at its call's start, is
+  listed once, by a 25-bit key of its id that the cursor keeps in a Golomb-Rice coded set (about 200 fit; with more,
+  a `window-truncated` gap says once per shortening that the lookback is shorter; a late arrival is taken for a listed
+  one about once in 168,000). A burst sharing one start is walked by id; an answer the plugin cannot read
+  fails the call and holds the cursor; a title's email addresses and phone numbers are masked, and an actor's id is a
+  Metaview participant id or nothing. Each event carries metadata only: the id, start, title, link, conversation type, and
+  the candidates and interviewers by name. No transcript, note, score, feedback or contact detail, and `text` is
+  always empty. Both are reads, allowed by the default rules like Metaview's reads; `jelly.tools` declares
+  `metaview.events_list`. `npm run conformance` runs the contract's conformance kit on fixtures and writes
+  `reports/conformance-report.json`, which a release attaches.
+
+### Changed
+
+- The tools RPC is the source contract's `tools-rpc` module, bundled into `dist/index.js`, in place of the plugin's own
+  copy of the shared module. Its methods, classes, codes and next steps are unchanged.
+
 ## [0.0.4] - 2026-11-15
 
 ### Added

@@ -1,0 +1,111 @@
+{
+  "$comment": "Metaview's answers for the source-contract conformance kit and the events tests (test/support/synthetic-metaview.ts), offline, in the shapes Metaview's server answered with on 17 November 2026: get_user_context's user, and the conversations search_conversations lists (8001 is older than the 30 days the source vouches for). No live call is made. Every workspace, person, address, number and title is invented. Candidates carry an email and a phone number in details, as Metaview's do, so the tests prove that no event carries them.",
+  "now": "2026-11-13T12:00:00.000Z",
+  "since": "2026-11-09T00:00:00Z",
+  "user": {
+    "access_scope": "You can see all conversations in the organization (admin access).",
+    "organization_id": 4100,
+    "workspace_name": "Example Talent",
+    "user_id": 77,
+    "participant_id": "00000000-0000-4000-8000-000000000077",
+    "is_admin": true,
+    "is_paying_plan": true,
+    "data_access": "You can see all conversations in the organization."
+  },
+  "conversations": [
+    {
+      "id": 8001,
+      "start": "2026-08-20 11:00:00+00:00",
+      "title": "Phone screen: Sales Lead",
+      "type": "Phone Screen",
+      "candidates": [{ "id": "c0000000-0000-4000-8000-000000000008", "name": "Tam Example", "email": "tam@example.test" }],
+      "interviewers": [{ "id": "e0000000-0000-4000-8000-000000000001", "name": "Grace Sample", "email": "grace@talent.example.test" }]
+    },
+    {
+      "id": 9001,
+      "start": "2026-11-08 16:00:00+00:00",
+      "title": "Intro call: Data Analyst",
+      "type": "Recruiter Screen",
+      "candidates": [{ "id": "c0000000-0000-4000-8000-000000000001", "name": "Ada Example", "email": "ada@example.test", "phone": "+1 555 0101" }],
+      "interviewers": [{ "id": "e0000000-0000-4000-8000-000000000001", "name": "Grace Sample", "email": "grace@talent.example.test" }]
+    },
+    {
+      "id": 9002,
+      "start": "2026-11-10 09:00:00+00:00",
+      "title": "Phone screen: Backend Engineer",
+      "type": "Phone Screen",
+      "candidates": [{ "id": "c0000000-0000-4000-8000-000000000002", "name": "Kofi Example", "email": "kofi@example.test", "phone": "+1 555 0102" }],
+      "interviewers": [{ "id": "e0000000-0000-4000-8000-000000000001", "name": "Grace Sample", "email": "grace@talent.example.test" }]
+    },
+    {
+      "id": 9003,
+      "start": "2026-11-10 15:30:00+01:00",
+      "title": "Technical interview: Backend Engineer",
+      "type": "Technical Interview",
+      "candidates": [{ "id": "c0000000-0000-4000-8000-000000000002", "name": "Kofi Example", "email": "kofi@example.test", "phone": "+1 555 0102" }],
+      "interviewers": [
+        { "id": "e0000000-0000-4000-8000-000000000002", "name": "Linus Placeholder", "email": "linus@talent.example.test" },
+        { "id": "e0000000-0000-4000-8000-000000000003", "name": "Mae Fixture", "email": "mae@talent.example.test" }
+      ]
+    },
+    {
+      "id": 9010,
+      "start": "2026-11-11 10:00:00+00:00",
+      "title": "Hiring manager call: Designer",
+      "type": "Hiring Manager Interview",
+      "candidates": [{ "id": "c0000000-0000-4000-8000-000000000003", "name": "Ama Example", "email": "ama@example.test" }],
+      "interviewers": [{ "id": "e0000000-0000-4000-8000-000000000004", "name": "Noor Sample", "email": "noor@talent.example.test" }]
+    },
+    {
+      "id": 9004,
+      "start": "2026-11-11 10:00:00+00:00",
+      "title": "Portfolio review: Designer",
+      "type": "Portfolio Review",
+      "candidates": [{ "id": "c0000000-0000-4000-8000-000000000004", "name": "Sol Example", "email": "sol@example.test" }],
+      "interviewers": [{ "id": "e0000000-0000-4000-8000-000000000004", "name": "Noor Sample", "email": "noor@talent.example.test" }]
+    },
+    {
+      "id": 9005,
+      "start": "2026-11-11 16:00:00+00:00",
+      "title": "Onsite debrief, files at https://pilot:Wq7rZp4xLm9@files.example.net/share",
+      "type": "Debrief",
+      "candidates": [],
+      "interviewers": [{ "id": "e0000000-0000-4000-8000-000000000001", "name": "Grace Sample", "email": "grace@talent.example.test" }]
+    },
+    {
+      "id": 9006,
+      "title": "A conversation Metaview gives no start for",
+      "candidates": [],
+      "interviewers": []
+    },
+    {
+      "id": 9007,
+      "start": "2026-11-12 08:00:00+00:00",
+      "title": "Upcoming call that was never recorded",
+      "type": "Phone Screen",
+      "recorded": false,
+      "candidates": [{ "id": "c0000000-0000-4000-8000-000000000005", "name": "Ren Example", "email": "ren@example.test" }],
+      "interviewers": []
+    },
+    {
+      "id": 9008,
+      "start": "2026-11-12 13:15:00+00:00",
+      "title": "Final interview: Backend Engineer",
+      "type": "Final Interview",
+      "noUrl": true,
+      "candidates": [{ "id": "c0000000-0000-4000-8000-000000000002", "name": "Kofi Example", "email": "kofi@example.test", "phone": "+1 555 0102" }],
+      "interviewers": [
+        { "id": "e0000000-0000-4000-8000-000000000001", "name": "Grace Sample", "email": "grace@talent.example.test" },
+        { "id": "e0000000-0000-4000-8000-000000000002", "name": "Linus Placeholder", "email": "linus@talent.example.test" }
+      ]
+    },
+    {
+      "id": 9009,
+      "start": "2026-11-13 10:30:00+00:00",
+      "title": "A call that started less than three hours ago",
+      "type": "Phone Screen",
+      "candidates": [{ "id": "c0000000-0000-4000-8000-000000000006", "name": "Ola Example", "email": "ola@example.test" }],
+      "interviewers": []
+    }
+  ]
+}

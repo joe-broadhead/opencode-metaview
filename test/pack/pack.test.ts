@@ -15,11 +15,11 @@ import { arch, platform } from "node:os"
 import { basename, join, relative, resolve, sep } from "node:path"
 import { fileURLToPath } from "node:url"
 import { ENDPOINT, SUPPORTED_HOST, TESTED_HOSTS } from "../../src/constants.js"
-import { METHODS, TOOLS_RPC_ID } from "../../src/host/tools-rpc.js"
+import { METHODS, TOOLS_RPC_ID } from "../../src/tools-rpc.js"
 import { DESTRUCTIVE_TOOLS, READ_TOOLS, WRITE_TOOLS } from "../../src/metaview-tools.js"
 import { defaultRules, type Rule } from "../../src/permissions.js"
 import { SKILL_NAMES } from "../../src/skills.js"
-import { NEW_TOOL, startFakeMcp, UPSTREAM_FAILURE, type FakeMcp } from "../host/fake-mcp.js"
+import { CONVERSATION_START, NEW_TOOL, startFakeMcp, UPSTREAM_FAILURE, type FakeMcp } from "../host/fake-mcp.js"
 
 const root = fileURLToPath(new URL("../..", import.meta.url))
 const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8")) as {
@@ -294,8 +294,8 @@ describe.each(HOST_VERSIONS)("the tools RPC on stock OpenCode %s", (version) => 
       // Config-only agents get no default rules: their own rules decide, after the host's defaults.
       agents: { locked: { permissions: [rule("metaview_*", "deny")] }, careful: { permissions: [rule(`metaview_${READ_A}`, "ask")] } },
     })
-    // Every known tool, and the fake's new one, which is the only unknown.
-    const tools = READ_TOOLS.length + WRITE_TOOLS.length + DESTRUCTIVE_TOOLS.length + 1
+    // Every known tool, the plugin's own events_list, and the fake's new one, which is the only unknown.
+    const tools = READ_TOOLS.length + WRITE_TOOLS.length + DESTRUCTIVE_TOOLS.length + 1 + 1
     await host.until(`metaview is connected with its ${tools} tools`, async () => {
       const output = await status()
       return output.state === "connected" && output.tools === tools && output.unknownCount === 1
@@ -317,12 +317,17 @@ describe.each(HOST_VERSIONS)("the tools RPC on stock OpenCode %s", (version) => 
     await fake?.close()
   }, 60_000)
 
-  test("describes every known tool with its class, each available with its live schema", async () => {
+  test("describes every known tool with its class, each available with its live schema, and the source's two reads", async () => {
     const { value } = await script("describe", {})
     expect(value.id).toBe(TOOLS_RPC_ID)
-    expect(value.methods.map((method: { name: string }) => method.name)).toEqual(METHODS.map((method) => method.name))
+    expect(value.methods.map((method: { name: string }) => method.name)).toEqual([...METHODS.map((method) => method.name), "events_list", "probe"])
     const classes = Object.fromEntries(METHODS.map((method) => [method.name, method.class]))
-    for (const method of value.methods) {
+    const own = value.methods.filter((method: { kind: string }) => method.kind === "plugin")
+    expect(own.map((method: Record<string, unknown>) => [method["name"], method["class"], method["action"], method["available"]])).toEqual([
+      ["events_list", "read", "metaview_events_list", true],
+      ["probe", "read", "metaview_probe", true],
+    ])
+    for (const method of value.methods.filter((method: { kind: string }) => method.kind !== "plugin")) {
       expect({ name: method.name, kind: method.kind, class: method.class, action: method.action, available: method.available }).toEqual({
         name: method.name,
         kind: "mcp",
@@ -352,7 +357,34 @@ describe.each(HOST_VERSIONS)("the tools RPC on stock OpenCode %s", (version) => 
     expect((await call("build", "get_user_context", { rationale: "who is signed in" })).value).toMatchObject({ output: { workspace_name: "Acme Recruiting" } })
     const output = await status()
     expect(output).toMatchObject({ workspace: "Acme Recruiting", role: "member", plan: "paid" })
-    expect(JSON.stringify(output)).not.toMatch(/p_fake_1|u_fake_1/)
+    expect(JSON.stringify(output)).not.toMatch(/p_fake_1|770077001/)
+  })
+
+  test("the conversations source: probe names the account, and events_list lists metadata only, through the host", async () => {
+    const probed = await call("build", "probe", { source: "metaview" })
+    expect(probed).toEqual({ value: { source: "metaview", account: "4100/770077001", owner: { id: "metaview:4100/770077001", label: "Metaview user 770077001 in organization 4100" }, trust: "untrusted" } })
+    const from = fake.calls.length
+    const listed = await call("build", "events_list", { account: "4100/770077001", since: new Date(Date.now() - 7 * 86_400_000).toISOString() })
+    expect(fake.calls.slice(from)).toEqual(["search_conversations"])
+    expect(listed.value).toMatchObject({ source: "metaview", account: "4100/770077001", more: false, trust: "untrusted" })
+    expect(listed.value).not.toHaveProperty("gap")
+    expect(listed.value.events).toEqual([
+      expect.objectContaining({
+        external_id: "5001",
+        kind: "meeting",
+        occurred_at: CONVERSATION_START.toISOString(),
+        title: "Fake interview",
+        text: "",
+        url: "https://app.metaview.ai/notes/5001",
+        labels: ["Phone-Screen"],
+        actors: [
+          { role: "candidate", id: "metaview-participant:0c0c0c0c-0000-4000-8000-000000000001", name: "Fake Candidate" },
+          { role: "interviewer", id: "metaview-participant:0e0e0e0e-0000-4000-8000-000000000001", name: "Fake Interviewer" },
+        ],
+      }),
+    ])
+    expect(JSON.stringify(listed.value)).not.toMatch(/example\.test|\+1 555/)
+    expect(await call("build", "probe", { account: "4100/1" })).toMatchObject({ code: "ACCOUNT_MISMATCH" })
   })
 
   test("a write and a destructive tool are methods that run at the default access; an unknown tool has no method, though OpenCode lists them all", async () => {

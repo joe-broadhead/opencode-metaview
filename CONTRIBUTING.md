@@ -40,12 +40,13 @@ npm run check
 | --- | --- |
 | `typecheck` | `tsc --noEmit` over `src/` and `test/`, strict, with unused names as errors |
 | `unit` | `bun test ./test/unit`: every module in `src/`, the docs' counts and error table, and the Jelly declaration |
+| `conformance` | `bun scripts/conformance.ts` (`npm run conformance`): the source contract's conformance kit over `metaview.conversations`, on the fixtures in `test/fixtures/conformance.json` with no Metaview call; writes `reports/conformance-report.json`, which a release attaches |
 | `build` | `node scripts/build.mjs`: deletes `dist/` and bundles `src/index.ts` and `src/tui.ts` with esbuild into the self-contained `dist/index.js` and `dist/tui.js`. Fails if a bundle imports anything the host does not provide |
 | `icons` | `node scripts/check-icons.mjs`: the three icons, the manifest's declarations and the tarball's `files` against the family icon contract |
 | `host` | `bun test ./test/host`: the plugin inside an embedded OpenCode host, once on each tested release (`@opencode/sdk` 2.2.3, 2.2.4, 2.2.5, 2.2.6, 2.2.7 and 2.3.0) |
 | `pack` | `bun test ./test/pack`: builds, packs and installs the package, imports both entry points, and loads it in stock OpenCode 2.2.3, 2.2.4, 2.2.5, 2.2.6, 2.2.7 and 2.3.0 |
 | `forbidden` | `node scripts/check-forbidden.mjs`: scans `src/`, `test/`, `scripts/` and `dist/` for forbidden APIs and machine-local paths |
-| `copies` | `node scripts/check-copies.mjs`: the declaration kit (`test/support/jelly-kit.ts`), Jelly's setting rules (`test/support/jelly-settings.ts`) and the tools RPC outside its `PLUGIN-SPECIFIC` block equal the copies every plugin carries |
+| `copies` | `node scripts/check-copies.mjs`: the declaration kit (`test/support/jelly-kit.ts`), Jelly's setting rules (`test/support/jelly-settings.ts`) and the release kit equal the copies every plugin carries (the tools RPC is the source contract's module, not a copy) |
 | `whitelist` | Checks `package.json` against the approved package shape, and that `dist/` holds exactly `index.js` and `tui.js` |
 | `actionlint` | `actionlint`, when it is on `PATH`, parses the workflows as workflows; otherwise it prints a notice and CI's own `workflows` job runs it |
 
@@ -56,7 +57,7 @@ node scripts/check.mjs typecheck unit
 ```
 
 Shortcuts: `npm run typecheck`, `npm run build`, `npm test` (the `unit` stage), `npm run test:host`,
-`npm run test:pack` and `npm run lint` (the `forbidden` stage).
+`npm run test:pack`, `npm run conformance` (the `conformance` stage) and `npm run lint` (the `forbidden` stage).
 
 `TESTED_HOSTS` in `src/constants.ts` is the one list of tested OpenCode releases: 2.2.3, 2.2.4, 2.2.5, 2.2.6, 2.2.7 and 2.3.0. The host
 and pack stages, status and CI all take their versions from it. Add a release there, and to the README's
@@ -200,7 +201,8 @@ a `## [x.y.z] - YYYY-MM-DD` heading below it, newest first, and the npm history 
    `node scripts/changelog.mjs release`: it turns `## [Unreleased]` into `## [<version>] - <today>`, above the earlier
    releases, and refuses a CHANGELOG it cannot shape. Run `npm run check`.
 2. Push that commit to `master`, and wait for CI to pass on it. A pull request's CI runs the Linux runners only; the
-   push to `master` runs every runner, macOS too, and the release stands on that run.
+   push to `master` runs every runner, Apple-silicon macOS (`macos-26`) too, and the release stands on that run. An
+   Intel Mac (`macos-26-intel`) is not required.
 3. Start the release with that commit's full sha:
    `gh workflow run release.yml --ref master -f sha=<full sha>`, or from Actions → release →
    Run workflow, on `master`.
@@ -313,5 +315,5 @@ Each release has its own tag, and a Git install does not update by itself. To mo
 Or add the plugin to `opencode.json` instead, with the same spec:
 
 ```json
-{ "plugins": [{ "package": "github:joe-broadhead/opencode-metaview#v0.0.4" }] }
+{ "plugins": [{ "package": "github:joe-broadhead/opencode-metaview#v0.0.5" }] }
 ```
