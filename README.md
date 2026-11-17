@@ -123,9 +123,10 @@ no code of their own:
 Each conversation is one event: its id, start, title, Metaview link and conversation type, and its candidates and
 interviewers by the name Metaview shows. **Candidate data is personal data, so an event carries metadata only:** no
 transcript, summary, note, score, feedback, email or phone number, and its `text` is always empty. A conversation whose
-title holds a secret is refused for good. Metaview keeps conversations only as long as your organization's retention
-setting says, which no tool names, so the source vouches for the last 30 days: an older cursor or start answers a
-`gap` and reads on from inside them. The account is `<organization id>/<user id>`, which `probe` names from
+title holds a secret is refused for good, and an email address or phone number in a title is masked. Metaview keeps
+conversations only as long as your organization's retention setting says, which no tool names, so the source vouches
+for the last 30 days: an older cursor or start answers a `gap` and reads on from inside them. One Metaview adds up to 7
+days behind the cursor, such as an upload, is still listed once (see Known limits). The account is `<organization id>/<user id>`, which `probe` names from
 `get_user_context` and a consumer binds; `probe` refuses another account. The reads are Metaview's own
 `get_user_context` (`probe`) and `search_conversations` (`events_list`), through OpenCode's own sign-in and under the
 same rules as any Metaview call, and the `rationale` Metaview receives with each is fixed text with no candidate detail.
@@ -368,11 +369,18 @@ credential store.
 
 ## Known limits
 
-- **The conversations source lists by start time.** Metaview's search orders conversations by their start only. One
-  that appears after the source read past its start (a recording uploaded later, a conversation shared with you later)
-  is listed once if it started within a day of the cursor, and not after that. One deleted before a read reaches it is
-  not listed, and one already listed is not retracted. The source vouches for the last 30 days, since Metaview's
-  retention is your organization's own setting.
+- **The conversations source lists by start time.** Metaview's search orders and filters conversations by their start
+  only, with no time Metaview received them, and an uploaded recording is listed at the start its uploader gave.
+  - **Late arrivals:** one that appears after the source read past its start (an upload, a conversation shared with you
+    later) is listed once if it started within 7 days of the cursor; one later than that is not listed, and no gap says so.
+  - **Busy accounts:** the cursor de-duplicates about 200 conversations (about 28 a day over the 7 days). With more,
+    the lookback is shorter, and a `window-truncated` gap says so once. A de-dup key is 18 bits of a hash of the id, so
+    about 1 late arrival in 1,300 can be taken for one already listed and not listed.
+  - **Retention:** the source vouches for the last 30 days, since Metaview's retention is your organization's own
+    setting and no tool names it. A workspace retention shorter than 30 days can delete recordings before the source
+    reads them, with no gap.
+  - **Deleted or no longer yours:** one deleted, or that you lose access to (unshared, or hidden by a role change),
+    before a read reaches it is not listed and is not a gap; one already listed is not retracted.
 - **Some changes reach people.** A screening or sequence message, an application-review decision that can reject a candidate and sync to your ATS, and feedback to the Metaview team (a hiring decision can email the candidate) all reach people or systems outside OpenCode. At the default `access`, an agent can make them without a prompt.
 - **Metaview's server decides the tools.** The plugin classifies the tools it knows. A tool Metaview adds later is not classed by the plugin: the `access` option decides whether it runs, asks or is denied, and `/metaview-status` counts it as unknown.
 - **Role and plan limits.** What you can read follows your Metaview role, and reports, AI fields and full transcripts may need a paid plan. The plugin does not change either.

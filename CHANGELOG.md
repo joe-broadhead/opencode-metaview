@@ -13,8 +13,11 @@ All notable changes to this project are documented here. The format follows [Kee
   `search_conversations`, with a cursor bound to the plugin, the source and the account; `probe` names the signed-in
   account from `get_user_context`. Metaview's retention is each organization's own setting, so the source vouches for
   the last 30 days: an older cursor or `since` answers a `gap` once per read and reads on from the window's edge. A
-  conversation Metaview adds behind the cursor within a day of it is listed once; a burst sharing one start is walked
-  by id; an answer the plugin cannot read fails the call and holds the cursor. Each event carries metadata only: the id, start, title, link, conversation type, and
+  conversation Metaview adds behind the cursor within 7 days of it, such as an upload listed at its call's start, is
+  listed once, by an 18-bit key of its id that the cursor keeps (about 200 fit; with more, a `window-truncated` gap
+  says once that the lookback is shorter). A burst sharing one start is walked by id; an answer the plugin cannot read
+  fails the call and holds the cursor; a title's email addresses and phone numbers are masked, and an actor's id is a
+  Metaview participant id or nothing. Each event carries metadata only: the id, start, title, link, conversation type, and
   the candidates and interviewers by name. No transcript, note, score, feedback or contact detail, and `text` is
   always empty. Both are reads, allowed by the default rules like Metaview's reads; `jelly.tools` declares
   `metaview.events_list`. `npm run conformance` runs the contract's conformance kit on fixtures and writes

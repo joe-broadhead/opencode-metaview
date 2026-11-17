@@ -53,8 +53,8 @@ describe("events_list", () => {
       labels: ["Technical-Interview"],
       actors: [
         { role: "candidate", id: "metaview-participant:c0000000-0000-4000-8000-000000000002", name: "Kofi Example" },
-        { role: "interviewer", id: "metaview-participant:i0000000-0000-4000-8000-000000000002", name: "Linus Placeholder" },
-        { role: "interviewer", id: "metaview-participant:i0000000-0000-4000-8000-000000000003", name: "Mae Fixture" },
+        { role: "interviewer", id: "metaview-participant:e0000000-0000-4000-8000-000000000002", name: "Linus Placeholder" },
+        { role: "interviewer", id: "metaview-participant:e0000000-0000-4000-8000-000000000003", name: "Mae Fixture" },
       ],
     })
     // A conversation without a transcript has no link.
@@ -182,10 +182,11 @@ describe("events_list", () => {
     const after: SyntheticConversation = { id: 29_999, start: "2026-11-12 10:00:00+00:00", title: "After the burst", candidates: [], interviewers: [] }
     const conversations = [...burst, after]
     const seen: string[] = []
+    const gaps: unknown[] = []
     let input: Record<string, unknown> = { account: ACCOUNT, since: "2026-11-12T00:00:00Z", limit: 500 }
     for (let page = 0; page < 10; page++) {
       const result = await list(input, { conversations, tieOrder: "shuffled" })
-      expect(result).not.toHaveProperty("gap")
+      if (result["gap"]) gaps.push(result["gap"])
       seen.push(...ids(result))
       expect(result["cursor"].length).toBeLessThanOrEqual(EVENT_LIMITS.cursor)
       input = { account: ACCOUNT, cursor: result["cursor"], limit: 500 }
@@ -193,6 +194,8 @@ describe("events_list", () => {
     }
     const burstIds = burst.map((conversation) => conversation.id).sort((a, b) => a - b).map(String)
     expect(seen).toEqual([...burstIds, "29999"])
+    // 1,100 listed conversations are more keys than the cursor holds: the lookback shrinks, and one gap says so.
+    expect(gaps).toEqual([{ reason: "window-truncated", since: expect.any(String) }])
   })
 
   test("a burst too large to read whole is passed with a gap, and the cursor still moves", async () => {
@@ -206,22 +209,23 @@ describe("events_list", () => {
     expect(ids(next)).toEqual(["39999"])
   })
 
-  test("lists a conversation Metaview adds behind the cursor later once, within a day of it, and never twice", async () => {
+  test("lists a conversation Metaview adds behind the cursor later once, within 7 days of it, and never twice", async () => {
     const done = await list({ account: ACCOUNT, since: SINCE })
     expect(done["more"]).toBe(false)
-    // A long call processed late, and a recording uploaded the next morning for a call 30 hours before the cursor.
+    // A long call processed late, an upload 30 hours behind the cursor, and one 8 days behind it, past the lookback.
     const late: SyntheticConversation = { id: 9100, start: "2026-11-12 20:00:00+00:00", title: "A call processed late", candidates: [], interviewers: [] }
-    const tooLate: SyntheticConversation = { id: 9101, start: "2026-11-12 03:00:00+00:00", title: "A recording uploaded much later", candidates: [], interviewers: [] }
-    const conversations = [...FIXTURE.conversations, late, tooLate]
-    expect(LOOKBACK_MS).toBe(86_400_000)
+    const upload: SyntheticConversation = { id: 9101, start: "2026-11-12 03:00:00+00:00", title: "A recording uploaded later", candidates: [], interviewers: [] }
+    const tooLate: SyntheticConversation = { id: 9103, start: "2026-11-05 03:00:00+00:00", title: "Uploaded eight days on", candidates: [], interviewers: [] }
+    const conversations = [...FIXTURE.conversations, late, upload, tooLate]
+    expect(LOOKBACK_MS).toBe(7 * 86_400_000)
     const next = await list({ account: ACCOUNT, cursor: done["cursor"] }, { conversations })
-    expect(ids(next)).toEqual(["9100"])
+    expect(ids(next)).toEqual(["9101", "9100"])
     expect(next).not.toHaveProperty("gap")
     const again = await list({ account: ACCOUNT, cursor: next["cursor"] }, { conversations })
     expect(ids(again)).toEqual([])
     // The page after a late one is still oldest first, and the cursor did not move back.
     const both = await list({ account: ACCOUNT, cursor: done["cursor"] }, { conversations: [...conversations, { id: 9102, start: "2026-11-13 08:30:00+00:00", title: "New", candidates: [], interviewers: [] }] })
-    expect(ids(both)).toEqual(["9100", "9102"])
+    expect(ids(both)).toEqual(["9101", "9100", "9102"])
   })
 
   test("keeps its cursor within the contract's length when a day holds many conversations, and repeats none", async () => {

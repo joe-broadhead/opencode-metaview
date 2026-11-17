@@ -123,13 +123,34 @@ function entries(fields: Record<string, unknown>, id: string): Record<string, un
   return Array.isArray(value) ? value.filter(record) : []
 }
 
-/** The participants of a participant field: the id, and the name as Metaview labels it. Contact details are not read. */
+/** Metaview's participant ids are UUIDs; anything else (an address, say) is not an id an event carries. */
+const PARTICIPANT_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+/** An email address; not a URL's user and password, which the secret screening refuses whole. */
+const EMAIL = /(?<![\w.+:/-])[^\s@<>()"',;:/]+@[^\s@<>()"',;:]+\.[a-z]{2,}/gi
+/**
+ * A phone number: 9 to 15 digits, with spaces, dots, dashes, brackets or a leading +, not inside a word or a URL. A
+ * date (`2026-11-12 10`) is not one.
+ */
+const PHONE = /(?<![\w/=#?&.:-])\+?\(?\d(?:[\s().-]*\d){8,14}(?![\w/])/g
+const DATE = /^\d{4}-\d{2}-\d{2}/
+
+/** Whether text holds an email address or a phone number. */
+export const holdsContact = (text: string) => maskContacts(text) !== text
+
+/** Text with every email address and phone number masked. */
+export const maskContacts = (text: string) => text.replace(EMAIL, "[email]").replace(PHONE, (match) => (DATE.test(match) ? match : "[phone]"))
+
+/**
+ * The participants of a participant field: the id, and the name as Metaview labels it. Contact details are never read:
+ * an entry whose id is not a participant UUID is dropped, and a label that holds an address or a number is not a name.
+ */
 function participants(fields: Record<string, unknown>, id: string): Participant[] {
   return entries(fields, id).flatMap((entry) => {
     const participant = line(entry["value"])
-    if (participant === undefined) return []
-    const name = line(entry["label"]) ?? (record(entry["details"]) ? line(entry["details"]["name"]) : undefined)
-    return [{ id: participant, ...(name === undefined ? {} : { name }) }]
+    if (participant === undefined || !PARTICIPANT_ID.test(participant)) return []
+    const label = line(entry["label"]) ?? (record(entry["details"]) ? line(entry["details"]["name"]) : undefined)
+    const name = label === undefined || holdsContact(label) ? undefined : label
+    return [{ id: participant.toLowerCase(), ...(name === undefined ? {} : { name }) }]
   })
 }
 
@@ -139,7 +160,9 @@ function conversationOf(value: Record<string, unknown>): ConversationFacts | und
   if (id === undefined) return undefined
   const fields = record(value["fields"]) ? value["fields"] : {}
   const time = timeOf(entries(fields, FIELDS.start)[0]?.["value"])
-  const title = line(entries(fields, FIELDS.title)[0]?.["value"])
+  // A calendar title can carry a candidate's address or number: masked before it reaches an event.
+  const rawTitle = line(entries(fields, FIELDS.title)[0]?.["value"])
+  const title = rawTitle === undefined ? undefined : maskContacts(rawTitle)
   const type = line(entries(fields, FIELDS.type)[0]?.["label"])
   const url = typeof value["url"] === "string" && /^https:\/\/\S+$/.test(value["url"]) ? value["url"] : undefined
   return {

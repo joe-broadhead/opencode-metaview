@@ -169,22 +169,29 @@ data is personal data: an event carries no transcript, summary, note, score, fee
 `text` is always empty. The cursor is the (start, id) of the last conversation listed, bound to this plugin, the
 source and the account: Metaview's search sorts and filters conversations by their start only. A conversation is
 listed once it started 3 hours ago: Metaview writes its notes about five minutes after a call ends, so a recorded call
-of up to almost 3 hours is in the search by then. One that appears after the cursor passed its start (a longer call
-processed later, a recording uploaded the next morning, a conversation shared with you later) is listed once if it
-started within a day of the cursor: the cursor keeps the ids it listed in that day, as many as its 1024 characters
-hold, and drops the oldest first. A burst of conversations sharing one start, larger than a read's pages, is read whole
-and walked by id, so the cursor always moves. A conversation whose title holds a secret is refused for good
-(`refused[]`), and the cursor moves past it. An answer the plugin cannot read fails the call with `UNAVAILABLE`, and
-your cursor stays where it was.
+of up to almost 3 hours is in the search by then. Metaview lists an uploaded recording at the start its uploader gave,
+so one can appear days behind the cursor: a conversation that appears after the cursor passed its start (a longer
+call processed later, an upload, a conversation shared with you later) is listed once if it started within 7 days of
+the cursor. For that, the cursor keeps a 3-character key (18 bits of a hash of the id) for each conversation it listed
+in those 7 days: about 200 fit in its 1024 characters. When more were listed, the oldest keys go, the lookback is
+shorter, and a `window-truncated` gap whose `since` is the new lookback's start says so once, until the cursor holds
+the whole 7 days again. Two ids can share a key, so a late arrival is missed at worst about once in 1,300. One later
+than 7 days is not listed, and no gap says so. A burst of conversations sharing one start, larger than a read's pages,
+is read whole and walked by id, so the cursor always moves. A conversation whose title holds a secret is refused for
+good (`refused[]`), and the cursor moves past it. An email address or phone number in a title is masked, and a
+participant whose id is not a Metaview participant id, or whose label is an address or a number, carries no id or no
+name. An answer the plugin cannot read fails the call with `UNAVAILABLE`, and your cursor stays where it was.
 
 Metaview keeps conversations, and their call metadata, only as long as your organization's retention setting says,
 which can be any period and which no Metaview tool names. So the source vouches for the last 30 days: a cursor older
 than that answers `gap: { "reason": "expired", "since": … }`, and a first listing whose `since` is older answers
 `gap: { "reason": "window-truncated", "since": … }`, on the page where the read restarts at the window's edge; what
-started before `since` may be gone. The cursor carries that line until the read has nothing more, so the gap is
-answered once per read, however many pages the read takes. A conversation deleted in Metaview before a read reaches it
-is not listed, and one already listed is not retracted. Every `rationale` Metaview receives with these reads is fixed text with
-no candidate detail.
+started before `since` may be gone. The cursor carries that line while the read drains (up to 7 days after the gap),
+so the gap is answered once per read, however many pages the read takes; a read paused longer is judged again, and
+answers a new gap if it fell behind the window. A workspace retention shorter than 30 days can delete conversations
+before a read reaches them, with no gap: no Metaview tool names the retention. A conversation deleted in Metaview, or
+one you lose access to, before a read reaches it is not listed and is not a gap; one already listed is not
+retracted.
 
 They refuse with the source contract's codes, in the same `CODE: what happened. Next step: what to do.` form:
 

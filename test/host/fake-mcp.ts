@@ -44,8 +44,8 @@ export const CONVERSATIONS = {
       fields: {
         "default:start_time": [{ value: metaviewTime(CONVERSATION_START), label: metaviewTime(CONVERSATION_START) }],
         "default:calendar_event_title": [{ value: "Fake interview", label: "Fake interview" }],
-        "default:candidate": [{ value: "c_fake_1", label: "Fake Candidate", details: { name: "Fake Candidate", emails: ["candidate@example.test"], phone_numbers: ["+1 555 0100"] } }],
-        "default:interviewer": [{ value: "i_fake_1", label: "Fake Interviewer", details: { name: "Fake Interviewer", emails: ["interviewer@example.test"], phone_numbers: [] } }],
+        "default:candidate": [{ value: "0c0c0c0c-0000-4000-8000-000000000001", label: "Fake Candidate", details: { name: "Fake Candidate", emails: ["candidate@example.test"], phone_numbers: ["+1 555 0100"] } }],
+        "default:interviewer": [{ value: "0e0e0e0e-0000-4000-8000-000000000001", label: "Fake Interviewer", details: { name: "Fake Interviewer", emails: ["interviewer@example.test"], phone_numbers: [] } }],
         "default:conversation_type": [{ value: "t_fake_1", label: "Phone Screen" }],
       },
     },

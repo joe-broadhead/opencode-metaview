@@ -378,8 +378,8 @@ describe.each(HOST_VERSIONS)("the tools RPC on stock OpenCode %s", (version) => 
         url: "https://app.metaview.ai/notes/5001",
         labels: ["Phone-Screen"],
         actors: [
-          { role: "candidate", id: "metaview-participant:c_fake_1", name: "Fake Candidate" },
-          { role: "interviewer", id: "metaview-participant:i_fake_1", name: "Fake Interviewer" },
+          { role: "candidate", id: "metaview-participant:0c0c0c0c-0000-4000-8000-000000000001", name: "Fake Candidate" },
+          { role: "interviewer", id: "metaview-participant:0e0e0e0e-0000-4000-8000-000000000001", name: "Fake Interviewer" },
         ],
       }),
     ])
