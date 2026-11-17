@@ -36,6 +36,7 @@ import {
   unreadable,
   type Problem,
 } from "./errors.js"
+import { decodeKeys, encodeKeys, seenKey } from "./keys.js"
 import { FIELDS, conversationsPage, userOf, type ConversationFacts } from "./metaview.js"
 
 /**
@@ -76,9 +77,10 @@ import { FIELDS, conversationsPage, userOf, type ConversationFacts } from "./met
  * Metaview sorts by start only, so a conversation is listed once every conversation with an earlier start has been
  * read; a burst sharing one start that is larger than a read's pages is read whole and walked by id, and the cursor
  * always moves. A conversation Metaview adds behind the cursor later is listed once if it started within LOOKBACK_MS
- * (7 days) of the cursor: the cursor keeps a short key for each conversation it listed in that span, about 200 in its
- * 1024 characters. When the span holds more, the oldest keys go, the floor rises, and a `window-truncated` gap says so
- * once. An organization whose retention is shorter than WINDOW_MS can delete conversations before a reader sees them,
+ * (7 days) of the cursor: the cursor keeps a 25-bit key for each conversation it listed in that span, as a
+ * Golomb-Rice coded set (`./keys.ts`), about 200 in its 1024 characters. When the span holds more, the oldest keys
+ * go, the floor rises, and a `window-truncated` gap says so once per shortening: the cursor's `r` flag clears once the
+ * keys use at most 80% of its room again. An organization whose retention is shorter than WINDOW_MS can delete conversations before a reader sees them,
  * with no gap: no tool names the retention. An answer the plugin cannot read fails the call, holding the cursor.
  */
 
@@ -335,7 +337,7 @@ const keyOf = (conversation: Dated): Key => ({ t: conversation.time, i: conversa
 interface Position extends Key {
   readonly floor: number
   /** The de-dup keys (`seenKey`) of the conversations listed from the floor on. */
-  readonly seen: ReadonlySet<string>
+  readonly seen: ReadonlySet<number>
   readonly gapLine?: number
   /** Set while the cursor cannot hold the whole lookback, after a gap said so once. */
   readonly reduced?: boolean
@@ -355,23 +357,8 @@ function cursorAccount(cursor: string): string | undefined {
   }
 }
 
-/**
- * A listed conversation's de-dup key: 18 bits of the FNV-1a hash of its id, as three base64url characters, so the
- * cursor's 1024 characters hold about 200 of them. Two ids can share a key: a conversation that arrives late with the
- * key of one already listed is taken for it and not listed, at worst about 1 in 1,300 late arrivals with a full cursor
- * (200 keys of 262,144).
- */
-const KEY_CHARS = 3
-const BASE64URL = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
-export function seenKey(id: string): string {
-  let hash = 0x811c9dc5
-  for (let index = 0; index < id.length; index++) hash = Math.imul(hash ^ id.charCodeAt(index), 0x01000193) >>> 0
-  let key = ""
-  for (let index = 0; index < KEY_CHARS; index++) key += BASE64URL[(hash >>> (26 - 6 * index)) & 63]
-  return key
-}
-const SEEN = /^([A-Za-z0-9_-]{3})*$/
-const unpackSeen = (text: string) => new Set(text.match(/.{3}/g) ?? [])
+/** The cursor's seen keys: a Golomb-Rice coded set of 25-bit hashes of the listed ids (`./keys.ts`). */
+export { seenKey } from "./keys.js"
 
 /**
  * The position a cursor holds for `account`. Another account's cursor is ACCOUNT_MISMATCH; anything that is not this
@@ -393,48 +380,61 @@ function positionOf(cursor: string, account: string): Position {
     !time(l) ||
     l > t + 1 ||
     typeof s !== "string" ||
-    !SEEN.test(s) ||
+    decodeKeys(s) === undefined ||
     (g !== undefined && (!time(g) || g > t)) ||
     (r !== undefined && r !== 1)
   ) {
     throw new EventsFailure(cursorInvalid())
   }
-  return { t, i, floor: l, seen: unpackSeen(s), ...(g === undefined ? {} : { gapLine: g }), ...(r === 1 ? { reduced: true } : {}) }
+  return { t, i, floor: l, seen: decodeKeys(s)!, ...(g === undefined ? {} : { gapLine: g }), ...(r === 1 ? { reduced: true } : {}) }
 }
 
-/** A cursor, and the lookback floor it holds: above the floor asked for when the keys did not all fit. */
+/** A cursor, the lookback floor it holds (above the floor asked for when the keys did not all fit), and its flag. */
 interface Encoded {
   readonly cursor: string
   readonly floor: number
+  /** The cursor's `r`: set while the lookback is short, or was and the keys still fill more than RELIEF of the room. */
+  readonly reduced: boolean
 }
+
+/** The share of the cursor's room for keys at or under which a shortened lookback is whole again: `r` clears. */
+const RELIEF = 0.8
 
 /**
  * The cursor for a position. The seen keys are kept newest first; when they do not all fit the contract's length, the
- * oldest are dropped and the floor rises to a whole start, so a conversation is never half in the lookback.
+ * oldest are dropped and the floor rises to a whole start, so a conversation is never half in the lookback. `r` is set
+ * while the lookback is short, so each new shortening answers one gap; once set it clears only when the keys use at
+ * most RELIEF of the room, so an account near capacity does not answer a gap on every other read.
  */
-function cursorOf(account: string, position: Key, floor: number, seen: ReadonlyMap<string, number>, gapLine: number | undefined, reduced: boolean): Encoded {
+function cursorOf(account: string, position: Key, floor: number, seen: ReadonlyMap<number, number>, gapLine: number | undefined, wasReduced: boolean): Encoded {
   const binding = bindingOf(account)
   const kept = [...seen].filter(([, time]) => time >= floor).sort((a, b) => b[1] - a[1])
-  // The contract's codec refuses a cursor over EVENT_LIMITS.cursor characters: undefined means "too long".
-  const encode = (from: number) => {
-    const state = { a: account, t: position.t, i: position.i, l: from, n: kept.map(([key]) => key).join(""), ...(gapLine === undefined ? {} : { g: gapLine }), ...(reduced || from > floor ? { r: 1 } : {}) }
+  const stateOf = (from: number, keys: string, flag: boolean) => ({ a: account, t: position.t, i: position.i, l: from, n: keys, ...(gapLine === undefined ? {} : { g: gapLine }), ...(flag ? { r: 1 } : {}) })
+  // The contract's codec refuses a cursor over EVENT_LIMITS.cursor characters: undefined means "too long". The fit is
+  // judged with `r` set, so the cursor still fits when the flag is written.
+  const fits = (from: number) => {
+    const keys = encodeKeys(kept.map(([key]) => key))
     try {
-      const cursor = encodeBoundCursor(binding, state)
-      return cursor.length <= EVENT_LIMITS.cursor ? cursor : undefined
+      const cursor = encodeBoundCursor(binding, stateOf(from, keys, true))
+      return cursor.length <= EVENT_LIMITS.cursor ? keys : undefined
     } catch (error) {
       if (kept.length === 0) throw error
       return undefined
     }
   }
   let from = floor
-  for (;;) {
-    const cursor = encode(from)
-    if (cursor !== undefined) return { cursor, floor: from }
+  let keys = fits(from)
+  while (keys === undefined) {
     const oldest = kept.at(-1)![1]
     while (kept.length > 0 && kept.at(-1)![1] === oldest) kept.pop()
     // No lookback left: the floor passes the cursor, and only conversations after it are listed.
     from = kept.length > 0 ? kept.at(-1)![1] : position.t + 1
+    keys = fits(from)
   }
+  const overhead = encodeBoundCursor(binding, stateOf(from, "", true)).length
+  const used = encodeBoundCursor(binding, stateOf(from, keys, true)).length - overhead
+  const reduced = from > floor || (wasReduced && used > RELIEF * (EVENT_LIMITS.cursor - overhead))
+  return { cursor: encodeBoundCursor(binding, stateOf(from, keys, reduced)), floor: from, reduced }
 }
 
 /** Metaview's starts are whole seconds: a window runs from the first whole second at or after its start. */
@@ -642,9 +642,9 @@ export async function listEvents(read: Read, input: unknown, now: number): Promi
   // The lookback: the listed conversations that started within LOOKBACK_MS of the cursor, so one Metaview adds behind
   // it later (a long call processed late, a recording uploaded days after the call) is listed once, and nothing twice.
   const floor = Math.max(position.floor, next.t - LOOKBACK_MS)
-  const readKeys = new Map<string, number>()
+  const readKeys = new Map<number, number>()
   for (const [id, time] of found.starts) readKeys.set(seenKey(id), Math.max(time, readKeys.get(seenKey(id)) ?? time))
-  const seen = new Map<string, number>()
+  const seen = new Map<number, number>()
   for (const key of position.seen) {
     const time = readKeys.get(key)
     if (time !== undefined) seen.set(key, time)
@@ -658,8 +658,8 @@ export async function listEvents(read: Read, input: unknown, now: number): Promi
   const asked = found.skipTo !== undefined ? next.t + 1 : floor
   const encoded = cursorOf(account, next, asked, seen, gapLine, position.reduced === true)
   // More listed conversations in the lookback than the cursor can hold: the floor rose, and a conversation that arrives
-  // behind it later would be missed. Said once, with a gap, until the cursor holds the whole lookback again.
-  if (encoded.floor > asked && position.reduced !== true) gap ??= { reason: "window-truncated", since: new Date(Math.min(encoded.floor, next.t + 1)).toISOString() }
+  // behind it later would be missed. Said once per shortening, with a gap: `r` holds while the lookback is short.
+  if (encoded.floor > asked && position.reduced !== true && encoded.reduced) gap ??= { reason: "window-truncated", since: new Date(Math.min(encoded.floor, next.t + 1)).toISOString() }
   const cursor = encoded.cursor
   return eventsListResult({ source: SOURCE, account, owner: ownerOf(account) }, page, cursor, more, {
     refused,

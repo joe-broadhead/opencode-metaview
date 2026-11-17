@@ -374,8 +374,8 @@ credential store.
   - **Late arrivals:** one that appears after the source read past its start (an upload, a conversation shared with you
     later) is listed once if it started within 7 days of the cursor; one later than that is not listed, and no gap says so.
   - **Busy accounts:** the cursor de-duplicates about 200 conversations (about 28 a day over the 7 days). With more,
-    the lookback is shorter, and a `window-truncated` gap says so once. A de-dup key is 18 bits of a hash of the id, so
-    about 1 late arrival in 1,300 can be taken for one already listed and not listed.
+    the lookback is shorter, and a `window-truncated` gap says so once per shortening. A de-dup key is 25 bits of a
+    hash of the id, so about 1 late arrival in 168,000 can be taken for one already listed and not listed.
   - **Retention:** the source vouches for the last 30 days, since Metaview's retention is your organization's own
     setting and no tool names it. A workspace retention shorter than 30 days can delete recordings before the source
     reads them, with no gap.

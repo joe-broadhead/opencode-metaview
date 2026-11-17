@@ -172,10 +172,12 @@ listed once it started 3 hours ago: Metaview writes its notes about five minutes
 of up to almost 3 hours is in the search by then. Metaview lists an uploaded recording at the start its uploader gave,
 so one can appear days behind the cursor: a conversation that appears after the cursor passed its start (a longer
 call processed later, an upload, a conversation shared with you later) is listed once if it started within 7 days of
-the cursor. For that, the cursor keeps a 3-character key (18 bits of a hash of the id) for each conversation it listed
-in those 7 days: about 200 fit in its 1024 characters. When more were listed, the oldest keys go, the lookback is
-shorter, and a `window-truncated` gap whose `since` is the new lookback's start says so once, until the cursor holds
-the whole 7 days again. Two ids can share a key, so a late arrival is missed at worst about once in 1,300. One later
+the cursor. For that, the cursor keeps a key (25 bits of a hash of the id) for each conversation it listed in those 7
+days, as a Golomb-Rice coded set of about 19 bits a key: about 200 fit in its 1024 characters. When more were listed,
+the oldest keys go, the lookback is shorter, and a `window-truncated` gap whose `since` is the new lookback's start
+says so once; the cursor marks the lookback short until its keys use at most 80% of their room again, and each later
+shortening answers its own gap. Two ids can share a key, so a late arrival is missed at worst about once in 168,000
+(200 keys of 2^25). One later
 than 7 days is not listed, and no gap says so. A burst of conversations sharing one start, larger than a read's pages,
 is read whole and walked by id, so the cursor always moves. A conversation whose title holds a secret is refused for
 good (`refused[]`), and the cursor moves past it. An email address or phone number in a title is masked, and a

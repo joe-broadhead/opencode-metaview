@@ -5,7 +5,7 @@
 import { describe, expect, setDefaultTimeout, test } from "bun:test"
 import { EVENT_LIMITS } from "@we-the-rebel-alliance/source-contract/events"
 import type { ToolCall } from "@we-the-rebel-alliance/source-contract/tools-rpc"
-import { eventsMethod } from "../../src/events/index.js"
+import { eventsMethod, seenKey } from "../../src/events/index.js"
 import { holdsContact, maskContacts } from "../../src/events/metaview.js"
 import { ACCOUNT, FIXTURE, NOW, cursorAt, syntheticContext, type Call, type SyntheticConversation } from "../support/synthetic-metaview.js"
 
@@ -51,14 +51,14 @@ const ids = (p: Record<string, any>) => (p["events"] as { external_id: string }[
 /** A consumer reading every `step` from `since` to `until`, over a world where each conversation appears at its own time. */
 async function poll(all: { c: SyntheticConversation; visibleAt: number }[], since: number, until: number, step: number, limit = 100) {
   const listed: string[] = []
-  const gaps: { reason: string; since: string }[] = []
+  const gaps: { reason: string; since: string; at: number }[] = []
   let cursor: string | undefined
   for (let now = since + step; now <= until; now += step) {
     const conversations = all.filter((x) => x.visibleAt <= now).map((x) => x.c)
     for (let k = 0; k < 50; k++) {
       const page = await list(cursor ? { account: ACCOUNT, cursor, limit } : { account: ACCOUNT, since: new Date(since).toISOString(), limit }, now, { conversations })
       listed.push(...ids(page))
-      if (page["gap"]) gaps.push(page["gap"])
+      if (page["gap"]) gaps.push({ ...page["gap"], at: now })
       cursor = page["cursor"]
       expect(cursor!.length).toBeLessThanOrEqual(EVENT_LIMITS.cursor)
       if (!page["more"]) break
@@ -114,6 +114,61 @@ describe("late arrivals", () => {
     const settled = busy.filter((x) => startOf(x.c) <= D0 + 3 * D - 3 * H).map((x) => String(x.c.id))
     for (const id of settled) expect(r.listed).toContain(id)
     if (!r.listed.includes("49999999")) expect(Date.parse(r.gaps[0]!.since)).toBeGreaterThan(startOf(late.c))
+  })
+})
+
+describe("over capacity, and back", () => {
+  const D0 = Date.parse("2026-11-01T00:00:00Z")
+  /** `perDay` conversations a day for `days` days from `from`, each appearing 10 minutes after its start. */
+  const steady = (perDay: number, from: number, days: number, base: number) =>
+    Array.from({ length: Math.round(perDay * days) }, (_, k) => ({ c: conv(base + k * 37, from + k * (D / perDay)), visibleAt: from + k * (D / perDay) + 10 * 60_000 }))
+  /**
+   * Listed once, or covered by the gap that said the lookback is shorter: one answered before it arrived, while the
+   * shortening that gap announced still held (the gap-once rule).
+   */
+  const accounted = (r: { listed: string[]; gaps: { at: number }[] }, x: { c: SyntheticConversation; visibleAt: number }) =>
+    r.listed.includes(String(x.c.id)) || r.gaps.some((gap) => gap.at <= x.visibleAt)
+
+  test("300 a day for 10 days, read hourly: one window-truncated gap, not one per read", async () => {
+    const r = await poll(steady(300, D0, 10, 41_000_000), D0, D0 + 10 * D, H, 200)
+    expect(r.gaps).toHaveLength(1)
+    expect(r.listed.length).toBe(new Set(r.listed).size)
+  })
+
+  test("300 a day with uploads 2 and 5 days late: each is listed, or lies behind the gap that said the lookback shrank", async () => {
+    const late = [
+      { c: conv(99_000_001, D0 + 6 * D + 10 * H), visibleAt: D0 + 8 * D + 10 * H },
+      { c: conv(99_000_002, D0 + 5 * D + 9 * H), visibleAt: D0 + 10 * D + 9 * H },
+    ]
+    const r = await poll([...steady(300, D0, 12, 41_000_000), ...late], D0, D0 + 12 * D, H, 200)
+    for (const x of late) expect(accounted(r, x)).toBe(true)
+    expect(r.listed.length).toBe(new Set(r.listed).size)
+  })
+
+  test("busy, then quiet for two weeks, then busy again: each shortening answers its own gap, and a late upload is accounted for", async () => {
+    const busy1 = steady(300, D0, 3, 41_000_000)
+    const quiet = steady(5, D0 + 3 * D, 14, 42_000_000)
+    const busy2 = steady(300, D0 + 17 * D, 4, 43_000_000)
+    const late = { c: conv(99_000_003, D0 + 18 * D + 10 * H), visibleAt: D0 + 20 * D + 10 * H }
+    const r = await poll([...busy1, ...quiet, ...busy2, late], D0, D0 + 21 * D, 2 * H, 200)
+    // One gap in the first busy spell, one in the second: the flag cleared while it was quiet.
+    expect(r.gaps.filter((gap) => gap.at < D0 + 3 * D)).toHaveLength(1)
+    expect(r.gaps.filter((gap) => gap.at >= D0 + 17 * D)).toHaveLength(1)
+    expect(r.gaps).toHaveLength(2)
+    // The second gap came before the upload arrived, and after the quiet spell.
+    expect(accounted(r, late)).toBe(true)
+    expect(r.gaps.some((gap) => gap.at >= D0 + 17 * D && gap.at <= late.visibleAt)).toBe(true)
+    // While it was quiet, with the whole 7 days held again, nothing was lost.
+    for (const x of quiet) if (startOf(x.c) <= D0 + 21 * D - 3 * H) expect(r.listed).toContain(String(x.c.id))
+  })
+
+  test("a late upload whose key equals a listed conversation's is taken for it: the stated limit, about 1 in 168,000", async () => {
+    // 60318349 and 41000000 share a 25-bit key: found by search, as the measured rate says such pairs are rare.
+    expect(seenKey("60318349")).toBe(seenKey("41000000"))
+    const all = [{ c: conv(41_000_000, D0 + 2 * H), visibleAt: D0 + 2 * H }, { c: conv(60_318_349, D0 + 3 * H), visibleAt: D0 + 2 * D }]
+    const r = await poll(all, D0, D0 + 4 * D, H)
+    expect(r.listed).toEqual(["41000000"])
+    expect(r.gaps).toEqual([])
   })
 })
 

@@ -14,8 +14,9 @@ All notable changes to this project are documented here. The format follows [Kee
   account from `get_user_context`. Metaview's retention is each organization's own setting, so the source vouches for
   the last 30 days: an older cursor or `since` answers a `gap` once per read and reads on from the window's edge. A
   conversation Metaview adds behind the cursor within 7 days of it, such as an upload listed at its call's start, is
-  listed once, by an 18-bit key of its id that the cursor keeps (about 200 fit; with more, a `window-truncated` gap
-  says once that the lookback is shorter). A burst sharing one start is walked by id; an answer the plugin cannot read
+  listed once, by a 25-bit key of its id that the cursor keeps in a Golomb-Rice coded set (about 200 fit; with more,
+  a `window-truncated` gap says once per shortening that the lookback is shorter; a late arrival is taken for a listed
+  one about once in 168,000). A burst sharing one start is walked by id; an answer the plugin cannot read
   fails the call and holds the cursor; a title's email addresses and phone numbers are masked, and an actor's id is a
   Metaview participant id or nothing. Each event carries metadata only: the id, start, title, link, conversation type, and
   the candidates and interviewers by name. No transcript, note, score, feedback or contact detail, and `text` is
