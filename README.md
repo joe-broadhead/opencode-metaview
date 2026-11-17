@@ -368,10 +368,11 @@ credential store.
 
 ## Known limits
 
-- **The conversations source lists by start time.** Metaview's search orders conversations by their start only, so a
-  recording uploaded later for an earlier call, or a conversation shared with you after the source read past its start,
-  is not listed; neither is one deleted before a read reaches it, and one already listed is not retracted. The source
-  vouches for the last 30 days, since Metaview's retention is your organization's own setting.
+- **The conversations source lists by start time.** Metaview's search orders conversations by their start only. One
+  that appears after the source read past its start (a recording uploaded later, a conversation shared with you later)
+  is listed once if it started within a day of the cursor, and not after that. One deleted before a read reaches it is
+  not listed, and one already listed is not retracted. The source vouches for the last 30 days, since Metaview's
+  retention is your organization's own setting.
 - **Some changes reach people.** A screening or sequence message, an application-review decision that can reject a candidate and sync to your ATS, and feedback to the Metaview team (a hiring decision can email the candidate) all reach people or systems outside OpenCode. At the default `access`, an agent can make them without a prompt.
 - **Metaview's server decides the tools.** The plugin classifies the tools it knows. A tool Metaview adds later is not classed by the plugin: the `access` option decides whether it runs, asks or is denied, and `/metaview-status` counts it as unknown.
 - **Role and plan limits.** What you can read follows your Metaview role, and reports, AI fields and full transcripts may need a paid plan. The plugin does not change either.

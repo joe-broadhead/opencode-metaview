@@ -13,7 +13,7 @@ import { SOURCES_SCHEMA, type Sources } from "@we-the-rebel-alliance/source-cont
 import type { ToolCall } from "@we-the-rebel-alliance/source-contract/tools-rpc"
 import { PACKAGE, SOURCE, SOURCE_ID, eventsMethod, probeMethod } from "../../src/events/index.js"
 import { METHODS, TOOLS_RPC_ID } from "../../src/tools-rpc.js"
-import { ACCOUNT, NOW, ROOT, SINCE, syntheticContext } from "./synthetic-metaview.js"
+import { ACCOUNT, NOW, ROOT, SINCE, cursorAt, syntheticContext } from "./synthetic-metaview.js"
 
 export { ROOT }
 
@@ -62,8 +62,8 @@ export function declaredSources(): Sources {
 async function cases(): Promise<PageCase[]> {
   const first = (await list({ account: ACCOUNT, since: SINCE, limit: 2 }))["cursor"] as string
   const done = (await list({ account: ACCOUNT, since: SINCE, limit: 500 }))["cursor"] as string
-  const bound = (binding: { plugin: string; source: string; account: string }) => encodeBoundCursor(binding, { a: binding.account, t: Date.parse(SINCE), i: "" })
-  const old = (days: number) => encodeBoundCursor({ plugin: "metaview", source: SOURCE, account: ACCOUNT }, { a: ACCOUNT, t: NOW - days * 86_400_000, i: "" })
+  const bound = (binding: { plugin: string; source: string; account: string }) => encodeBoundCursor(binding, { a: binding.account, t: Date.parse(SINCE), i: "", l: Date.parse(SINCE), n: "" })
+  const old = (days: number) => cursorAt(NOW - days * 86_400_000)
   return [
     { name: "a first listing, for the account probe names, one conversation refused for a secret", input: { account: ACCOUNT, since: SINCE }, expect: "page" },
     { name: "what came after the first two", input: { account: ACCOUNT, cursor: first }, expect: "page" },

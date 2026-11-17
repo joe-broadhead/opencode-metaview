@@ -69,8 +69,15 @@ import { FIELDS, conversationsPage, userOf, type ConversationFacts } from "./met
  * Metaview keeps conversations, and their call metadata, only as long as the organization's retention setting says,
  * which can be any period and which no tool names. So the source vouches for WINDOW_MS of history and no more: a
  * cursor older than that answers `gap: { reason: "expired", since }`, and a first listing whose `since` is older
- * answers `gap: { reason: "window-truncated", since }`, once, on the page where the read restarts, a day inside the
- * window, so the pages that follow it do not repeat the gap.
+ * answers `gap: { reason: "window-truncated", since }`, on the page where the read restarts at the window's edge. The
+ * gap's line rides in the cursor until the read has nothing more, so the gap is answered once per read and never
+ * recomputed from the clock.
+ *
+ * Metaview sorts by start only, so a conversation is listed once every conversation with an earlier start has been
+ * read; a burst sharing one start that is larger than a read's pages is read whole and walked by id, and the cursor
+ * always moves. A conversation Metaview adds behind the cursor later is listed once if it started within LOOKBACK_MS
+ * of the cursor: the cursor keeps the ids it listed in that span (as many as its 1024 characters hold, the oldest
+ * dropped first). An answer the plugin cannot read fails the call, holding the cursor.
  */
 
 /** The plugin's package name, which every page names. */
@@ -95,8 +102,13 @@ export const SETTLE_MS = 3 * 3_600_000
  * names it, so the source assumes a short one: an older cursor or `since` answers a gap.
  */
 export const WINDOW_MS = 30 * 86_400_000
-/** Where a read restarts after a gap: a day inside the window, so the pages that follow the restart stay inside it. */
-const RESTART_MS = WINDOW_MS - 86_400_000
+/**
+ * How far behind the cursor a read looks for a conversation Metaview added late (a long call processed after the
+ * cursor passed its start, a recording uploaded the next morning): such a conversation is listed once, by id.
+ */
+export const LOOKBACK_MS = 86_400_000
+/** The most search_conversations pages a jam takes: every conversation of one start, walked by id. */
+const TIE_PAGES = 40
 /** Conversations per search_conversations page: Metaview clamps anything above 50. */
 export const SEARCH_LIMIT = 50
 /** The most search_conversations pages one call reads; the cursor carries on from the last conversation listed. */
@@ -311,6 +323,17 @@ type Dated = ConversationFacts & { readonly time: number }
 
 const keyOf = (conversation: Dated): Key => ({ t: conversation.time, i: conversation.id })
 
+/**
+ * Where a listing stands: the (start, id) of the last conversation it passed; the lookback floor, the earliest start
+ * whose listed conversations `seen` holds, so one that appears behind the cursor later is listed once; and, while a
+ * read that answered a gap is still draining, the gap's line, so its later pages neither answer it again nor move it.
+ */
+interface Position extends Key {
+  readonly floor: number
+  readonly seen: ReadonlySet<string>
+  readonly gapLine?: number
+}
+
 /** What a cursor is bound to: this plugin, its one source and the account. */
 const bindingOf = (account: string): CursorBinding => ({ plugin: SERVER_NAME, source: SOURCE, account })
 
@@ -325,26 +348,70 @@ function cursorAccount(cursor: string): string | undefined {
   }
 }
 
+/** The seen ids as the cursor holds them: base 36, joined by dots. */
+const SEEN = /^([0-9a-z]{1,14}(\.[0-9a-z]{1,14})*)?$/
+const packSeen = (ids: Iterable<string>) => [...ids].map((id) => BigInt(id).toString(36)).join(".")
+const unpackSeen = (text: string) => new Set(text === "" ? [] : text.split(".").map((part) => [...part].reduce((sum, digit) => sum * 36n + BigInt(parseInt(digit, 36)), 0n).toString()))
+
 /**
  * The position a cursor holds for `account`. Another account's cursor is ACCOUNT_MISMATCH; anything that is not this
  * source's bound cursor for the account is CURSOR_INVALID, and the caller starts again with since.
  */
-function positionOf(cursor: string, account: string): Key {
+function positionOf(cursor: string, account: string): Position {
   const named = cursorAccount(cursor)
   if (named !== undefined && named !== account) throw new EventsFailure(accountMismatch(account, "cursor"))
   const decoded = decodeBoundCursor(bindingOf(account), cursor)
   if (!decoded.ok) throw new EventsFailure(cursorInvalid())
   const { state } = decoded
-  const [t, i] = [state["t"], state["i"]]
-  if (state["a"] !== account || typeof t !== "number" || !Number.isSafeInteger(t) || typeof i !== "string" || !/^(\d{1,20})?$/.test(i)) {
+  const [t, i, l, s, g] = [state["t"], state["i"], state["l"], state["n"], state["g"]]
+  const time = (value: unknown): value is number => typeof value === "number" && Number.isSafeInteger(value)
+  if (
+    state["a"] !== account ||
+    !time(t) ||
+    typeof i !== "string" ||
+    !/^(\d{1,20})?$/.test(i) ||
+    !time(l) ||
+    l > t + 1 ||
+    typeof s !== "string" ||
+    !SEEN.test(s) ||
+    (g !== undefined && (!time(g) || g > t))
+  ) {
     throw new EventsFailure(cursorInvalid())
   }
-  return { t, i }
+  return { t, i, floor: l, seen: unpackSeen(s), ...(g === undefined ? {} : { gapLine: g }) }
 }
 
-/** Seconds are as fine as Metaview's date filter needs; the window is widened to whole seconds. */
-const isoFloor = (time: number) => new Date(Math.floor(time / 1000) * 1000).toISOString()
+const EMPTY: readonly string[] = []
+
+/** The cursor for a position: the seen ids are dropped oldest first, raising the floor, until it fits the contract's length. */
+function cursorOf(account: string, position: Key, floor: number, seen: ReadonlyMap<string, number>, gapLine: number | undefined): string {
+  const binding = bindingOf(account)
+  // The contract's codec refuses a cursor over EVENT_LIMITS.cursor characters: undefined means "too long".
+  const encode = (from: number, ids: Iterable<string>) => {
+    try {
+      const cursor = encodeBoundCursor(binding, { a: account, t: position.t, i: position.i, l: from, n: packSeen(ids), ...(gapLine === undefined ? {} : { g: gapLine }) })
+      return cursor.length <= EVENT_LIMITS.cursor ? cursor : undefined
+    } catch (error) {
+      if (ids === EMPTY) throw error
+      return undefined
+    }
+  }
+  // Newest first; the floor only rises to a whole start, so a conversation is never half in the lookback.
+  const kept = [...seen].filter(([, time]) => time >= floor).sort((a, b) => b[1] - a[1])
+  let from = floor
+  for (;;) {
+    const cursor = encode(from, kept.length === 0 ? EMPTY : kept.map(([id]) => id))
+    if (cursor !== undefined) return cursor
+    const oldest = kept.at(-1)![1]
+    while (kept.length > 0 && kept.at(-1)![1] === oldest) kept.pop()
+    // No lookback left: the floor passes the cursor, and only conversations after it are listed.
+    from = kept.length > 0 ? kept.at(-1)![1] : position.t + 1
+  }
+}
+
+/** Metaview's starts are whole seconds: a window runs from the first whole second at or after its start. */
 const isoCeil = (time: number) => new Date(Math.ceil(time / 1000) * 1000).toISOString()
+const floorSecond = (time: number) => Math.floor(time / 1000) * 1000
 
 /** The signed-in account, from one get_user_context read. */
 async function signedIn(read: Read): Promise<string> {
@@ -376,21 +443,26 @@ function toEvent(account: string, conversation: Dated): SourceEvent {
   })
 }
 
-/** What one listing found: the conversations after the cursor, and whether it read every page up to the end. */
-interface Found {
-  readonly conversations: Map<string, Dated>
+/** One search of Metaview's conversations in a window of starts, oldest first, by offset. */
+interface Scan {
+  /** Every conversation read, by id. */
+  readonly read: Map<string, Dated>
+  /** True when Metaview had no more in the window. */
   readonly complete: boolean
+  /** The latest start read: every conversation that started before it was read. */
+  readonly last: number
 }
 
 /**
- * The recorded conversations that started after `after` and by `end`, oldest first, until more than `limit` are found
- * or Metaview has no more. A conversation Metaview gives no start for cannot be placed in time, so it is left out.
+ * Reads the window [from, to] page by page, until Metaview has no more, `pages` pages are read, or `enough` says the
+ * conversations read so far make a page. A conversation without an id or a start inside the window is a page Metaview
+ * answered in a shape this plugin does not read: the whole call is UNAVAILABLE, so the cursor is held, never moved
+ * past something it could not read.
  */
-async function search(read: Read, after: Key, end: number, limit: number): Promise<Found> {
-  const conversations = new Map<string, Dated>()
-  if (after.t > end) return { conversations, complete: true }
+async function scan(read: Read, from: number, to: number, pages: number, enough: (scan: Scan) => boolean): Promise<Scan> {
   const input = {
-    filters: [{ field_id: FIELDS.start, operation: "between", value: { scope: "absolute", value: [isoFloor(after.t), isoCeil(end)] } }],
+    // Metaview's starts are whole seconds, and its between includes both ends (checked on 17 November 2026).
+    filters: [{ field_id: FIELDS.start, operation: "between", value: { scope: "absolute", value: [isoCeil(from), isoCeil(to)] } }],
     fields: Object.values(FIELDS),
     only_show_recorded_conversations: true,
     sort_by: FIELDS.start,
@@ -398,22 +470,82 @@ async function search(read: Read, after: Key, end: number, limit: number): Promi
     limit: SEARCH_LIMIT,
     rationale: RATIONALE.list,
   }
+  const conversations = new Map<string, Dated>()
+  let last = from
   let offset = 0
-  for (let page = 0; page < SEARCH_PAGES; page++) {
+  for (let page = 0; page < pages; page++) {
     const result = conversationsPage(await read("search_conversations", { ...input, offset }))
-    if (result === undefined) throw new EventsFailure(unreadable("search_conversations", EVENTS_TOOL))
+    if (result === undefined || result.invalid > 0) throw new EventsFailure(unreadable("search_conversations", EVENTS_TOOL))
     for (const conversation of result.conversations) {
       const { time } = conversation
-      if (time === undefined || time > end) continue
-      const dated = { ...conversation, time }
-      if (compare(keyOf(dated), after) > 0) conversations.set(dated.id, dated)
+      if (time === undefined) throw new EventsFailure(unreadable("search_conversations", EVENTS_TOOL))
+      // Outside the window asked for: not this read's to place.
+      if (time < from || time > to + 999) continue
+      conversations.set(conversation.id, { ...conversation, time })
+      last = Math.max(last, time)
     }
     offset += result.count
     const more = result.more ?? (result.total !== undefined && offset < result.total)
-    if (!more || result.count === 0) return { conversations, complete: true }
-    if (conversations.size > limit) break
+    if (!more || result.count === 0) return { read: conversations, complete: true, last }
+    if (enough({ read: conversations, complete: false, last })) break
   }
-  return { conversations, complete: false }
+  return { read: conversations, complete: false, last }
+}
+
+/** Whether a conversation read is one to list: after the cursor, or behind it inside the lookback and not listed yet. */
+const listable = (position: Position) => (conversation: Dated) =>
+  compare(keyOf(conversation), position) > 0 || (conversation.time >= position.floor && !position.seen.has(conversation.id))
+
+/** What a listing may put on its page: the conversations to list, oldest first, whether more remain, and a jam's skip. */
+interface Candidates {
+  readonly ready: Dated[]
+  readonly complete: boolean
+  /** Every conversation read, by id, with its start: the lookback keeps the listed ones it still covers. */
+  readonly starts: Map<string, number>
+  /** Set when the read covered every start from the floor past the cursor, so a seen id it did not meet is gone. */
+  readonly covered: boolean
+  /** A burst of one start larger than SEARCH_LIMIT × TIE_PAGES: the read moves past it and says so. */
+  readonly skipTo?: number
+  /** Every start before this was read, and nothing in it was left to list: the cursor moves there. */
+  readonly passTo?: number
+}
+
+/** The most bursts of one start, already listed, that one call reads past before it answers. */
+const BURST_ROUNDS = 3
+
+/**
+ * The conversations a page may list. Metaview sorts by start only, so a conversation is ready once every conversation
+ * with an earlier start has been read: the read stops when more than `limit` are ready. If every one it read shares a
+ * start, a burst larger than the pages read, that one start is read whole and walked by id; once all of it is listed,
+ * the read goes on from the next second, so the cursor always moves.
+ */
+async function candidates(read: Read, position: Position, end: number, limit: number): Promise<Candidates> {
+  const starts = new Map<string, number>()
+  const isListable = listable(position)
+  const byKey = (list: Dated[]) => list.sort((a, b) => compare(keyOf(a), keyOf(b)))
+  const ready = (result: Scan) => [...result.read.values()].filter((conversation) => isListable(conversation) && (result.complete || conversation.time < result.last))
+  let from = Math.min(position.floor, position.t)
+  let covered = false
+  for (let round = 0; round < BURST_ROUNDS; round++) {
+    if (from > end) return { ready: [], complete: true, starts, covered: true }
+    const result = await scan(read, from, end, SEARCH_PAGES, (partial) => ready(partial).length > limit)
+    for (const [id, conversation] of result.read) starts.set(id, conversation.time)
+    covered ||= result.complete || result.last > position.t
+    const found = ready(result)
+    if (result.complete || found.length > 0) return { ready: byKey(found), complete: result.complete, starts, covered }
+    // A jam: every conversation read started at `result.last`. Read that one start whole, then walk it by id.
+    const tie = result.last
+    const whole = await scan(read, tie, tie + 1000, TIE_PAGES, () => false)
+    if (!whole.complete) return { ready: [], complete: false, starts, covered, skipTo: tie + 1000 }
+    const atTie = [...whole.read.values()].filter((conversation) => conversation.time === tie)
+    for (const conversation of atTie) starts.set(conversation.id, conversation.time)
+    const left = atTie.filter(isListable)
+    if (left.length > 0) return { ready: byKey(left), complete: false, starts, covered }
+    // All of that start is listed: read on from the next second.
+    from = tie + 1000
+    covered ||= tie >= position.t
+  }
+  return { ready: [], complete: false, starts, covered, passTo: from }
 }
 
 /**
@@ -429,35 +561,65 @@ export async function listEvents(read: Read, input: unknown, now: number): Promi
   if (request.account === undefined) throw new EventsFailure(accountRequired())
   const account = accountOf(request.account)
   if (account === undefined) throw new EventsFailure(invalidInput(EVENTS_TOOL, ["account must be the signed-in Metaview account, <organization id>/<user id>"]))
-  let after: Key = request.cursor !== undefined ? positionOf(request.cursor, account) : { t: startTime(request, now), i: "" }
-  // Older than the history the source vouches for: Metaview may have deleted what lies before, so the read restarts
-  // inside the window and says so, once, on this page.
+  const start = startTime(request, now)
+  let position: Position = request.cursor !== undefined ? positionOf(request.cursor, account) : { t: start, i: "", floor: start, seen: new Set() }
+  // Older than the history the source vouches for: Metaview may have deleted what lies before, so the read restarts at
+  // the window's edge and says so, once. The gap's line rides in the cursor while the read drains, so its later pages
+  // neither answer the gap again nor move the line, however long the read takes.
   let gap: EventsGap | undefined
-  if (after.t < now - WINDOW_MS) {
-    const since = Math.floor((now - RESTART_MS) / 1000) * 1000
-    gap = { reason: request.cursor !== undefined ? "expired" : "window-truncated", since: new Date(since).toISOString() }
-    after = { t: since, i: "" }
+  let windowGap = false
+  const edge = floorSecond(now - WINDOW_MS)
+  if (position.gapLine === undefined && position.t < edge) {
+    windowGap = true
+    gap = { reason: request.cursor !== undefined ? "expired" : "window-truncated", since: new Date(edge).toISOString() }
+    position = { t: edge, i: "", floor: edge, seen: new Set(), gapLine: edge }
+  } else if (position.floor < (position.gapLine ?? edge)) {
+    // The lookback never reaches before the history the source vouches for.
+    position = { ...position, floor: position.gapLine ?? edge }
   }
 
   const end = now - SETTLE_MS
-
-  const found = await search(read, after, end, request.limit)
-  const ordered = [...found.conversations.values()].sort((a, b) => compare(keyOf(a), keyOf(b)))
-  const chosen = ordered.slice(0, request.limit)
+  const found = await candidates(read, position, end, request.limit)
+  const chosen = found.ready.slice(0, request.limit)
   // A conversation whose title holds a secret is refused for good; the rest fill the page up to its size.
   const screened = screenEvents(chosen.map((conversation) => toEvent(account, conversation)))
   const fits = fitPage(screened.events, request.limit, MAX_BYTES)
   const page = screened.events.slice(0, fits)
-  const index = new Map(chosen.map((conversation, position) => [conversation.id, position]))
+  const index = new Map(chosen.map((conversation, at) => [conversation.id, at]))
   // The last conversation this page accounts for: every chosen one when the whole screened list fits, so a refused
   // conversation at the end is passed too; otherwise the last listed.
   const last = fits === screened.events.length ? chosen.length - 1 : index.get(page[fits - 1]!.external_id)!
+  const listed = chosen.slice(0, last + 1)
   const refused = screened.refused.filter((entry) => index.get(entry.external_id)! <= last)
-  const more = ordered.length > last + 1 || !found.complete
-  const lastConversation = chosen[last]
-  // With nothing new and every page read, the cursor moves to the end of the window, so the next call reads less.
-  const position: Key = lastConversation ? keyOf(lastConversation) : found.complete && end > after.t ? { t: end, i: "" } : after
-  const cursor = encodeBoundCursor(bindingOf(account), { a: account, t: position.t, i: position.i })
+
+  // The cursor moves to the latest conversation listed; behind it, a late one listed leaves it where it was. With
+  // nothing left and every page read, it moves to the end of the window, so the next call reads less; past a jam it
+  // cannot read whole, past that start, with a gap.
+  const latest = listed.map(keyOf).reduce<Key>((a, b) => (compare(b, a) > 0 ? b : a), position)
+  let next: Key = latest
+  if (found.skipTo !== undefined) {
+    // Just before the next second, so the next read starts there.
+    next = { t: found.skipTo - 1, i: "" }
+    gap ??= { reason: "window-truncated", since: new Date(found.skipTo).toISOString() }
+  } else if (found.passTo !== undefined && found.passTo - 1 > latest.t) next = { t: found.passTo - 1, i: "" }
+  else if (found.complete && listed.length === found.ready.length && end > latest.t) next = { t: end, i: "" }
+  const more = found.ready.length > listed.length || !found.complete
+
+  // The lookback: the listed conversations that started within LOOKBACK_MS of the cursor, so one Metaview adds behind
+  // it later (a long call processed late, a recording uploaded the next morning) is listed once, and nothing twice.
+  const floor = Math.max(position.floor, next.t - LOOKBACK_MS)
+  const seen = new Map<string, number>()
+  for (const id of position.seen) {
+    const time = found.starts.get(id)
+    if (time !== undefined) seen.set(id, time)
+    // Not met by a read that covered its start: deleted, or moved; otherwise kept, at the cursor, until a read meets it.
+    else if (!found.covered) seen.set(id, position.t)
+  }
+  for (const conversation of listed) seen.set(conversation.id, conversation.time)
+  if (found.skipTo !== undefined) seen.clear()
+  // The gap's line rides along until the read has nothing more, so the gap is answered once per read.
+  const gapLine = more ? (position.gapLine ?? (windowGap ? edge : undefined)) : undefined
+  const cursor = cursorOf(account, next, found.skipTo !== undefined ? next.t + 1 : floor, seen, gapLine)
   return eventsListResult({ source: SOURCE, account, owner: ownerOf(account) }, page, cursor, more, {
     refused,
     ...(gap === undefined ? {} : { gap }),

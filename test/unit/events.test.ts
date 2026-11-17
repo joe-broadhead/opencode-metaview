@@ -2,14 +2,14 @@
 // (test/support/synthetic-metaview.ts): the events and what they leave out, paging (the plugin's cursor and Metaview's
 // offset), an empty page, an old cursor, Metaview's failures, the sign-in, and another account. Every name is invented.
 import { describe, expect, test } from "bun:test"
-import { encodeBoundCursor } from "@we-the-rebel-alliance/source-contract/cursor"
 import { probeResultProblems, resultProblems } from "@we-the-rebel-alliance/source-contract/events"
 import type { ToolCall } from "@we-the-rebel-alliance/source-contract/tools-rpc"
 import { EventsFailure } from "../../src/events/errors.js"
-import { EVENTS_ACTION, MAX_BYTES, PROBE_ACTION, RATIONALE, SEARCH_LIMIT, SETTLE_MS, WINDOW_MS, eventsMethod, probeMethod, registerEvents } from "../../src/events/index.js"
+import { EVENT_LIMITS } from "@we-the-rebel-alliance/source-contract/events"
+import { EVENTS_ACTION, LOOKBACK_MS, MAX_BYTES, PROBE_ACTION, RATIONALE, SEARCH_LIMIT, SETTLE_MS, WINDOW_MS, eventsMethod, probeMethod, registerEvents } from "../../src/events/index.js"
 import { FIELDS, timeOf } from "../../src/events/metaview.js"
 import { pluginError } from "../../src/tools-rpc.js"
-import { ACCOUNT, FIXTURE, NOW, SINCE, syntheticContext, type Call, type SyntheticConversation, type SyntheticOptions } from "../support/synthetic-metaview.js"
+import { ACCOUNT, FIXTURE, NOW, SINCE, cursorAt, syntheticContext, type Call, type SyntheticConversation, type SyntheticOptions } from "../support/synthetic-metaview.js"
 
 const call = (): ToolCall => ({ sessionID: "ses_1", agent: "build", messageID: "msg_1", id: "call_1", signal: new AbortController().signal, progress: async () => {} })
 
@@ -136,27 +136,32 @@ describe("events_list", () => {
     expect(ids(await list({ account: ACCOUNT, since: "2026-11-13T00:00:00Z" }, { now: Date.parse("2026-11-13T13:31:00Z") }))).toEqual(["9009"])
   })
 
-  test("a cursor older than 30 days answers an expired gap once, and restarts a day inside the window", async () => {
+  test("a cursor older than 30 days answers an expired gap once per read, from the line its cursor carries", async () => {
     expect(WINDOW_MS).toBe(30 * 86_400_000)
-    const restart = "2026-10-15T12:00:00.000Z"
-    const old = encodeBoundCursor({ plugin: "metaview", source: "metaview", account: ACCOUNT }, { a: ACCOUNT, t: NOW - 100 * 86_400_000, i: "" })
-    const page = await list({ account: ACCOUNT, cursor: old, limit: 2 })
-    // 8001 started 85 days ago, before the restart: Metaview's retention may already have deleted such a conversation.
-    expect(page["gap"]).toEqual({ reason: "expired", since: restart })
-    expect(ids(page)).toEqual(["9001", "9002"])
+    const edge = "2026-10-14T12:00:00.000Z"
+    const page = await list({ account: ACCOUNT, cursor: cursorAt(NOW - 100 * 86_400_000), limit: 1 })
+    // 8001 started 85 days ago, before the edge: Metaview's retention may already have deleted such a conversation.
+    expect(page["gap"]).toEqual({ reason: "expired", since: edge })
+    expect(ids(page)).toEqual(["9001"])
     expect(page["more"]).toBe(true)
-    // The pages that follow do not repeat it, a day later too.
-    const next = await list({ account: ACCOUNT, cursor: page["cursor"], limit: 2 }, { now: NOW + 86_400_000 - 60_000 })
-    expect(next).not.toHaveProperty("gap")
-    expect(ids(next)).toEqual(["9003", "9004"])
+    // The read drains one small page at a time, days later: no page answers the gap again, and nothing is skipped.
+    const seen = [...ids(page)]
+    let cursor = page["cursor"]
+    for (let day = 1; day < 20; day++) {
+      const next = await list({ account: ACCOUNT, cursor, limit: 1 }, { now: NOW + day * 86_400_000 })
+      expect(next).not.toHaveProperty("gap")
+      seen.push(...ids(next))
+      cursor = next["cursor"]
+      if (!next["more"]) break
+    }
+    expect(seen).toEqual(["9001", "9002", "9003", "9004", "9010", "9008", "9009"])
     // A cursor just inside the window reads on with no gap.
-    const recent = encodeBoundCursor({ plugin: "metaview", source: "metaview", account: ACCOUNT }, { a: ACCOUNT, t: NOW - 29 * 86_400_000, i: "" })
-    expect(await list({ account: ACCOUNT, cursor: recent })).not.toHaveProperty("gap")
+    expect(await list({ account: ACCOUNT, cursor: cursorAt(NOW - 29 * 86_400_000) })).not.toHaveProperty("gap")
   })
 
-  test("a first listing older than 30 days answers a window-truncated gap, and reads from inside the window", async () => {
+  test("a first listing older than 30 days answers a window-truncated gap, and reads from the window's edge", async () => {
     const page = await list({ account: ACCOUNT, since: "2026-08-01T00:00:00Z" })
-    expect(page["gap"]).toEqual({ reason: "window-truncated", since: "2026-10-15T12:00:00.000Z" })
+    expect(page["gap"]).toEqual({ reason: "window-truncated", since: "2026-10-14T12:00:00.000Z" })
     expect(ids(page)).toEqual(["9001", "9002", "9003", "9004", "9010", "9008"])
     expect(resultProblems(page, 100, MAX_BYTES)).toEqual([])
     expect(await list({ account: ACCOUNT, cursor: page["cursor"] })).toMatchObject({ events: [], more: false })
@@ -170,11 +175,94 @@ describe("events_list", () => {
     expect(pluginError(error)).toMatchObject({ code: "UNAVAILABLE", what: "Metaview's search_conversations failed: Internal error: the search timed out" })
   })
 
+  test("drains a burst of one start larger than its pages, walking it by id, whatever order Metaview gives", async () => {
+    const at = "2026-11-12 09:00:00+00:00"
+    // 1,100 conversations share one start, more than one call's 20 pages of 50, and Metaview orders them as it likes.
+    const burst: SyntheticConversation[] = Array.from({ length: 1_100 }, (_, index) => ({ id: 30_000 + ((index * 7_919) % 1_100), start: at, title: `Burst ${index}`, candidates: [], interviewers: [] }))
+    const after: SyntheticConversation = { id: 29_999, start: "2026-11-12 10:00:00+00:00", title: "After the burst", candidates: [], interviewers: [] }
+    const conversations = [...burst, after]
+    const seen: string[] = []
+    let input: Record<string, unknown> = { account: ACCOUNT, since: "2026-11-12T00:00:00Z", limit: 500 }
+    for (let page = 0; page < 10; page++) {
+      const result = await list(input, { conversations, tieOrder: "shuffled" })
+      expect(result).not.toHaveProperty("gap")
+      seen.push(...ids(result))
+      expect(result["cursor"].length).toBeLessThanOrEqual(EVENT_LIMITS.cursor)
+      input = { account: ACCOUNT, cursor: result["cursor"], limit: 500 }
+      if (!result["more"]) break
+    }
+    const burstIds = burst.map((conversation) => conversation.id).sort((a, b) => a - b).map(String)
+    expect(seen).toEqual([...burstIds, "29999"])
+  })
+
+  test("a burst too large to read whole is passed with a gap, and the cursor still moves", async () => {
+    const at = "2026-11-12 09:00:00+00:00"
+    const burst: SyntheticConversation[] = Array.from({ length: 2_050 }, (_, index) => ({ id: 40_000 + index, start: at, title: `Burst ${index}`, candidates: [], interviewers: [] }))
+    const after: SyntheticConversation = { id: 39_999, start: "2026-11-12 10:00:00+00:00", title: "After the burst", candidates: [], interviewers: [] }
+    const first = await list({ account: ACCOUNT, since: "2026-11-12T00:00:00Z", limit: 10 }, { conversations: [...burst, after] })
+    expect(first).toMatchObject({ events: [], more: true, gap: { reason: "window-truncated", since: "2026-11-12T09:00:01.000Z" } })
+    const next = await list({ account: ACCOUNT, cursor: first["cursor"], limit: 10 }, { conversations: [...burst, after] })
+    expect(next).not.toHaveProperty("gap")
+    expect(ids(next)).toEqual(["39999"])
+  })
+
+  test("lists a conversation Metaview adds behind the cursor later once, within a day of it, and never twice", async () => {
+    const done = await list({ account: ACCOUNT, since: SINCE })
+    expect(done["more"]).toBe(false)
+    // A long call processed late, and a recording uploaded the next morning for a call 30 hours before the cursor.
+    const late: SyntheticConversation = { id: 9100, start: "2026-11-12 20:00:00+00:00", title: "A call processed late", candidates: [], interviewers: [] }
+    const tooLate: SyntheticConversation = { id: 9101, start: "2026-11-12 03:00:00+00:00", title: "A recording uploaded much later", candidates: [], interviewers: [] }
+    const conversations = [...FIXTURE.conversations, late, tooLate]
+    expect(LOOKBACK_MS).toBe(86_400_000)
+    const next = await list({ account: ACCOUNT, cursor: done["cursor"] }, { conversations })
+    expect(ids(next)).toEqual(["9100"])
+    expect(next).not.toHaveProperty("gap")
+    const again = await list({ account: ACCOUNT, cursor: next["cursor"] }, { conversations })
+    expect(ids(again)).toEqual([])
+    // The page after a late one is still oldest first, and the cursor did not move back.
+    const both = await list({ account: ACCOUNT, cursor: done["cursor"] }, { conversations: [...conversations, { id: 9102, start: "2026-11-13 08:30:00+00:00", title: "New", candidates: [], interviewers: [] }] })
+    expect(ids(both)).toEqual(["9100", "9102"])
+  })
+
+  test("keeps its cursor within the contract's length when a day holds many conversations, and repeats none", async () => {
+    const many: SyntheticConversation[] = Array.from({ length: 400 }, (_, index) => ({
+      id: 5_000_000 + index * 9_973,
+      start: new Date(Date.parse("2026-11-12T08:00:00Z") + index * 120_000).toISOString().replace("T", " ").replace(/\.\d{3}Z$/, "+00:00"),
+      title: `Interview ${index}`,
+      candidates: [],
+      interviewers: [],
+    }))
+    // 400 events are more than one page's 64 KB, so the read takes more than one page.
+    const seen: string[] = []
+    let input: Record<string, unknown> = { account: ACCOUNT, since: "2026-11-12T00:00:00Z", limit: 500 }
+    let cursor = ""
+    for (let page = 0; page < 10; page++) {
+      const result = await list(input, { conversations: many })
+      seen.push(...ids(result))
+      cursor = result["cursor"]
+      expect(cursor.length).toBeLessThanOrEqual(EVENT_LIMITS.cursor)
+      input = { account: ACCOUNT, cursor, limit: 500 }
+      if (!result["more"]) break
+    }
+    expect(seen).toEqual(many.map((conversation) => String(conversation.id)))
+    expect(ids(await list({ account: ACCOUNT, cursor }, { conversations: many }))).toEqual([])
+  })
+
   test("an answer it cannot read is UNAVAILABLE, never an empty page", async () => {
     const ctx = syntheticContext(async () => {})
     const tools = await ctx.tool.list()
     const broken = { ...ctx, tool: { list: async () => tools.map((tool) => (tool.id === "metaview_search_conversations" ? { ...tool, execute: async () => ({ content: [{ type: "text", text: "Unrecognized field IDs" }] }) } : tool)) as never } }
     await expect(eventsMethod(broken, () => NOW).run({ account: ACCOUNT, since: SINCE }, call())).rejects.toThrow(/^UNAVAILABLE: Metaview's search_conversations answered in a shape this plugin does not read\./)
+  })
+
+  test("one conversation it cannot read fails the page, so the cursor is held, never moved past it", async () => {
+    for (const bad of [{ url: "https://app.metaview.ai/notes/1", fields: {} }, { id: 9_999, fields: { "default:start_time": [{ value: "sometime", label: "sometime" }] } }, "not a conversation"]) {
+      const answer = { conversations: [bad], total_count: 1, has_more: false }
+      const ctx = syntheticContext(async () => {})
+      const tools = await ctx.tool.list()
+      const broken = { ...ctx, tool: { list: async () => tools.map((tool) => (tool.id === "metaview_search_conversations" ? { ...tool, execute: async () => ({ content: [{ type: "text", text: JSON.stringify(answer) }] }) } : tool)) as never } }
+      await expect(eventsMethod(broken, () => NOW).run({ account: ACCOUNT, since: SINCE }, call())).rejects.toThrow(/^UNAVAILABLE: Metaview's search_conversations answered in a shape this plugin does not read\./)
+    }
   })
 
   test("names the sign-in Metaview needs, and a server that is not connected", async () => {

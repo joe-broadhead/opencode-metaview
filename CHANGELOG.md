@@ -12,7 +12,9 @@ All notable changes to this project are documented here. The format follows [Kee
   namespace and a tools RPC method) lists them oldest first, once they started 3 hours ago, from
   `search_conversations`, with a cursor bound to the plugin, the source and the account; `probe` names the signed-in
   account from `get_user_context`. Metaview's retention is each organization's own setting, so the source vouches for
-  the last 30 days: an older cursor or `since` answers a `gap` once and reads on from inside them. Each event carries metadata only: the id, start, title, link, conversation type, and
+  the last 30 days: an older cursor or `since` answers a `gap` once per read and reads on from the window's edge. A
+  conversation Metaview adds behind the cursor within a day of it is listed once; a burst sharing one start is walked
+  by id; an answer the plugin cannot read fails the call and holds the cursor. Each event carries metadata only: the id, start, title, link, conversation type, and
   the candidates and interviewers by name. No transcript, note, score, feedback or contact detail, and `text` is
   always empty. Both are reads, allowed by the default rules like Metaview's reads; `jelly.tools` declares
   `metaview.events_list`. `npm run conformance` runs the contract's conformance kit on fixtures and writes

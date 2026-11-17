@@ -3,6 +3,7 @@
 // fake of OpenCode's executor that asserts `metaview_<tool>` first, as the host does. No live call is made.
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
+import { encodeBoundCursor } from "@we-the-rebel-alliance/source-contract/cursor"
 import type { EventsContext } from "../../src/events/index.js"
 
 export const ROOT = join(import.meta.dir, "..", "..")
@@ -41,6 +42,10 @@ export const SINCE = FIXTURE.since
 /** The fixture's account, as probe names it. */
 export const ACCOUNT = `${String(FIXTURE.user["organization_id"])}/${String(FIXTURE.user["user_id"])}`
 
+/** A cursor of this source for the fixture's account at a start, as events_list writes one: no id yet, no lookback. */
+export const cursorAt = (time: number, extra: Readonly<Record<string, unknown>> = {}) =>
+  encodeBoundCursor({ plugin: "metaview", source: "metaview", account: ACCOUNT }, { a: ACCOUNT, t: time, i: "", l: time, n: "", ...extra })
+
 /** Metaview's field definitions, for the fields a search asks for. */
 const DEFINITIONS: Readonly<Record<string, { name: string; type: string }>> = {
   "default:start_time": { name: "Date", type: "date" },
@@ -76,7 +81,10 @@ function conversationAnswer(conversation: SyntheticConversation, fields: readonl
 }
 
 /** Metaview's answer to search_conversations: the date filter (between, both ends included), sorted, offset and limit (at most 50). */
-export function searchAnswer(conversations: readonly SyntheticConversation[], input: Record<string, unknown>) {
+/** A stable order for conversations that share a start, other than by id: Metaview gives no order within a start. */
+const shuffle = (id: number) => (id * 2_654_435_761) % 4_294_967_291
+
+export function searchAnswer(conversations: readonly SyntheticConversation[], input: Record<string, unknown>, tieOrder: "id" | "shuffled" = "id") {
   const filters = (input["filters"] ?? []) as { field_id: string; operation: string; value: { scope: string; value: [string, string] } }[]
   const between = filters.find((filter) => filter.field_id === "default:start_time" && filter.operation === "between")
   const [from, to] = between ? between.value.value.map((value) => Date.parse(value)) : [-Infinity, Infinity]
@@ -89,7 +97,7 @@ export function searchAnswer(conversations: readonly SyntheticConversation[], in
       // Metaview's date filter cannot match a conversation without a start, unless there is no filter.
       return between ? start !== undefined && start >= from! && start <= to! : true
     })
-    .sort((a, b) => ((startOf(a) ?? 0) - (startOf(b) ?? 0)) * (ascending ? 1 : -1) || a.id - b.id)
+    .sort((a, b) => ((startOf(a) ?? 0) - (startOf(b) ?? 0)) * (ascending ? 1 : -1) || (tieOrder === "id" ? a.id - b.id : shuffle(a.id) - shuffle(b.id)))
   const offset = Number(input["offset"] ?? 0)
   const limit = Math.min(Number(input["limit"] ?? 20), 50)
   const fields = (input["fields"] as string[] | undefined) ?? ["default:start_time", "default:calendar_event_title", "default:conversation_type"]
@@ -120,6 +128,8 @@ export interface SyntheticOptions {
   readonly state?: "connected" | "needs_auth" | "pending" | "failed"
   /** Every call, in order. */
   readonly calls?: Call[]
+  /** How conversations that share a start are ordered: by id, or in an order of Metaview's own. */
+  readonly tieOrder?: "id" | "shuffled"
 }
 
 /** The permission assert a read runs under: the kit's recording session, or one that allows everything. */
@@ -132,7 +142,7 @@ export function syntheticContext(assert: Assert, options: SyntheticOptions = {})
   const state = options.state ?? "connected"
   const answers: Record<string, (input: Record<string, unknown>) => unknown> = {
     get_user_context: () => user,
-    search_conversations: (input) => searchAnswer(conversations, input),
+    search_conversations: (input) => searchAnswer(conversations, input, options.tieOrder),
   }
   const tools = Object.entries(answers).map(([name, answer]) => ({
     id: `metaview_${name}`,

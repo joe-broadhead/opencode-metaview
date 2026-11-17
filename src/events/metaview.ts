@@ -40,6 +40,8 @@ export interface ConversationsPage {
   readonly conversations: readonly ConversationFacts[]
   /** How many conversations the page answered with, readable or not: the offset moves by this. */
   readonly count: number
+  /** How many of them it could not read: not an object, or no id. */
+  readonly invalid: number
   /** Metaview's `has_more`, when it gives one. */
   readonly more?: boolean
   /** Metaview's `total_count`, when it gives one. */
@@ -164,6 +166,7 @@ export function conversationsPage(result: Result): ConversationsPage | undefined
   return {
     conversations,
     count: list.length,
+    invalid: list.length - conversations.length,
     ...(typeof answer["has_more"] === "boolean" ? { more: answer["has_more"] } : {}),
     ...(total === undefined ? {} : { total }),
   }
