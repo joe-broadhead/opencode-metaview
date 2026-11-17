@@ -110,6 +110,28 @@ the plugin is not loaded there.
 
 See [Scripting](https://github.com/joe-broadhead/opencode-metaview/blob/HEAD/docs/scripting.md).
 
+### Shared-data source
+
+The plugin declares one [source-contract](https://github.com/we-the-rebel-alliance/source-contract) source in
+`package.json`'s `sources`, so Memory, Artifacts and other consumers can read Metaview through the shared contract with
+no code of their own:
+
+| Source | Kind | What it lists | Methods |
+| --- | --- | --- | --- |
+| `metaview.conversations` | events (`meeting`) | the recorded conversations you can see in Metaview, oldest first, once they started 3 hours ago, within the last 30 days | `events_list` and `probe` on `metaview.workspace.tools` |
+
+Each conversation is one event: its id, start, title, Metaview link and conversation type, and its candidates and
+interviewers by the name Metaview shows. **Candidate data is personal data, so an event carries metadata only:** no
+transcript, summary, note, score, feedback, email or phone number, and its `text` is always empty. A conversation whose
+title holds a secret is refused for good. Metaview keeps conversations only as long as your organization's retention
+setting says, which no tool names, so the source vouches for the last 30 days: an older cursor or start answers a
+`gap` and reads on from inside them. The account is `<organization id>/<user id>`, which `probe` names from
+`get_user_context` and a consumer binds; `probe` refuses another account. The reads are Metaview's own
+`get_user_context` (`probe`) and `search_conversations` (`events_list`), through OpenCode's own sign-in and under the
+same rules as any Metaview call, and the `rationale` Metaview receives with each is fixed text with no candidate detail.
+`npm run conformance` runs the contract's conformance kit on fixtures; see
+[Scripting](https://github.com/joe-broadhead/opencode-metaview/blob/HEAD/docs/scripting.md#the-conversations-source).
+
 ## Permissions
 
 **Every tool is allowed by default.** The `access` option decides whether each tool runs, asks or is denied. At its default, `"all"`, an agent can act on candidates and your ATS without asking: it can record an
@@ -200,6 +222,8 @@ The plugin inserts this block directly after each agent's base rule that allows 
   { "action": "metaview_search_conversations", "resource": "*", "effect": "allow" },
   { "action": "metaview_search_reports", "resource": "*", "effect": "allow" },
   { "action": "metaview_search_snippets", "resource": "*", "effect": "allow" },
+  { "action": "metaview_events_list", "resource": "*", "effect": "allow" },
+  { "action": "metaview_probe", "resource": "*", "effect": "allow" },
   { "action": "metaview_create_ai_field", "resource": "*", "effect": "allow" },
   { "action": "metaview_create_job_post_check", "resource": "*", "effect": "allow" },
   { "action": "metaview_create_report", "resource": "*", "effect": "allow" },
@@ -344,6 +368,10 @@ credential store.
 
 ## Known limits
 
+- **The conversations source lists by start time.** Metaview's search orders conversations by their start only, so a
+  recording uploaded later for an earlier call, or a conversation shared with you after the source read past its start,
+  is not listed; neither is one deleted before a read reaches it, and one already listed is not retracted. The source
+  vouches for the last 30 days, since Metaview's retention is your organization's own setting.
 - **Some changes reach people.** A screening or sequence message, an application-review decision that can reject a candidate and sync to your ATS, and feedback to the Metaview team (a hiring decision can email the candidate) all reach people or systems outside OpenCode. At the default `access`, an agent can make them without a prompt.
 - **Metaview's server decides the tools.** The plugin classifies the tools it knows. A tool Metaview adds later is not classed by the plugin: the `access` option decides whether it runs, asks or is denied, and `/metaview-status` counts it as unknown.
 - **Role and plan limits.** What you can read follows your Metaview role, and reports, AI fields and full transcripts may need a paid plan. The plugin does not change either.

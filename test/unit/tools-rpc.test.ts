@@ -1,25 +1,20 @@
 // Unit tests for the shared tools RPC module v2, against narrow fakes of the public plugin context.
-// A copy in a plugin repository changes only the two imports: its test runner, and the path of its copy.
+// The suite runs the source contract's tools-rpc module (bundled into dist/index.js) through Metaview's plugin value,
+// as setup registers it: its imports and `plugin: PLUGIN` in the one registerToolsRpc call are all that differ.
 import { describe, expect, test } from "bun:test"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import {
   CLASSES,
   hidden,
-  METHODS,
-  NEXT_STEPS,
-  PLUGIN_ID,
-  pluginError,
   registerToolsRpc,
-  shapeInput,
-  shapeResult,
-  TOOLS_RPC_ID,
   upstreamText,
   type MethodSpec,
   type PluginMethod,
   type ToolCall,
   type ToolsRpcOptions,
-} from "../../src/host/tools-rpc.js"
+} from "@we-the-rebel-alliance/source-contract/tools-rpc"
+import { METHODS, NEXT_STEPS, PLUGIN, PLUGIN_ID, pluginError, shapeInput, shapeResult, TOOLS_RPC_ID } from "../../src/tools-rpc.js"
 import { DESTRUCTIVE_TOOLS, READ_TOOLS, SEND_TOOLS, WRITE_TOOLS } from "../../src/metaview-tools.js"
 
 type Effect = "allow" | "deny" | "ask"
@@ -203,6 +198,7 @@ async function setup(options: Setup = {}): Promise<Harness> {
   // Read by destructuring, the idiom the module uses: no dotted access from the options object for a forbidden scan to match.
   const { shapers, mcp: withMcp = true, server = SERVER, managed = true, unavailableDetail, notRegistered } = options
   const stop = await registerToolsRpc(ctx as never, {
+    plugin: PLUGIN,
     methods,
     ...(shapers === undefined ? {} : { shapers }),
     ...(withMcp === false

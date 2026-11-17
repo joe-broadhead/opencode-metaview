@@ -15,7 +15,7 @@ import { DESTRUCTIVE_TOOLS } from "../../src/metaview-tools.js"
 import { defaultRules, type Rule } from "../../src/permissions.js"
 import { SKILL_NAMES } from "../../src/skills.js"
 import { StatusRpc } from "../../src/status.js"
-import { TOOLS_RPC_ID } from "../../src/host/tools-rpc.js"
+import { TOOLS_RPC_ID } from "../../src/tools-rpc.js"
 import { MODEL_ID } from "./fake-mcp.js"
 import { agentRules, attempt, cleanup, effect, HOST_VERSION, session, startHost, until, type Host } from "./harness.js"
 
@@ -66,11 +66,14 @@ const hidden = (rules: readonly Rule[], action: string) => {
   return last?.resource === "*" && last.effect === "deny"
 }
 
-/** The host lists an MCP server's tools shortly after it connects, the three destructive ones included. */
+/**
+ * The host lists an MCP server's tools shortly after it connects, the three destructive ones included, beside the
+ * plugin's own events_list in the same namespace.
+ */
 const metaviewTools = (host: Host) =>
   until("Metaview's tools are registered", async () => {
     const ids = (await host.probe().tool.list()).map((tool) => tool.id).filter((id) => id.startsWith("metaview_"))
-    return ids.length === 7 && ids.sort()
+    return ids.length === 8 && ids.sort()
   })
 
 async function status(host: Host, sessionID: string) {
@@ -119,7 +122,7 @@ describe(`the plugin on OpenCode ${HOST_VERSION}`, () => {
     expect(plugins.find((plugin) => plugin.id === "metaview.workspace")?.state.status).toBe("active")
     const { data: servers } = await host.client.mcp.list({ location: host.location })
     expect(servers.find((server) => server.name === "metaview")?.status).toEqual({ status: "connected" })
-    expect(await metaviewTools(host)).toEqual([...["create_snippet", "get_user_context", "search_conversations", "shiny_new_tool", ...DESTRUCTIVE_TOOLS].map((tool) => `metaview_${tool}`)].sort())
+    expect(await metaviewTools(host)).toEqual([...["create_snippet", "events_list", "get_user_context", "search_conversations", "shiny_new_tool", ...DESTRUCTIVE_TOOLS].map((tool) => `metaview_${tool}`)].sort())
     const { data: skills } = await host.client.skill.list({ location: host.location })
     expect(skills.map((skill) => skill.id).filter((id) => id.startsWith("metaview")).sort()).toEqual([...SKILL_NAMES].sort())
     const { data: commands } = await host.client.command.list({ location: host.location })
@@ -199,7 +202,7 @@ describe(`the plugin on OpenCode ${HOST_VERSION}`, () => {
     const text = await status(host, await session(host))
     expect(text).toContain(`- Connection: connected (${host.fake.url}, registered by this plugin)`)
     expect(text).toContain("- Account: not read yet")
-    expect(text).toContain("- Tools: 7 available, 1 unknown: shiny_new_tool (new tools run too)\n")
+    expect(text).toContain("- Tools: 8 available, 1 unknown: shiny_new_tool (new tools run too)\n")
     expect(text).toContain(`- Agents without default rules: reviewer\n${AGENT_RULES}\n`)
     expect(text).toContain(`- Next step: ${AGENTS_NEXT_STEP}`)
     expect(text).toContain(`- OpenCode: ${HOST_VERSION} (${TESTED_HOSTS.includes(HOST_VERSION) ? "tested" : "untested"}; supported range ${SUPPORTED_HOST})`)
@@ -215,7 +218,7 @@ describe(`the plugin on OpenCode ${HOST_VERSION}`, () => {
     expect(text).toContain("- Plan: paid\n")
     expect(await statusRpc(host)).toMatchObject({ workspace: "Acme Recruiting", role: "member", plan: "paid", unguardedAgents: ["reviewer"] })
     // Only the three fields: no ids from the result.
-    expect(JSON.stringify(await statusRpc(host))).not.toMatch(/p_fake_1|u_fake_1/)
+    expect(JSON.stringify(await statusRpc(host))).not.toMatch(/p_fake_1|770077001/)
   })
 
   test("H6: unloading the plugin removes the server, the rules and the command", async () => {
@@ -310,7 +313,7 @@ describe("a model turn that reads the account", () => {
     expect(text).toContain("- Account: Acme Recruiting\n")
     expect(text).toContain("member: your own conversations and those shared with you;")
     expect(text).toContain("- Plan: paid\n")
-    expect(text).not.toMatch(/p_fake_1|u_fake_1/)
+    expect(text).not.toMatch(/p_fake_1|770077001/)
   })
 
   test("DC-5: the model is offered the three destructive tools at this access, and each call reaches Metaview", async () => {
@@ -364,7 +367,7 @@ describe("a Code Mode turn that reads the account", () => {
       return posted.includes("Acme Recruiting") ? posted : undefined
     })
     expect(text).toContain("- Account: Acme Recruiting\n")
-    expect(text).not.toMatch(/p_fake_1|u_fake_1/)
+    expect(text).not.toMatch(/p_fake_1|770077001/)
   })
 })
 

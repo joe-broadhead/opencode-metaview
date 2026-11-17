@@ -139,12 +139,13 @@ describe("setup", () => {
     const commands: string[] = []
     command.run({ add: (definition: { name: string }) => commands.push(definition.name) })
     expect(commands).toEqual(["metaview-status"])
-    // Code Mode's catalog describes the metaview namespace; the plugin adds no tool of its own.
+    // Code Mode's catalog describes the metaview namespace; the plugin's one tool there is the conversations source's
+    // listing, events_list.
     const namespaces: { name: string; description?: string }[] = []
-    const tools: unknown[] = []
-    tool.run({ namespace: (namespace: { name: string; description?: string }) => void namespaces.push(namespace), add: (info: unknown) => void tools.push(info) } as never)
+    const tools: { name: string; options?: { namespace?: string } }[] = []
+    tool.run({ namespace: (namespace: { name: string; description?: string }) => void namespaces.push(namespace), add: (info: { name: string; options?: { namespace?: string } }) => void tools.push(info) } as never)
     expect(namespaces).toEqual([{ name: "metaview", description: NAMESPACE_DESCRIPTION }])
-    expect(tools).toEqual([])
+    expect(tools.map((info) => [info.name, info.options?.namespace])).toEqual([["events_list", "metaview"]])
     // The always-visible rules: read the skill, keep candidate detail out of rationale, label AI notes.
     for (const words of ["Read the metaview skill before the first call", "rationale", "Label Metaview's AI notes", "personal data", "job posts", "decline in one sentence", "Never search mail", "local days with their UTC offset", "update_screen_outreach with reject_at_deadline true rejects candidates automatically", "manage_sequence with set_enabled true restarts outreach", "Before each change, say in your reply what it does and whom it reaches"]) {
       expect(NAMESPACE_DESCRIPTION).toContain(words)

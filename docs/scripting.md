@@ -9,6 +9,7 @@ the OpenCode server. It uses the tools RPC, `metaview.workspace.tools`, through 
 | send | `send_job_post_message`, `send_sourcing_message`: they send a message to a person |
 | write | every other known write, from `create_snippet` to `update_screen_plan` (`WRITE_TOOLS`) |
 | destructive | `give_application_review_candidate_feedback`, `manage_candidate_sequence`, `submit_feedback` (`DESTRUCTIVE_TOOLS` in `src/metaview-tools.ts`): the three Metaview marks destructive, because each changes something that cannot be undone once sent |
+| read, the plugin's own | `events_list` and `probe`, the conversations source's (see [The conversations source](#the-conversations-source)) |
 | `describe` | not a tool: lists the methods, their classes and permission actions, whether OpenCode lists each tool now, each tool's input as JSON Schema, and — with a session — that session's permission for each |
 
 The class is the worst thing a tool can do. It never decides whether a call runs: the rules do. It is what `describe`
@@ -138,6 +139,62 @@ OpenCode itself answers `rpc.method_not_found` for a method that does not exist,
 | `input` missing | `"input" is missing` |
 | `input` not an object | `"input" must be an object` |
 | `describe` given anything but `{}`, a session or nothing | `describe takes nothing, or {"sessionID":"<session>"}` |
+
+## The conversations source
+
+`package.json` declares one [source-contract](https://github.com/we-the-rebel-alliance/source-contract) source,
+`metaview.conversations`, read through two of the plugin's own methods on this RPC. They are reads: the default rules
+allow `metaview_events_list` and `metaview_probe` like Metaview's reads, and each reads through Metaview's own tools,
+so the session also needs `metaview_get_user_context` (for `probe`) and `metaview_search_conversations` (for
+`events_list`).
+
+`probe` names the signed-in account, `<organization id>/<user id>`, and its owner, from one `get_user_context` read:
+
+```sh
+opencode api post /api/rpc/metaview.workspace.tools/probe -H "x-opencode-directory:$PWD" -d '{"input":{"sessionID":"ses_…","input":{"source":"metaview"}}}'
+```
+
+`events_list` lists the recorded conversations the signed-in user can see, oldest first, as source-contract events.
+Pass the account probe named, and `since` the first time, then the previous result's `cursor`. Metaview's answer names
+no user, so `events_list` reads no identity of its own: bind the account with `probe`, which refuses another one.
+
+```sh
+opencode api post /api/rpc/metaview.workspace.tools/events_list -H "x-opencode-directory:$PWD" -d '{"input":{"sessionID":"ses_…","input":{"account":"4100/77","since":"2026-11-01T00:00:00Z","limit":100}}}'
+```
+
+Each conversation is one event of kind `meeting`: its id (`external_id`), its start (`occurred_at`), the calendar
+event's `title`, its Metaview `url` (null without a transcript), the conversation type as a label, and the candidates
+and interviewers as `actors`, by participant id (`metaview-participant:<id>`) and the name Metaview shows. Candidate
+data is personal data: an event carries no transcript, summary, note, score, feedback, email or phone number, and its
+`text` is always empty. The cursor is the (start, id) of the last conversation listed, bound to this plugin, the
+source and the account: Metaview's search sorts and filters conversations by their start only. A conversation is
+listed once it started 3 hours ago: Metaview writes its notes about five minutes after a call ends, so a recorded call
+of up to almost 3 hours is in the search by then. One that only appears after the cursor passed its start, such as a
+recording uploaded later for an earlier call, or a conversation shared with you later, is not listed. A conversation
+whose title holds a secret is refused for good (`refused[]`), and the cursor moves past it.
+
+Metaview keeps conversations, and their call metadata, only as long as your organization's retention setting says,
+which can be any period and which no Metaview tool names. So the source vouches for the last 30 days: a cursor older
+than that answers `gap: { "reason": "expired", "since": … }`, and a first listing whose `since` is older answers
+`gap: { "reason": "window-truncated", "since": … }`, once, on the page where the read restarts, a day inside the
+window; what started before `since` may be gone. A conversation deleted in Metaview before a read reaches it is not
+listed, and one already listed is not retracted. Every `rationale` Metaview receives with these reads is fixed text with
+no candidate detail.
+
+They refuse with the source contract's codes, in the same `CODE: what happened. Next step: what to do.` form:
+
+| Code | When |
+| --- | --- |
+| `INPUT_INVALID` | The input has a field the method does not take, names no account, or a `since` or `limit` it cannot read. |
+| `ACCOUNT_MISMATCH` | `probe` names an account, and Metaview is signed in to another; or the cursor is another account's. |
+| `CURSOR_INVALID` | The cursor was not issued by this source for this account; start again with `since`. |
+| `SOURCE_UNKNOWN` | The input names another source than `metaview`. |
+| `NEEDS_SIGN_IN` | Metaview needs a sign-in: run `/connect` and choose Metaview. |
+| `UNAVAILABLE` | Metaview's server is not connected, or a read failed or answered in a shape the plugin does not read. Call again with the same cursor; `/metaview-status` gives the details. |
+
+`npm run conformance` runs the contract's conformance kit over both methods on the fixtures in
+`test/fixtures/conformance.json`, with no Metaview call, and writes `reports/conformance-report.json`, which a release
+attaches.
 
 ## What scripts cannot do
 

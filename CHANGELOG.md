@@ -2,6 +2,27 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **A shared-data source, `metaview.conversations`** ([#21](https://github.com/joe-broadhead/opencode-metaview/issues/21)):
+  `package.json` declares source-contract `sources` (contract version 1), so Memory, Artifacts and other consumers can
+  read Metaview's recorded conversations as events through the shared contract. `events_list` (a tool in the `metaview`
+  namespace and a tools RPC method) lists them oldest first, once they started 3 hours ago, from
+  `search_conversations`, with a cursor bound to the plugin, the source and the account; `probe` names the signed-in
+  account from `get_user_context`. Metaview's retention is each organization's own setting, so the source vouches for
+  the last 30 days: an older cursor or `since` answers a `gap` once and reads on from inside them. Each event carries metadata only: the id, start, title, link, conversation type, and
+  the candidates and interviewers by name. No transcript, note, score, feedback or contact detail, and `text` is
+  always empty. Both are reads, allowed by the default rules like Metaview's reads; `jelly.tools` declares
+  `metaview.events_list`. `npm run conformance` runs the contract's conformance kit on fixtures and writes
+  `reports/conformance-report.json`, which a release attaches.
+
+### Changed
+
+- The tools RPC is the source contract's `tools-rpc` module, bundled into `dist/index.js`, in place of the plugin's own
+  copy of the shared module. Its methods, classes, codes and next steps are unchanged.
+
 ## [0.0.4] - 2026-11-15
 
 ### Added
