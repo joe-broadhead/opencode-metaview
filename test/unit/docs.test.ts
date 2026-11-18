@@ -185,13 +185,17 @@ describe("the default rules block", () => {
 
 // Every "tested on …" mention states TESTED_HOSTS, so a release added to the list cannot leave a stale sentence behind.
 describe("tested hosts", () => {
-  const UNRELEASED = /## \[Unreleased\]([\s\S]*?)(?=\n## |$)/.exec(readFileSync(join(ROOT, "CHANGELOG.md"), "utf8"))?.[1] ?? ""
+  const CHANGELOG = readFileSync(join(ROOT, "CHANGELOG.md"), "utf8")
+  // While a release is prepared, its Unreleased section; otherwise the newest released one. Older released
+  // sections are history and keep their own list.
+  const SECTIONS = CHANGELOG.split(/\n(?=## \[)/)
+  const NOTES = SECTIONS.find((section) => section.startsWith("## [Unreleased]")) ?? SECTIONS.find((section) => /^## \[\d+\.\d+\.\d+\]/.test(section)) ?? ""
   const SOURCES: [string, string][] = [
     ["README.md", readFileSync(join(ROOT, "README.md"), "utf8")],
     ["AGENTS.md", readFileSync(join(ROOT, "AGENTS.md"), "utf8")],
     ["SECURITY.md", readFileSync(join(ROOT, "SECURITY.md"), "utf8")],
     ["docs/configuration.md", readFileSync(join(ROOT, "docs/configuration.md"), "utf8")],
-    ["CHANGELOG.md (Unreleased)", UNRELEASED],
+    ["CHANGELOG.md (Unreleased or newest release)", NOTES],
   ]
 
   test.each(SOURCES)("%s names exactly TESTED_HOSTS wherever it says what is tested", (file, body) => {
@@ -217,7 +221,9 @@ describe("tested hosts", () => {
   test("the untested example is 2.2.99, and no doc names a future release as tested", () => {
     const all = SOURCES.map(([, body]) => body).join("\n")
     expect(all).toContain("2.2.99")
-    expect(all).not.toMatch(/\b2\.(?:2\.(?:8|9[0-8])|3\.(?:[1-8]\d?|9[0-8]?))\b(?!\d)/)
+    // Every 2.2 or 2.3 release a doc names is one the checks run on, apart from the example outside the list.
+    const named = [...new Set([...all.matchAll(/\b2\.[23]\.\d+\b/g)].map((match) => match[0]!))]
+    expect(named.filter((version) => version !== "2.2.99" && !TESTED_HOSTS.includes(version))).toEqual([])
   })
 })
 
