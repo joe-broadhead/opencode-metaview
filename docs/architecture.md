@@ -53,9 +53,8 @@ typechecks. The package exports `.` (`dist/index.js`) and `./tui` (`dist/tui.js`
 7. `watchAccount` adds one `execute.after` hook, which reads the account from `metaview_get_user_context` results, and
    forgets it on `credential.switched` and when the server is no longer connected.
 8. `ctx.skill.transform`, `ctx.command.transform` (`/metaview-status`) and `ctx.rpc.register` (`metaview.workspace/status`).
-9. `registerEvents` adds `events_list` to the `metaview` namespace, and the source contract's `registerToolsRpc`
-   registers the tools RPC, `metaview.workspace.tools`, with Metaview's methods, `events_list` and `probe`, and its
-   `evaluate` hook.
+9. The source contract's `registerToolsRpc` registers the tools RPC, `metaview.workspace.tools`, with Metaview's
+   methods, `events_list` and `probe` (tools RPC methods only, never tools the model sees), and its `evaluate` hook.
 10. `watchIntegration` starts. Setup returns one cleanup that stops it, disposes the tools RPC and stops the account
     capture.
 

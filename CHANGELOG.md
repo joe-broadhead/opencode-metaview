@@ -2,6 +2,17 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- `events_list` is a tools RPC method only, like `probe`, and is no longer a tool in the `metaview` namespace or a
+  `jelly.tools` entry. Memory still collects through `metaview.workspace.tools/events_list`. The default rule
+  `metaview_events_list` is unchanged.
+- `scripts/check-copies.mjs` no longer names a copied `src/host/tools-rpc.ts`. The tools RPC is the source contract's
+  module. It also no longer treats `test/support/jelly-kit.ts` as a copy every plugin carries: Affinity and Ashby do
+  not carry that kit.
+
 ## [0.0.6] - 2026-11-18
 
 ### Changed
