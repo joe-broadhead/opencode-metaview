@@ -2,7 +2,7 @@ import type { Plugin } from "@opencode/plugin"
 import { errorText, SERVER_NAME } from "./constants.js"
 import { reasonOf } from "./redact.js"
 import type { Access } from "./options.js"
-import { DESTRUCTIVE_TOOLS, PLUGIN_METHODS, PLUGIN_READS, READ_TOOLS, WRITE_TOOLS } from "./metaview-tools.js"
+import { DESTRUCTIVE_TOOLS, PLUGIN_METHODS, READ_TOOLS, WRITE_TOOLS } from "./metaview-tools.js"
 
 export interface Rule {
   readonly action: string
@@ -18,13 +18,14 @@ const rule = (tool: string, effect: Rule["effect"]): Rule => ({ action: actionOf
  * Broad first, narrow last, because the last matching rule wins. Every tool the plugin registers is allowed at `access:
  * "all"`, and so is one Metaview adds later; `ask-changes` asks for anything that is not a read, and `read-only` denies
  * it. The reads are always allowed, which is why the first rule alone decides a tool the plugin does not know yet. The
- * plugin's own reads, the conversations source's `events_list` and `probe`, are reads too.
+ * plugin's own reads, the conversations source's `events_list` and `probe`, are reads too. They are tools RPC methods
+ * only, never tools the model sees.
  */
 export const defaultRules = (access: Access = "all"): Rule[] => {
   const other: Rule["effect"] = access === "all" ? "allow" : access === "ask-changes" ? "ask" : "deny"
   return [
     rule("*", other),
-    ...[...READ_TOOLS, ...PLUGIN_READS, ...PLUGIN_METHODS].map((tool) => rule(tool, "allow")),
+    ...[...READ_TOOLS, ...PLUGIN_METHODS].map((tool) => rule(tool, "allow")),
     ...[...WRITE_TOOLS, ...DESTRUCTIVE_TOOLS].map((tool) => rule(tool, other)),
   ]
 }

@@ -294,8 +294,8 @@ describe.each(HOST_VERSIONS)("the tools RPC on stock OpenCode %s", (version) => 
       // Config-only agents get no default rules: their own rules decide, after the host's defaults.
       agents: { locked: { permissions: [rule("metaview_*", "deny")] }, careful: { permissions: [rule(`metaview_${READ_A}`, "ask")] } },
     })
-    // Every known tool, the plugin's own events_list, and the fake's new one, which is the only unknown.
-    const tools = READ_TOOLS.length + WRITE_TOOLS.length + DESTRUCTIVE_TOOLS.length + 1 + 1
+    // Every known tool, and the fake's new one, which is the only unknown. events_list is a tools RPC method, not a tool.
+    const tools = READ_TOOLS.length + WRITE_TOOLS.length + DESTRUCTIVE_TOOLS.length + 1
     await host.until(`metaview is connected with its ${tools} tools`, async () => {
       const output = await status()
       return output.state === "connected" && output.tools === tools && output.unknownCount === 1

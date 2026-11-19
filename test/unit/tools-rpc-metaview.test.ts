@@ -4,7 +4,7 @@ import { afterEach, describe, expect, test } from "bun:test"
 import { watchAccount } from "../../src/account.js"
 import { PLUGIN_ID as METAVIEW_PLUGIN_ID, SERVER_NAME } from "../../src/constants.js"
 import { METHODS, NEXT_STEPS, PLUGIN_ID, shapeInput, shapeResult, TOOLS_RPC_ID } from "../../src/tools-rpc.js"
-import { DESTRUCTIVE_TOOLS, PLUGIN_METHODS, PLUGIN_READS, READ_TOOLS, SEND_TOOLS, WRITE_TOOLS } from "../../src/metaview-tools.js"
+import { DESTRUCTIVE_TOOLS, PLUGIN_METHODS, READ_TOOLS, SEND_TOOLS, WRITE_TOOLS } from "../../src/metaview-tools.js"
 import { defaultRules } from "../../src/permissions.js"
 
 const stops: (() => Promise<void>)[] = []
@@ -29,7 +29,7 @@ describe("Metaview's tools RPC", () => {
 
   test("every known tool allows by default, and the namespace rule covers one Metaview adds later", () => {
     const allowed = defaultRules().filter((rule) => rule.effect === "allow").map((rule) => rule.action)
-    expect(allowed).toEqual([`${SERVER_NAME}_*`, ...[...READ_TOOLS, ...PLUGIN_READS, ...PLUGIN_METHODS, ...WRITE_TOOLS, ...DESTRUCTIVE_TOOLS].map((name) => `${SERVER_NAME}_${name}`)])
+    expect(allowed).toEqual([`${SERVER_NAME}_*`, ...[...READ_TOOLS, ...PLUGIN_METHODS, ...WRITE_TOOLS, ...DESTRUCTIVE_TOOLS].map((name) => `${SERVER_NAME}_${name}`)])
     for (const name of ["shiny_new_tool", "describe", "*"]) expect(METHODS.map((method) => method.name)).not.toContain(name)
   })
 

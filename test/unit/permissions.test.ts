@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { DESTRUCTIVE_TOOLS, PLUGIN_METHODS, PLUGIN_READS, READ_TOOLS, WRITE_TOOLS } from "../../src/metaview-tools.js"
+import { DESTRUCTIVE_TOOLS, PLUGIN_METHODS, READ_TOOLS, WRITE_TOOLS } from "../../src/metaview-tools.js"
 import { defaultRules, evaluate, hasDefaultRules, insertRules, registerDefaultRules, unguardedAgents, type Rule } from "../../src/permissions.js"
 import { agentEditor, allow, builtInAgents, transforms, type AgentEditor, type FakeAgent } from "./fake.js"
 
@@ -11,7 +11,7 @@ describe("defaultRules", () => {
     const rules = defaultRules()
     expect(rules[0]).toEqual({ action: "metaview_*", resource: "*", effect: "allow" })
     expect(rules.slice(1)).toEqual(
-      [...READ_TOOLS, ...PLUGIN_READS, ...PLUGIN_METHODS, ...WRITE_TOOLS, ...DESTRUCTIVE_TOOLS].map((tool) => ({ action: `metaview_${tool}`, resource: "*", effect: "allow" })),
+      [...READ_TOOLS, ...PLUGIN_METHODS, ...WRITE_TOOLS, ...DESTRUCTIVE_TOOLS].map((tool) => ({ action: `metaview_${tool}`, resource: "*", effect: "allow" })),
     )
     expect(rules.filter((rule) => rule.effect !== "allow")).toEqual([])
     expect(effects([allow("*"), ...rules])).toEqual(["allow", "allow", "allow", "allow", "allow", "allow"])

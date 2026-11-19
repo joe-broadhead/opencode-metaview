@@ -185,22 +185,15 @@ export const PARAMETERS: Readonly<Record<string, readonly string[]>> = {
 }
 
 /**
- * The plugin's own tool in the `metaview` namespace, not Metaview's: `events_list`, the `metaview.conversations`
- * source's listing (package.json's `sources`). It only reads, through get_user_context and search_conversations, and
- * is allowed like the reads.
+ * The plugin's own reads that are tools RPC methods only, never tools the model sees: `events_list`, the
+ * `metaview.conversations` source's listing, and `probe`, who is signed in. Their actions are allowed like the reads.
  */
-export const PLUGIN_READS: readonly string[] = ["events_list"]
-
-/**
- * The plugin's own reads that are tools RPC methods only, never a tool: `probe`, who is signed in, for a consumer
- * binding the conversations source. Its action, `metaview_probe`, is allowed like the reads.
- */
-export const PLUGIN_METHODS: readonly string[] = ["probe"]
+export const PLUGIN_METHODS: readonly string[] = ["events_list", "probe"]
 
 type ToolClass = "read" | "write" | "destructive" | "unknown"
 
 export function classify(name: string): ToolClass {
-  if (READ_TOOLS.includes(name) || PLUGIN_READS.includes(name)) return "read"
+  if (READ_TOOLS.includes(name)) return "read"
   if (WRITE_TOOLS.includes(name)) return "write"
   if (DESTRUCTIVE_TOOLS.includes(name)) return "destructive"
   return "unknown"
