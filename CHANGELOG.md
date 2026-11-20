@@ -9,9 +9,8 @@ All notable changes to this project are documented here. The format follows [Kee
 - `events_list` is a tools RPC method only, like `probe`, and is no longer a tool in the `metaview` namespace or a
   `jelly.tools` entry. Memory still collects through `metaview.workspace.tools/events_list`. The default rule
   `metaview_events_list` is unchanged.
-- `scripts/check-copies.mjs` no longer names a copied `src/host/tools-rpc.ts`. The tools RPC is the source contract's
-  module. It also no longer treats `test/support/jelly-kit.ts` as a copy every plugin carries: Affinity and Ashby do
-  not carry that kit.
+- `scripts/check-copies.mjs` no longer names a copied `src/host/tools-rpc.ts`: the tools RPC is the source contract's
+  module, bundled into `dist/index.js`.
 - The `@we-the-rebel-alliance/source-contract` dev dependency is v0.3.0 (it was v0.2.0): `package.json` and the
   lockfile, and the conformance test states why each v0.3 check that does not apply to this source is skipped. The
   plugin sends no new key, and its pages, methods and descriptor are unchanged.

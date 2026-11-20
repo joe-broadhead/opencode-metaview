@@ -82,4 +82,4 @@ Jelly folds the declared sign-in into this plugin's one card, which shows it as 
 Jelly's curated catalogue pins an exact version, so publish each release under a new version: a review in Jelly
 can then tell the two apart.
 
-The declaration test runs this repository's `test/support/jelly-kit.ts`, which checks the declaration and this page against Jelly's plugin authors' standard. Affinity and Ashby do not carry that kit, and `scripts/check-copies.mjs` does not pin it as a family copy. The tools RPC is the source contract's module, bundled into `dist/index.js`, not a copied `src/host/tools-rpc.ts`.
+The declaration test runs the shared kit, `test/support/jelly-kit.ts`, which checks the declaration and this page against Jelly's plugin authors' standard. `scripts/check-copies.mjs` holds the kit equal to the copy every plugin carries.

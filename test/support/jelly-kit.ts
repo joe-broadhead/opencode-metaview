@@ -1,7 +1,8 @@
 /**
- * The declaration test kit: the checks this repository's `test/unit/jelly.test.ts` runs on its `jelly` declaration, so
- * that it does not restate Jelly's schema, summary rule or icon rule on its own. Affinity and Ashby do not carry this
- * file, and `scripts/check-copies.mjs` does not pin it as a family copy.
+ * The declaration test kit: the checks every plugin's `test/jelly.test.ts` runs on its `jelly` declaration, so that
+ * no plugin restates Jelly's schema, summary rule or icon rule on its own. Shared module: every plugin keeps an
+ * identical copy at `test/support/jelly-kit.ts`, and `scripts/check-copies.mjs` fails `npm run check` when this copy
+ * differs from the one all the plugins carry. Change it in every plugin at once, and update the hash there.
  *
  * Each function returns the problems it finds, as sentences, so a test asserts `toEqual([])` with any runner. The
  * rules are Jelly's plugin authors' standard (hey-jelly `docs/guides/plugin-authors.md`).

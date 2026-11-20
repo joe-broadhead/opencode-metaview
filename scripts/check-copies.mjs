@@ -2,13 +2,14 @@
 //   node scripts/check-copies.mjs          check the copies this plugin has
 //   node scripts/check-copies.mjs --print  print each copy's hash, after a change made in every plugin at once
 // Each plugin keeps its own copy, because each test suite stands alone. The hashes below name the one version all
-// plugins carry: Jelly's setting rules whole, and the release kit whole. The tools RPC is not a copy here: it comes
-// from the source contract package, pinned in package-lock.json. This repository's declaration kit,
-// test/support/jelly-kit.ts, is not pinned: Affinity and Ashby do not carry it.
+// plugins carry: the declaration test kit whole, Jelly's setting rules whole, and the release kit whole. The tools RPC
+// is not a copy here: it comes from the source contract package, pinned in package-lock.json and bundled into
+// dist/index.js.
 import { createHash } from "node:crypto"
 import { existsSync, readFileSync } from "node:fs"
 
 const COPIES = [
+  { path: "test/support/jelly-kit.ts", optional: false, sha256: "de4bed563f37e39a596ba50908cac32f596a1d616b068daa327c2942e3f0aed5", part: (text) => text },
   // Jelly's setting rules, restated without zod (the file's header says what it restates and how to update it).
   { path: "test/support/jelly-settings.ts", optional: false, sha256: "966aeac7eddce490da51e8e46780f1fbcfaf9b3e892bd62f2c3952c2a6111383", part: (text) => text },
   // The release kit, whole: one version in every plugin (CONTRIBUTING.md, Releasing). Change it in every plugin at once.
