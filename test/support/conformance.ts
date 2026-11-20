@@ -11,7 +11,7 @@ import { encodeBoundCursor, encodeCursor } from "@we-the-rebel-alliance/source-c
 import { readInstalledDescriptor, type InstalledDescriptor } from "@we-the-rebel-alliance/source-contract/descriptor"
 import { SOURCES_SCHEMA, type Sources } from "@we-the-rebel-alliance/source-contract/schema"
 import type { ToolCall } from "@we-the-rebel-alliance/source-contract/tools-rpc"
-import { PACKAGE, SOURCE, SOURCE_ID, eventsMethod, probeMethod } from "../../src/events/index.js"
+import { PACKAGE, SOURCE, SOURCE_ID, eventsMethod, probeMethod, signIns } from "../../src/events/index.js"
 import { METHODS, TOOLS_RPC_ID } from "../../src/tools-rpc.js"
 import { ACCOUNT, NOW, ROOT, SINCE, cursorAt, syntheticContext } from "./synthetic-metaview.js"
 
@@ -28,18 +28,23 @@ export const ATOMIC =
 export const call = (): ToolCall => ({ sessionID: "ses_conformance", agent: "build", messageID: "msg_script", id: "script:conformance", signal: new AbortController().signal, progress: async () => {} })
 
 const open: SessionContext = { account: ACCOUNT, permission: { assert: async () => {} } }
+// The kit's one process for its run: its probe records who is signed in for the session, and the page cases that follow
+// reuse it, as a listing in a probed session does. A run of its own starts from nothing.
+const memo = signIns()
+/** A new process: the kit's probe is the first identity read again. */
+export const fresh = () => memo.clear()
 const contextOf = (session: SessionContext) => syntheticContext((input) => session.permission.assert(input as never))
 
 /** events_list, as the tools RPC runs it, in a session. */
 export const list = (input: Readonly<Record<string, unknown>>, session: SessionContext = open) =>
-  eventsMethod(contextOf(session), () => NOW).run(input, call()) as Promise<Record<string, any>>
+  eventsMethod(contextOf(session), () => NOW, memo).run(input, call()) as Promise<Record<string, any>>
 
 /** probe, as the tools RPC runs it, in a session. */
-export const probe = (input: Readonly<Record<string, unknown>>, session: SessionContext = open) => probeMethod(contextOf(session)).run(input, call()) as Promise<Record<string, any>>
+export const probe = (input: Readonly<Record<string, unknown>>, session: SessionContext = open) => probeMethod(contextOf(session), memo).run(input, call()) as Promise<Record<string, any>>
 
 /** The plugin's tools RPC methods, as describe lists them: the tools a source may name, each read-only or not. */
 export function declaredTools(): ToolDeclaration[] {
-  const methods = [...METHODS, eventsMethod(contextOf(open)), probeMethod(contextOf(open))]
+  const methods = [...METHODS, eventsMethod(contextOf(open), undefined, memo), probeMethod(contextOf(open), memo)]
   return methods.map((method) => ({ id: method.name, readOnly: method.class === "read" }))
 }
 
@@ -84,6 +89,8 @@ async function cases(): Promise<PageCase[]> {
 
 /** The kit's report for every declared source. */
 export async function conformanceReports(): Promise<ConformanceReport[]> {
+  fresh()
+
   // Read as a consumer reads it first (the frame, checked and hashed), then as the kit reads it (Memory's schema).
   installed()
   const sources = declaredSources()

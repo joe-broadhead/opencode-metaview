@@ -85,10 +85,10 @@ async function status(host: Host, sessionID: string) {
   })
 }
 
-/** Enough of the tools RPC's contract for the client to call describe, the account read and one search. */
+/** Enough of the tools RPC's contract for the client to call describe, the account read, one search and the source. */
 const TOOLS_CONTRACT = {
   id: TOOLS_RPC_ID,
-  methods: Object.fromEntries(["describe", "get_user_context", "search_conversations"].map((name) => [name, { input: { type: "object" }, output: { type: "object" } }])),
+  methods: Object.fromEntries(["describe", "get_user_context", "search_conversations", "events_list", "probe"].map((name) => [name, { input: { type: "object" }, output: { type: "object" } }])),
   events: {},
 }
 type ToolsClient = Record<string, (input: object, options: object) => Promise<unknown>>
@@ -208,6 +208,17 @@ describe(`the plugin on OpenCode ${HOST_VERSION}`, () => {
     expect(text).toContain(`- OpenCode: ${HOST_VERSION} (${TESTED_HOSTS.includes(HOST_VERSION) ? "tested" : "untested"}; supported range ${SUPPORTED_HOST})`)
   })
 
+  test("the source's probe and events_list share one sign-in store: a listing in the probe's session reads no identity", async () => {
+    const sessionID = await session(host)
+    const from = host.fake.calls.length
+    await toolsRpc(host).probe!({ sessionID, input: { source: "metaview" } }, { location: host.location })
+    const listed = (await toolsRpc(host).events_list!({ sessionID, input: { account: "4100/770077001", since: new Date(Date.now() - 7 * 86_400_000).toISOString() } }, { location: host.location })) as Record<string, unknown>
+    expect((listed["events"] as unknown[]).length).toBe(1)
+    // One identity read for both: what probe read is the listing's, not a second call.
+    expect(host.fake.calls.slice(from).filter((call) => call === "get_user_context")).toHaveLength(1)
+    expect(host.fake.calls.slice(from)).toEqual(["get_user_context", "search_conversations"])
+  })
+
   test("H5: an account read fills the account, role and plan, in /metaview-status and the dialog's RPC", async () => {
     // The host's executors skip execute.after hooks, so this read goes through the tools RPC, which records the
     // account with the same function; a model turn records it through the hook.
@@ -218,7 +229,7 @@ describe(`the plugin on OpenCode ${HOST_VERSION}`, () => {
     expect(text).toContain("- Plan: paid\n")
     expect(await statusRpc(host)).toMatchObject({ workspace: "Acme Recruiting", role: "member", plan: "paid", unguardedAgents: ["reviewer"] })
     // Only the three fields: no ids from the result.
-    expect(JSON.stringify(await statusRpc(host))).not.toMatch(/p_fake_1|770077001/)
+    expect(JSON.stringify(await statusRpc(host))).not.toMatch(/0e0e0e0e-0000-4000-8000-000000000001|770077001/)
   })
 
   test("H6: unloading the plugin removes the server, the rules and the command", async () => {
@@ -313,7 +324,7 @@ describe("a model turn that reads the account", () => {
     expect(text).toContain("- Account: Acme Recruiting\n")
     expect(text).toContain("member: your own conversations and those shared with you;")
     expect(text).toContain("- Plan: paid\n")
-    expect(text).not.toMatch(/p_fake_1|770077001/)
+    expect(text).not.toMatch(/0e0e0e0e-0000-4000-8000-000000000001|770077001/)
   })
 
   test("DC-5: the model is offered the three destructive tools at this access, and each call reaches Metaview", async () => {
@@ -367,7 +378,7 @@ describe("a Code Mode turn that reads the account", () => {
       return posted.includes("Acme Recruiting") ? posted : undefined
     })
     expect(text).toContain("- Account: Acme Recruiting\n")
-    expect(text).not.toMatch(/p_fake_1|770077001/)
+    expect(text).not.toMatch(/0e0e0e0e-0000-4000-8000-000000000001|770077001/)
   })
 })
 

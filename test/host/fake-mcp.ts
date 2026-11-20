@@ -26,7 +26,7 @@ const CATALOG = [...READ_TOOLS.map((name) => tool(name, true)), ...[...WRITE_TOO
 export const UPSTREAM_FAILURE = "Metaview refused https://files.metaview.ai/a.png?signature=fake-signature-123 for this input\nTraceback: second line"
 
 /** A fake account, in get_user_context's shape. */
-export const ACCOUNT = { organization_id: 4100, workspace_name: "Acme Recruiting", participant_id: "p_fake_1", user_id: 770077001, is_admin: false, is_paying_plan: true, data_access: "Your own conversations" }
+export const ACCOUNT = { organization_id: 4100, workspace_name: "Acme Recruiting", participant_id: "0e0e0e0e-0000-4000-8000-000000000001", user_id: 770077001, is_admin: false, is_paying_plan: true, data_access: "Your own conversations" }
 
 /** The fake conversation's start: two days before now, at a whole hour, in Metaview's "YYYY-MM-DD HH:MM:SS+00:00". */
 export const CONVERSATION_START = new Date(Math.floor(Date.now() / 3_600_000) * 3_600_000 - 2 * 86_400_000)

@@ -84,6 +84,27 @@ export function ownerUnknown(): Problem {
   }
 }
 
+export function participantUnknown(): Problem {
+  return {
+    code: "UNAVAILABLE",
+    message: "Metaview's get_user_context did not name the signed-in participant, so the plugin cannot tell which conversations are the user's own.",
+    next: "Run /metaview-status, and sign in to Metaview again if it shows a problem.",
+  }
+}
+
+/**
+ * Metaview answered a search with a conversation the signed-in user is not an interviewer on, though the read asked only
+ * for theirs. Nothing is listed, so the cursor moves past nothing it could not read.
+ */
+export function foreignConversation(): Problem {
+  return {
+    code: "UNAVAILABLE",
+    message: "Metaview returned a conversation where the signed-in user is not an interviewer, though the read asked only for theirs, so this page is not listed and its cursor does not move.",
+    next:
+      "Confirm this Metaview account in Memory's console, or call events_list again with since inside the last 30 days; if it keeps failing, run /metaview-status and update the plugin.",
+  }
+}
+
 export function readFailed(tool: string, reason: string, method: string): Problem {
   return {
     code: "UNAVAILABLE",

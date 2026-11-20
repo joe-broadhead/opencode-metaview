@@ -357,7 +357,7 @@ describe.each(HOST_VERSIONS)("the tools RPC on stock OpenCode %s", (version) => 
     expect((await call("build", "get_user_context", { rationale: "who is signed in" })).value).toMatchObject({ output: { workspace_name: "Acme Recruiting" } })
     const output = await status()
     expect(output).toMatchObject({ workspace: "Acme Recruiting", role: "member", plan: "paid" })
-    expect(JSON.stringify(output)).not.toMatch(/p_fake_1|770077001/)
+    expect(JSON.stringify(output)).not.toMatch(/0e0e0e0e-0000-4000-8000-000000000001|770077001/)
   })
 
   test("the conversations source: probe names the account, and events_list lists metadata only, through the host", async () => {
@@ -365,6 +365,7 @@ describe.each(HOST_VERSIONS)("the tools RPC on stock OpenCode %s", (version) => 
     expect(probed).toEqual({ value: { source: "metaview", account: "4100/770077001", owner: { id: "metaview:4100/770077001", label: "Metaview user 770077001 in organization 4100" }, trust: "untrusted" } })
     const from = fake.calls.length
     const listed = await call("build", "events_list", { account: "4100/770077001", since: new Date(Date.now() - 7 * 86_400_000).toISOString() })
+    // In the probe's session the listing reuses what probe read: one identity read for both, then the search.
     expect(fake.calls.slice(from)).toEqual(["search_conversations"])
     expect(listed.value).toMatchObject({ source: "metaview", account: "4100/770077001", more: false, trust: "untrusted" })
     expect(listed.value).not.toHaveProperty("gap")

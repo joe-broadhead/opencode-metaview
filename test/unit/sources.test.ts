@@ -40,14 +40,23 @@ describe("package.json's sources", () => {
       maxBytes: MAX_BYTES,
       urlHosts: ["app.metaview.ai"],
     })
-    // The exact MCP tools the reads call, get_user_context as probe's identity. No key that consumers on
-    // source-contract 0.1.x refuse (permission.readsIdentity among them): events_list reads only search_conversations.
+    // The exact MCP tools the reads call: get_user_context is probe's identity operation, and events_list reads it too,
+    // to know whose conversations are the user's own. No `readsIdentity`: a consumer on source-contract 0.1 refuses it.
     expect(source!.permission).toEqual({
       events: EVENTS_ACTION,
       operations: ["get_user_context", "search_conversations"],
       identity: ["get_user_context"],
     })
     expect(() => assertDeclaration(sources, { tools: declaredTools() })).not.toThrow()
+  })
+
+  test("declares no key a consumer on source-contract 0.1 refuses, readsIdentity included, though a listing reads identity", () => {
+    const [source] = declaredSources().items
+    // Jelly's host pins source-contract 0.1.0, which refuses `readsIdentity`; Memory does not need it at run time. The
+    // kit's cases run after its probe, and the fresh-instance listing is test/unit/events.test.ts's own case.
+    expect(source!.permission).not.toHaveProperty("readsIdentity")
+    expect(Object.keys(source!.permission).sort()).toEqual(["events", "identity", "operations"])
+    for (const refused of ["owner.verified", "removals", "identityRules"]) expect(Object.keys(source!)).not.toContain(refused)
   })
 
   test("names the tools RPC this plugin registers, the probe action its method asserts, and the contract's method names", () => {

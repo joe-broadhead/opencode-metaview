@@ -1,5 +1,5 @@
 {
-  "$comment": "Metaview's answers for the source-contract conformance kit and the events tests (test/support/synthetic-metaview.ts), offline, in the shapes Metaview's server answered with on 17 November 2026: get_user_context's user, and the conversations search_conversations lists (8001 is older than the 30 days the source vouches for). No live call is made. Every workspace, person, address, number and title is invented. Candidates carry an email and a phone number in details, as Metaview's do, so the tests prove that no event carries them.",
+  "$comment": "Metaview's answers for the source-contract conformance kit and the events tests (test/support/synthetic-metaview.ts), offline, in the shapes Metaview's server answered with on 17 November 2026: get_user_context's user, and the conversations search_conversations lists (8001 is older than the 30 days the source vouches for). No live call is made. Every workspace, person, address, number and title is invented. Candidates carry an email and a phone number in details, as Metaview's do, so the tests prove that no event carries them. The signed-in user's participant_id is the first interviewer's: 8001, 9001, 9002, 9005, 9008 and 9009 are the user's own, and the rest are other people's, which no event may carry.",
   "now": "2026-11-13T12:00:00.000Z",
   "since": "2026-11-09T00:00:00Z",
   "user": {
@@ -7,7 +7,7 @@
     "organization_id": 4100,
     "workspace_name": "Example Talent",
     "user_id": 77,
-    "participant_id": "00000000-0000-4000-8000-000000000077",
+    "participant_id": "e0000000-0000-4000-8000-000000000001",
     "is_admin": true,
     "is_paying_plan": true,
     "data_access": "You can see all conversations in the organization."
@@ -105,7 +105,7 @@
       "title": "A call that started less than three hours ago",
       "type": "Phone Screen",
       "candidates": [{ "id": "c0000000-0000-4000-8000-000000000006", "name": "Ola Example", "email": "ola@example.test" }],
-      "interviewers": []
+      "interviewers": [{ "id": "e0000000-0000-4000-8000-000000000001", "name": "Grace Sample", "email": "grace@talent.example.test" }]
     }
   ]
 }
