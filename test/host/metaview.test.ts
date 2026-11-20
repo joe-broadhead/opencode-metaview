@@ -218,7 +218,7 @@ describe(`the plugin on OpenCode ${HOST_VERSION}`, () => {
     expect(text).toContain("- Plan: paid\n")
     expect(await statusRpc(host)).toMatchObject({ workspace: "Acme Recruiting", role: "member", plan: "paid", unguardedAgents: ["reviewer"] })
     // Only the three fields: no ids from the result.
-    expect(JSON.stringify(await statusRpc(host))).not.toMatch(/p_fake_1|770077001/)
+    expect(JSON.stringify(await statusRpc(host))).not.toMatch(/0e0e0e0e-0000-4000-8000-000000000001|770077001/)
   })
 
   test("H6: unloading the plugin removes the server, the rules and the command", async () => {
@@ -313,7 +313,7 @@ describe("a model turn that reads the account", () => {
     expect(text).toContain("- Account: Acme Recruiting\n")
     expect(text).toContain("member: your own conversations and those shared with you;")
     expect(text).toContain("- Plan: paid\n")
-    expect(text).not.toMatch(/p_fake_1|770077001/)
+    expect(text).not.toMatch(/0e0e0e0e-0000-4000-8000-000000000001|770077001/)
   })
 
   test("DC-5: the model is offered the three destructive tools at this access, and each call reaches Metaview", async () => {
@@ -367,7 +367,7 @@ describe("a Code Mode turn that reads the account", () => {
       return posted.includes("Acme Recruiting") ? posted : undefined
     })
     expect(text).toContain("- Account: Acme Recruiting\n")
-    expect(text).not.toMatch(/p_fake_1|770077001/)
+    expect(text).not.toMatch(/0e0e0e0e-0000-4000-8000-000000000001|770077001/)
   })
 })
 

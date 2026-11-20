@@ -39,6 +39,8 @@ export interface Fixture {
 export const FIXTURE = JSON.parse(readFileSync(join(ROOT, "test", "fixtures", "conformance.json"), "utf8")) as Fixture
 export const NOW = Date.parse(FIXTURE.now)
 export const SINCE = FIXTURE.since
+/** The signed-in user as an interviewer: their participant id (get_user_context's `participant_id`) and a name. */
+export const ME: SyntheticPerson = { id: String(FIXTURE.user["participant_id"]), name: "Grace Sample", email: "grace@talent.example.test" }
 /** The fixture's account, as probe names it. */
 export const ACCOUNT = `${String(FIXTURE.user["organization_id"])}/${String(FIXTURE.user["user_id"])}`
 
@@ -84,14 +86,17 @@ function conversationAnswer(conversation: SyntheticConversation, fields: readonl
 /** A stable order for conversations that share a start, other than by id: Metaview gives no order within a start. */
 const shuffle = (id: number) => (id * 2_654_435_761) % 4_294_967_291
 
-export function searchAnswer(conversations: readonly SyntheticConversation[], input: Record<string, unknown>, tieOrder: "id" | "shuffled" = "id") {
+export function searchAnswer(conversations: readonly SyntheticConversation[], input: Record<string, unknown>, tieOrder: "id" | "shuffled" = "id", self?: { readonly participant: string; readonly honoured: boolean }) {
   const filters = (input["filters"] ?? []) as { field_id: string; operation: string; value: { scope: string; value: [string, string] } }[]
+  // `"$self"` as a participant value is the authenticated user; a server that ignores the filter returns everyone's.
+  const mine = filters.some((filter) => filter.field_id === "default:interviewer" && filter.operation === "includes_one_of" && Array.isArray(filter.value) && (filter.value as unknown[]).includes("$self"))
   const between = filters.find((filter) => filter.field_id === "default:start_time" && filter.operation === "between")
   const [from, to] = between ? between.value.value.map((value) => Date.parse(value)) : [-Infinity, Infinity]
   const recordedOnly = input["only_show_recorded_conversations"] !== false
   const ascending = input["sort_ascending"] === true
   const matching = conversations
     .filter((conversation) => !recordedOnly || conversation.recorded !== false)
+    .filter((conversation) => !mine || self === undefined || !self.honoured || conversation.interviewers.some((person) => person.id === self.participant))
     .filter((conversation) => {
       const start = startOf(conversation)
       // Metaview's date filter cannot match a conversation without a start, unless there is no filter.
@@ -130,6 +135,8 @@ export interface SyntheticOptions {
   readonly calls?: Call[]
   /** How conversations that share a start are ordered: by id, or in an order of Metaview's own. */
   readonly tieOrder?: "id" | "shuffled"
+  /** Whether Metaview honours a `"$self"` interviewer filter (default), or ignores it and answers with everyone's. */
+  readonly selfFilter?: "honoured" | "ignored"
 }
 
 /** The permission assert a read runs under: the kit's recording session, or one that allows everything. */
@@ -142,7 +149,7 @@ export function syntheticContext(assert: Assert, options: SyntheticOptions = {})
   const state = options.state ?? "connected"
   const answers: Record<string, (input: Record<string, unknown>) => unknown> = {
     get_user_context: () => user,
-    search_conversations: (input) => searchAnswer(conversations, input, options.tieOrder),
+    search_conversations: (input) => searchAnswer(conversations, input, options.tieOrder, { participant: String(user["participant_id"]), honoured: options.selfFilter !== "ignored" }),
   }
   const tools = Object.entries(answers).map(([name, answer]) => ({
     id: `metaview_${name}`,

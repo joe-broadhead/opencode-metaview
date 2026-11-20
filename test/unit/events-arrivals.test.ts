@@ -7,7 +7,7 @@ import { EVENT_LIMITS } from "@we-the-rebel-alliance/source-contract/events"
 import type { ToolCall } from "@we-the-rebel-alliance/source-contract/tools-rpc"
 import { eventsMethod, seenKey } from "../../src/events/index.js"
 import { holdsContact, maskContacts } from "../../src/events/metaview.js"
-import { ACCOUNT, FIXTURE, NOW, cursorAt, syntheticContext, type Call, type SyntheticConversation } from "../support/synthetic-metaview.js"
+import { ACCOUNT, FIXTURE, ME, NOW, cursorAt, syntheticContext, type Call, type SyntheticConversation } from "../support/synthetic-metaview.js"
 
 // Each case reads days of hourly polls, or a burst of 1,100 a page at a time.
 setDefaultTimeout(120_000)
@@ -16,7 +16,7 @@ const call = (): ToolCall => ({ sessionID: "s", agent: "build", messageID: "m", 
 const H = 3_600_000
 const D = 24 * H
 const metaviewTime = (t: number) => new Date(t).toISOString().replace("T", " ").replace(/\.\d{3}Z$/, "+00:00")
-const conv = (id: number, t: number, title = `Interview ${id}`): SyntheticConversation => ({ id, start: metaviewTime(t), title, candidates: [], interviewers: [] })
+const conv = (id: number, t: number, title = `Interview ${id}`): SyntheticConversation => ({ id, start: metaviewTime(t), title, candidates: [], interviewers: [ME] })
 const startOf = (c: SyntheticConversation) => Date.parse(c.start!.replace(" ", "T"))
 
 interface World {
@@ -37,7 +37,7 @@ async function list(input: Record<string, unknown>, now: number, world: World) {
         : {
             ...tool,
             execute: (inp: Record<string, any>, c: unknown) => {
-              const filters = inp["filters"].map((x: any) => ({ ...x, value: { ...x.value, value: [x.value.value[0], new Date(Date.parse(x.value.value[1]) - 1).toISOString()] } }))
+              const filters = inp["filters"].map((x: any) => (x.field_id === "default:start_time" ? { ...x, value: { ...x.value, value: [x.value.value[0], new Date(Date.parse(x.value.value[1]) - 1).toISOString()] } } : x))
               return tool.execute({ ...inp, filters } as never, c as never)
             },
           },
@@ -261,14 +261,17 @@ describe("bursts, lost access and the window's bounds", () => {
   test("a start exactly at the window's end is listed once, whether Metaview's between includes its end or not", async () => {
     const now = Date.parse("2026-11-13T12:00:00.000Z") // the end is 09:00:00.000Z exactly
     for (const exclusiveEnd of [false, true]) {
-      const x: SyntheticConversation = { id: 9300, start: "2026-11-13 14:30:00+05:30", title: "Boundary", candidates: [], interviewers: [] }
+      const x: SyntheticConversation = { id: 9300, start: "2026-11-13 14:30:00+05:30", title: "Boundary", candidates: [], interviewers: [ME] }
       const calls: Call[] = []
       const conversations = [...FIXTURE.conversations.filter((c) => c.id !== 9009), x]
       const a = await list({ account: ACCOUNT, since: "2026-11-09T00:00:00Z" }, now, { conversations, calls, exclusiveEnd })
       const b = await list({ account: ACCOUNT, cursor: a["cursor"] }, now + 60_000, { conversations, exclusiveEnd })
       const c = await list({ account: ACCOUNT, cursor: b["cursor"] }, now + 2 * H, { conversations, exclusiveEnd })
       // Each filter is a dict of UTC instants.
-      expect(calls[0]!.input["filters"]).toEqual([{ field_id: "default:start_time", operation: "between", value: { scope: "absolute", value: [expect.stringMatching(/Z$/), expect.stringMatching(/Z$/)] } }])
+      expect(calls.find((entry) => entry.tool === "search_conversations")!.input["filters"]).toEqual([
+        { field_id: "default:start_time", operation: "between", value: { scope: "absolute", value: [expect.stringMatching(/Z$/), expect.stringMatching(/Z$/)] } },
+        { field_id: "default:interviewer", operation: "includes_one_of", value: ["$self"] },
+      ])
       expect([...ids(a), ...ids(b), ...ids(c)].filter((i) => i === "9300")).toHaveLength(1)
     }
   })
@@ -293,7 +296,7 @@ describe("contact details", () => {
         { id: "0c0c0c0c-0000-4000-8000-000000000009", name: "ana@example.test" },
         { id: "ana@example.test", name: "Ana Example" },
       ],
-      interviewers: [{ id: "0e0e0e0e-0000-4000-8000-000000000009", name: "+44 20 7946 0958" }],
+      interviewers: [ME, { id: "0e0e0e0e-0000-4000-8000-000000000009", name: "+44 20 7946 0958" }],
     }
     const page = await list({ account: ACCOUNT, since: "2026-11-12T00:00:00Z" }, NOW, { conversations: [conversation] })
     expect(page["events"]).toEqual([
@@ -301,6 +304,7 @@ describe("contact details", () => {
         title: "Phone screen with [email], call [phone]",
         actors: [
           { role: "candidate", id: "metaview-participant:0c0c0c0c-0000-4000-8000-000000000009" },
+          { role: "interviewer", id: `metaview-participant:${ME.id}`, name: ME.name },
           { role: "interviewer", id: "metaview-participant:0e0e0e0e-0000-4000-8000-000000000009" },
         ],
       }),

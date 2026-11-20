@@ -118,17 +118,22 @@ no code of their own:
 
 | Source | Kind | What it lists | Methods |
 | --- | --- | --- | --- |
-| `metaview.conversations` | events (`meeting`) | the recorded conversations you can see in Metaview, oldest first, once they started 3 hours ago, within the last 30 days | `events_list` and `probe` on `metaview.workspace.tools` |
+| `metaview.conversations` | events (`meeting`) | your own recorded conversations in Metaview (the ones where you are an interviewer, not every one you can see), oldest first, once they started 3 hours ago, within the last 30 days | `events_list` and `probe` on `metaview.workspace.tools` |
 
-Each conversation is one event: its id, start, title, Metaview link and conversation type, and its candidates and
+**Only your own:** the source lists a conversation only when you are one of its interviewers. It asks Metaview for
+those with its `"$self"` interviewer filter, and checks each conversation's interviewers against your own participant
+id (the `participant_id` that `get_user_context` names) again, so a conversation where someone else is the interviewer
+is never listed, even for an admin who can see the whole organization. Each conversation is one event: its id, start, title, Metaview link and conversation type, and its candidates and
 interviewers by the name Metaview shows. **Candidate data is personal data, so an event carries metadata only:** no
 transcript, summary, note, score, feedback, email or phone number, and its `text` is always empty. A conversation whose
 title holds a secret is refused for good, and an email address or phone number in a title is masked. Metaview keeps
 conversations only as long as your organization's retention setting says, which no tool names, so the source vouches
 for the last 30 days: an older cursor or start answers a `gap` and reads on from inside them. One Metaview adds up to 7
 days behind the cursor, such as an upload, is still listed once (see Known limits). The account is `<organization id>/<user id>`, which `probe` names from
-`get_user_context` and a consumer binds; `probe` refuses another account. The reads are Metaview's own
-`get_user_context` (`probe`) and `search_conversations` (`events_list`), through OpenCode's own sign-in and under the
+`get_user_context` and a consumer binds; `probe` refuses another account. `events_list` needs no `probe` before it: on
+every listing it reads `get_user_context` itself and keeps nothing, so it works after a restart of OpenCode, and a
+listing for another account than the signed-in one is `ACCOUNT_MISMATCH` before anything is searched. The reads are
+Metaview's own `get_user_context` (`probe` and `events_list`) and `search_conversations` (`events_list`), through OpenCode's own sign-in and under the
 same rules as any Metaview call, and the `rationale` Metaview receives with each is fixed text with no candidate detail.
 `npm run conformance` runs the contract's conformance kit on fixtures; see
 [Scripting](https://github.com/joe-broadhead/opencode-metaview/blob/HEAD/docs/scripting.md#the-conversations-source).
@@ -369,6 +374,12 @@ credential store.
 
 ## Known limits
 
+- **Whose conversations is Metaview's call, and the plugin's second check.** The source lists a conversation only when
+  your own participant id (the `participant_id` that `get_user_context` names) is one of its interviewers. Metaview
+  documents that `participant_id` is your contact UUID and that `"$self"` stands for it in a filter, and each
+  interviewer of a conversation is read as a participant UUID; no live listing has confirmed that the two ids are the
+  same value for your conversations. If they were not, the source would list nothing rather than someone else's. A
+  conversation you recorded but are not an interviewer on is not listed.
 - **The conversations source lists by start time.** Metaview's search orders and filters conversations by their start
   only, with no time Metaview received them, and an uploaded recording is listed at the start its uploader gave.
   - **Late arrivals:** one that appears after the source read past its start (an upload, a conversation shared with you

@@ -4,7 +4,8 @@
 // phone numbers, transcripts, summaries and every other field are never read, whatever the answer holds.
 //
 // The shapes are the ones Metaview's server answered with on 17 November 2026 (its tools declare no output schema):
-//   get_user_context:     { organization_id, workspace_name, user_id, participant_id, is_admin, ... }
+//   get_user_context:     { organization_id, workspace_name, user_id, participant_id, is_admin, ... } (an object, not wrapped;
+//                         participant_id is a UUID, the id the user has on a conversation they took part in)
 //   search_conversations: { field_definitions, conversations: [{ id, url, has_transcript, fields: { "<field id>":
 //                           [{ value, label, details? }] } }], total_count, has_more, message? }
 // A start is "YYYY-MM-DD HH:MM:SS+HH:MM".
@@ -48,10 +49,14 @@ export interface ConversationsPage {
   readonly total?: number
 }
 
-/** The signed-in user, as get_user_context names it: the organization and user ids. */
+/**
+ * The signed-in user, as get_user_context names it: the organization and user ids, and the user's own participant id
+ * (`participant_id`, a UUID: the id the user has on a conversation as an interviewer), when it is one.
+ */
 export interface UserFacts {
   readonly organization: string
   readonly user: string
+  readonly participant?: string
 }
 
 type Result = { readonly output?: unknown; readonly content?: unknown }
@@ -95,7 +100,10 @@ function line(value: unknown): string | undefined {
   return text === "" ? undefined : text
 }
 
-/** The signed-in user from a get_user_context answer, at the top level or one level down; undefined without both ids. */
+/**
+ * The signed-in user from a get_user_context answer, at the top level or one level down; undefined without both ids.
+ * The participant id is read only when it is a participant UUID, and is otherwise absent.
+ */
 export function userOf(result: Result): UserFacts | undefined {
   const answer = answerOf(result)
   if (!answer) return undefined
@@ -103,7 +111,8 @@ export function userOf(result: Result): UserFacts | undefined {
     const organization = idOf(fields["organization_id"])
     const user = idOf(fields["user_id"])
     if (organization === undefined || user === undefined) continue
-    return { organization, user }
+    const participant = typeof fields["participant_id"] === "string" && PARTICIPANT_ID.test(fields["participant_id"].trim()) ? fields["participant_id"].trim().toLowerCase() : undefined
+    return { organization, user, ...(participant === undefined ? {} : { participant }) }
   }
   return undefined
 }
@@ -154,6 +163,21 @@ function participants(fields: Record<string, unknown>, id: string): Participant[
   })
 }
 
+/** The one host an event's link may point at: the descriptor's `urlHosts`. */
+export const LINK_HOST = "app.metaview.ai"
+
+/** A link into Metaview: https on app.metaview.ai, without credentials, query or fragment (which could carry a token). */
+export function linkOf(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined
+  try {
+    const url = new URL(value.trim())
+    if (url.protocol !== "https:" || url.username !== "" || url.password !== "" || url.hostname.toLowerCase() !== LINK_HOST) return undefined
+    return `${url.origin}${url.pathname}`
+  } catch {
+    return undefined
+  }
+}
+
 /** One conversation of a search_conversations answer; undefined without an id. */
 function conversationOf(value: Record<string, unknown>): ConversationFacts | undefined {
   const id = idOf(value["id"])
@@ -164,7 +188,7 @@ function conversationOf(value: Record<string, unknown>): ConversationFacts | und
   const rawTitle = line(entries(fields, FIELDS.title)[0]?.["value"])
   const title = rawTitle === undefined ? undefined : maskContacts(rawTitle)
   const type = line(entries(fields, FIELDS.type)[0]?.["label"])
-  const url = typeof value["url"] === "string" && /^https:\/\/\S+$/.test(value["url"]) ? value["url"] : undefined
+  const url = linkOf(value["url"])
   return {
     id,
     ...(time === undefined ? {} : { time }),

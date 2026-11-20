@@ -84,6 +84,14 @@ export function ownerUnknown(): Problem {
   }
 }
 
+export function participantUnknown(): Problem {
+  return {
+    code: "UNAVAILABLE",
+    message: "Metaview's get_user_context did not name the signed-in participant, so the plugin cannot tell which conversations are the user's own.",
+    next: "Run /metaview-status, and sign in to Metaview again if it shows a problem.",
+  }
+}
+
 export function readFailed(tool: string, reason: string, method: string): Problem {
   return {
     code: "UNAVAILABLE",

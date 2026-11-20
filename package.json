@@ -93,7 +93,8 @@
           ],
           "identity": [
             "get_user_context"
-          ]
+          ],
+          "readsIdentity": true
         },
         "private": true,
         "cost": {
