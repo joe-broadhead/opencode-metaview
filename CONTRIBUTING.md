@@ -46,7 +46,7 @@ npm run check
 | `host` | `bun test ./test/host`: the plugin inside an embedded OpenCode host, once on each tested release (`@opencode/sdk` 2.2.3, 2.2.4, 2.2.5, 2.2.6, 2.2.7, 2.3.0, 2.3.1 and 2.3.2) |
 | `pack` | `bun test ./test/pack`: builds, packs and installs the package, imports both entry points, and loads it in stock OpenCode 2.2.3, 2.2.4, 2.2.5, 2.2.6, 2.2.7, 2.3.0, 2.3.1 and 2.3.2 |
 | `forbidden` | `node scripts/check-forbidden.mjs`: scans `src/`, `test/`, `scripts/` and `dist/` for forbidden APIs and machine-local paths |
-| `copies` | `node scripts/check-copies.mjs`: the declaration kit (`test/support/jelly-kit.ts`), Jelly's setting rules (`test/support/jelly-settings.ts`) and the release kit equal the copies every plugin carries (the tools RPC is the source contract's module, not a copy) |
+| `copies` | `node scripts/check-copies.mjs`: Jelly's setting rules (`test/support/jelly-settings.ts`) and the release kit equal the copies every plugin carries. The tools RPC is the source contract's module, not a copied `src/host/tools-rpc.ts`. This repository's declaration kit, `test/support/jelly-kit.ts`, is not a family copy: Affinity and Ashby do not carry it |
 | `whitelist` | Checks `package.json` against the approved package shape, and that `dist/` holds exactly `index.js` and `tui.js` |
 | `actionlint` | `actionlint`, when it is on `PATH`, parses the workflows as workflows; otherwise it prints a notice and CI's own `workflows` job runs it |
 
@@ -315,5 +315,5 @@ Each release has its own tag, and a Git install does not update by itself. To mo
 Or add the plugin to `opencode.json` instead, with the same spec:
 
 ```json
-{ "plugins": [{ "package": "github:joe-broadhead/opencode-metaview#v0.0.6" }] }
+{ "plugins": [{ "package": "github:joe-broadhead/opencode-metaview#v0.0.7" }] }
 ```

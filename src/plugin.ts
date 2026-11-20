@@ -4,7 +4,7 @@ import { reasonOf } from "./redact.js"
 import { errorText, NAMESPACE_DESCRIPTION, OAUTH_SCOPE, PLUGIN_ID, SERVER_NAME } from "./constants.js"
 import { checkHost } from "./host-version.js"
 import { registerToolsRpc } from "@we-the-rebel-alliance/source-contract/tools-rpc"
-import { eventsMethod, probeMethod, registerEvents } from "./events/index.js"
+import { eventsMethod, probeMethod } from "./events/index.js"
 import { METHODS, PLUGIN } from "./tools-rpc.js"
 import { watchIntegration } from "./integration.js"
 import { parseOptions } from "./options.js"
@@ -108,10 +108,9 @@ export function createMetaviewPlugin(seam: MetaviewSeam) {
       await registerSkills(ctx.skill, skills)
       await registerStatusCommand(ctx, read)
       await registerStatusRpc(ctx.rpc, read)
-      // The conversations source's listing, as a tool in the metaview namespace (package.json's `sources`).
-      await registerEvents(ctx)
-      // Scripts call the known reads with no model, as a session and its agent. events_list and probe are the plugin's
-      // own reads, the conversations source's: they read through the same Metaview tools.
+      // The conversations source (package.json's `sources`): events_list and probe, tools RPC methods only, never tools
+      // the model sees. Scripts call the known reads with no model, as a session and its agent. They read through the
+      // same Metaview tools.
       const stopTools = await registerToolsRpc(ctx as never, {
         plugin: PLUGIN,
         methods: [...METHODS, eventsMethod(ctx), probeMethod(ctx)],

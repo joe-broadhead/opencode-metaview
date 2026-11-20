@@ -69,7 +69,8 @@ It has no tool of its own. Read [docs/architecture.md](docs/architecture.md) bef
   tool, by exact name, with its class. The rule is resolved before dispatch, so only an `allow` runs and an `ask` or a
   `deny` is refused; at the default `access` every tool is allowed. An unknown tool is never a method. Keep the RPC id
   `metaview.workspace.tools` and its method names stable: scripts call them by name. Setup adds the plugin's own
-  `events_list` and `probe`, the conversations source's (`src/events/`).
+  `events_list` and `probe`, the conversations source's (`src/events/`), as tools RPC methods only, never tools the
+  model sees.
 - **The conversations source.** `package.json`'s `sources` declares `metaview.conversations`; `src/events/` reads it
   with the source contract's `events` and `cursor` modules. Candidate data is personal data: an event carries
   metadata only (ids, the start, the title, the link, the conversation type, and participant ids and names as Metaview
