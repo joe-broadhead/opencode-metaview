@@ -9,6 +9,20 @@ import { PLUGIN_METHODS } from "../../src/metaview-tools.js"
 import { TOOLS_RPC_ID } from "../../src/tools-rpc.js"
 import { conformanceReports, declaredSources, declaredTools, installed } from "../support/conformance.js"
 
+/**
+ * v0.3 checks this source carries nothing for. The kit marks each not applicable and states no reason of its own; an
+ * empty reason would be no reason, so the test states why. A conversation's actor is a role, never a from or author.
+ */
+const ABSENT = {
+  "actor-kind": "no event names an actor's kind, so actor-kind does not apply",
+  "commitment-key": "no page carries a commitment, so commitment-key does not apply",
+  facts: "no page carries a fact, so facts does not apply",
+  hints: "the source declares no hint file, so hints does not apply",
+  "one-author": "no page lists a from or author actor, so one-author does not apply",
+  "parts-stable": "no page carries a part, so parts-stable does not apply",
+  routines: "the source declares no routine file, so routines does not apply",
+}
+
 describe("package.json's sources", () => {
   test("is one events source, read as a consumer reads an installed plugin, and passes Memory's schema and the kit's rules", () => {
     const descriptor = installed()
@@ -63,8 +77,16 @@ describe("package.json's sources", () => {
       // Metaview's retention may delete history, so an old cursor answers a gap: no noExpiry.
       "gap-and-cursor-expired": "ran",
       "gap-once-per-read": "ran",
+      // A page carries events, so the page's byte cap is checked.
+      "event-within-max-bytes": "ran",
       "failed-holds-cursor": "n/a",
     })
+    // The v0.3 checks in ABSENT do not apply either; each reason is non-empty, which is what the kit accepts for a
+    // stated skip.
+    for (const [name, reason] of Object.entries(ABSENT)) {
+      expect(reason.trim()).not.toBe("")
+      expect(reports[0]!.checks.find((check) => check.name === name)).toMatchObject({ ran: false, notApplicable: true, problems: [] })
+    }
     const reasons = Object.fromEntries(reports[0]!.checks.filter((check) => check.reason).map((check) => [check.name, check.reason]))
     expect(reasons).toEqual({ "failed-holds-cursor": expect.stringContaining("search_conversations answers each page of conversations in one call") })
   })

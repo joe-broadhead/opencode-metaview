@@ -12,6 +12,9 @@ All notable changes to this project are documented here. The format follows [Kee
 - `scripts/check-copies.mjs` no longer names a copied `src/host/tools-rpc.ts`. The tools RPC is the source contract's
   module. It also no longer treats `test/support/jelly-kit.ts` as a copy every plugin carries: Affinity and Ashby do
   not carry that kit.
+- The `@we-the-rebel-alliance/source-contract` dev dependency is v0.3.0 (it was v0.2.0): `package.json` and the
+  lockfile, and the conformance test states why each v0.3 check that does not apply to this source is skipped. The
+  plugin sends no new key, and its pages, methods and descriptor are unchanged.
 
 ## [0.0.6] - 2026-11-18
 
