@@ -9,7 +9,7 @@ the OpenCode server. It uses the tools RPC, `metaview.workspace.tools`, through 
 | send | `send_job_post_message`, `send_sourcing_message`: they send a message to a person |
 | write | every other known write, from `create_snippet` to `update_screen_plan` (`WRITE_TOOLS`) |
 | destructive | `give_application_review_candidate_feedback`, `manage_candidate_sequence`, `submit_feedback` (`DESTRUCTIVE_TOOLS` in `src/metaview-tools.ts`): the three Metaview marks destructive, because each changes something that cannot be undone once sent |
-| read, the plugin's own | `events_list` and `probe`, the conversations source's (see [The conversations source](#the-conversations-source)) |
+| read, the plugin's own | `events_list` and `probe`, the conversations source's tools RPC methods, never tools the model sees (see [The conversations source](#the-conversations-source)) |
 | `describe` | not a tool: lists the methods, their classes and permission actions, whether OpenCode lists each tool now, each tool's input as JSON Schema, and — with a session — that session's permission for each |
 
 The class is the worst thing a tool can do. It never decides whether a call runs: the rules do. It is what `describe`

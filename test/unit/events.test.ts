@@ -6,7 +6,7 @@ import { probeResultProblems, resultProblems } from "@we-the-rebel-alliance/sour
 import type { ToolCall } from "@we-the-rebel-alliance/source-contract/tools-rpc"
 import { EventsFailure } from "../../src/events/errors.js"
 import { EVENT_LIMITS } from "@we-the-rebel-alliance/source-contract/events"
-import { EVENTS_ACTION, LOOKBACK_MS, MAX_BYTES, PROBE_ACTION, RATIONALE, SEARCH_LIMIT, SETTLE_MS, WINDOW_MS, eventsMethod, probeMethod, registerEvents } from "../../src/events/index.js"
+import { EVENTS_ACTION, LOOKBACK_MS, MAX_BYTES, PROBE_ACTION, RATIONALE, SEARCH_LIMIT, SETTLE_MS, WINDOW_MS, eventsMethod, probeMethod } from "../../src/events/index.js"
 import { FIELDS, timeOf } from "../../src/events/metaview.js"
 import { pluginError } from "../../src/tools-rpc.js"
 import { ACCOUNT, FIXTURE, NOW, SINCE, cursorAt, syntheticContext, type Call, type SyntheticConversation, type SyntheticOptions } from "../support/synthetic-metaview.js"
@@ -306,19 +306,10 @@ describe("events_list", () => {
     expect(asserted).toEqual([EVENTS_ACTION, "metaview_search_conversations"])
   })
 
-  test("is a tool in the metaview namespace, whose failure is a Tool.Error with the code", async () => {
-    const added: { name: string; options: { namespace: string }; execute: (input: unknown, context: unknown) => Promise<{ output: unknown; content: string }> }[] = []
-    const ctx = { ...syntheticContext(async () => {}), tool: { ...syntheticContext(async () => {}).tool, transform: async (callback: (editor: unknown) => void) => (callback({ add: (info: never) => added.push(info) }), { dispose: async () => {} }) } }
-    await registerEvents(ctx as never, () => NOW)
-    expect(added.map((tool) => [tool.name, tool.options.namespace])).toEqual([["events_list", "metaview"]])
-    const result = await added[0]!.execute({ account: ACCOUNT, since: SINCE }, call())
-    expect(result.content).toStartWith("5 Metaview conversations, oldest first. 1 conversation was refused for good")
-    const failure = (await added[0]!.execute({ since: SINCE }, call()).then(
-      () => undefined,
-      (error: unknown) => error,
-    )) as { _tag?: string; message: string }
-    expect(failure).toMatchObject({ _tag: "Tool.Error" })
-    expect(failure.message).toStartWith("INPUT_INVALID: ")
+  test("is a tools RPC method only, never a tool the model sees", async () => {
+    const module = await import("../../src/events/index.js")
+    expect(module).not.toHaveProperty("registerEvents")
+    expect(module.eventsMethod(syntheticContext(async () => {}), () => NOW)).toMatchObject({ kind: "plugin", class: "read", name: "events_list", action: EVENTS_ACTION })
   })
 })
 

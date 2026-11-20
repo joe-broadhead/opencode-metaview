@@ -5,7 +5,7 @@ import { assertDeclaration } from "@we-the-rebel-alliance/source-contract/confor
 import { EVENTS_LIST, PROBE } from "@we-the-rebel-alliance/source-contract/events"
 import { toolsRpcIdProblems } from "@we-the-rebel-alliance/source-contract/tools-rpc"
 import { EVENTS_ACTION, EVENTS_TOOL, MAX_BYTES, PACKAGE, PROBE_ACTION, SOURCE, SOURCE_ID } from "../../src/events/index.js"
-import { PLUGIN_METHODS, PLUGIN_READS } from "../../src/metaview-tools.js"
+import { PLUGIN_METHODS } from "../../src/metaview-tools.js"
 import { TOOLS_RPC_ID } from "../../src/tools-rpc.js"
 import { conformanceReports, declaredSources, declaredTools, installed } from "../support/conformance.js"
 
@@ -43,7 +43,7 @@ describe("package.json's sources", () => {
     expect(sources.probe).toEqual({ action: PROBE_ACTION })
     expect([EVENTS_TOOL, EVENTS_ACTION, PROBE_ACTION]).toEqual([EVENTS_LIST, `metaview_${EVENTS_LIST}`, `metaview_${PROBE}`])
     // The default rules and status know the two from src/metaview-tools.ts, which has no runtime imports.
-    expect([...PLUGIN_READS, ...PLUGIN_METHODS]).toEqual([EVENTS_LIST, PROBE])
+    expect(PLUGIN_METHODS).toEqual([EVENTS_LIST, PROBE])
   })
 
   test("passes the conformance kit, with every check that applies run, the gap's included, and says why failed[] cannot happen", async () => {

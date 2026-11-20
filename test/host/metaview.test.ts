@@ -67,13 +67,13 @@ const hidden = (rules: readonly Rule[], action: string) => {
 }
 
 /**
- * The host lists an MCP server's tools shortly after it connects, the three destructive ones included, beside the
- * plugin's own events_list in the same namespace.
+ * The host lists an MCP server's tools shortly after it connects, the three destructive ones included. events_list is
+ * a tools RPC method only, so it is not among them.
  */
 const metaviewTools = (host: Host) =>
   until("Metaview's tools are registered", async () => {
     const ids = (await host.probe().tool.list()).map((tool) => tool.id).filter((id) => id.startsWith("metaview_"))
-    return ids.length === 8 && ids.sort()
+    return ids.length === 7 && ids.sort()
   })
 
 async function status(host: Host, sessionID: string) {
@@ -122,7 +122,7 @@ describe(`the plugin on OpenCode ${HOST_VERSION}`, () => {
     expect(plugins.find((plugin) => plugin.id === "metaview.workspace")?.state.status).toBe("active")
     const { data: servers } = await host.client.mcp.list({ location: host.location })
     expect(servers.find((server) => server.name === "metaview")?.status).toEqual({ status: "connected" })
-    expect(await metaviewTools(host)).toEqual([...["create_snippet", "events_list", "get_user_context", "search_conversations", "shiny_new_tool", ...DESTRUCTIVE_TOOLS].map((tool) => `metaview_${tool}`)].sort())
+    expect(await metaviewTools(host)).toEqual([...["create_snippet", "get_user_context", "search_conversations", "shiny_new_tool", ...DESTRUCTIVE_TOOLS].map((tool) => `metaview_${tool}`)].sort())
     const { data: skills } = await host.client.skill.list({ location: host.location })
     expect(skills.map((skill) => skill.id).filter((id) => id.startsWith("metaview")).sort()).toEqual([...SKILL_NAMES].sort())
     const { data: commands } = await host.client.command.list({ location: host.location })
@@ -202,7 +202,7 @@ describe(`the plugin on OpenCode ${HOST_VERSION}`, () => {
     const text = await status(host, await session(host))
     expect(text).toContain(`- Connection: connected (${host.fake.url}, registered by this plugin)`)
     expect(text).toContain("- Account: not read yet")
-    expect(text).toContain("- Tools: 8 available, 1 unknown: shiny_new_tool (new tools run too)\n")
+    expect(text).toContain("- Tools: 7 available, 1 unknown: shiny_new_tool (new tools run too)\n")
     expect(text).toContain(`- Agents without default rules: reviewer\n${AGENT_RULES}\n`)
     expect(text).toContain(`- Next step: ${AGENTS_NEXT_STEP}`)
     expect(text).toContain(`- OpenCode: ${HOST_VERSION} (${TESTED_HOSTS.includes(HOST_VERSION) ? "tested" : "untested"}; supported range ${SUPPORTED_HOST})`)

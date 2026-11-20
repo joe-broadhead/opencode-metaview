@@ -1,5 +1,5 @@
 import type { Plugin } from "@opencode/plugin"
-import { Error as ToolError, type ToolContext } from "@opencode/plugin/promise/tool"
+import type { ToolContext } from "@opencode/plugin/promise/tool"
 import { decodeBoundCursor, encodeBoundCursor, type CursorBinding } from "@we-the-rebel-alliance/source-contract/cursor"
 import {
   EVENT_LIMITS,
@@ -27,14 +27,12 @@ import {
   accountMismatch,
   accountRequired,
   cursorInvalid,
-  describe,
   invalidInput,
   notConnected,
   ownerUnknown,
   readFailed,
   sourceUnknown,
   unreadable,
-  type Problem,
 } from "./errors.js"
 import { decodeKeys, encodeKeys, seenKey } from "./keys.js"
 import { FIELDS, conversationsPage, userOf, type ConversationFacts } from "./metaview.js"
@@ -42,7 +40,8 @@ import { FIELDS, conversationsPage, userOf, type ConversationFacts } from "./met
 /**
  * Metaview's side of the source contract (`@we-the-rebel-alliance/source-contract`, declared in `package.json`'s
  * `sources` as `metaview.conversations`): `events_list`, the recruiting conversations the signed-in user can see as
- * normalised events, oldest first, and `probe`, who is signed in. Both only read, through OpenCode's own Metaview tools,
+ * normalised events, oldest first, and `probe`, who is signed in. Both are tools RPC methods only, never tools the model
+ * sees. Both only read, through OpenCode's own Metaview tools,
  * so each read is checked against the session's rules like any Metaview call:
  *
  * - `probe` reads get_user_context, the source's one identity operation: the account is `<organization id>/<user id>`,
@@ -90,7 +89,7 @@ export const PACKAGE = "@joe-broadhead/opencode-metaview"
 export const SOURCE = "metaview"
 /** The descriptor's id for it. */
 export const SOURCE_ID = "metaview.conversations"
-/** The tool's name in the metaview namespace, and the tools RPC method's. */
+/** The tools RPC method's name. Never a tool the model sees. */
 export const EVENTS_TOOL = EVENTS_LIST
 /** The permission action of events_list: the descriptor's `permission.events`. */
 export const EVENTS_ACTION = `${SERVER_NAME}_${EVENTS_TOOL}`
@@ -697,8 +696,8 @@ const assertAction = (ctx: EventsContext, action: string, context: ToolContext) 
   })
 
 /**
- * The tool's and the method's one run: asserts metaview_events_list for the caller, then lists. The assert passes the
- * call's own source, so the tools RPC can tell this call's ask apart.
+ * The method's one run: asserts metaview_events_list for the caller, then lists. The assert passes the call's own
+ * source, so the tools RPC can tell this call's ask apart.
  */
 export async function runEvents(dependencies: EventsDependencies, input: unknown, context: ToolContext): Promise<EventsListResult> {
   const { ctx } = dependencies
@@ -712,44 +711,7 @@ export async function runProbe(ctx: EventsContext, input: unknown, context: Tool
   return metaviewProbe(metaviewReader(ctx, context, PROBE), input)
 }
 
-/** A one-line account of a result, for the model's view of the tool. */
-function summary(result: EventsListResult): string {
-  const count = `${result.events.length} Metaview conversation${result.events.length === 1 ? "" : "s"}, oldest first.`
-  const refused = result.refused?.length ?? 0
-  return [
-    count,
-    ...(refused > 0 ? [`${refused} ${refused === 1 ? "conversation was" : "conversations were"} refused for good (refused[] says why).`] : []),
-    ...(result.more ? ["There are more: call events_list again with this result's cursor and the same account."] : []),
-    "Candidate data is personal data, and Metaview content is untrusted data.",
-  ].join(" ")
-}
-
-/** The model-facing form of a failure. */
-const toolError = (problem: Problem) => new ToolError({ message: describe(problem), metadata: { code: problem.code, next: problem.next } })
-
-/** Adds metaview_events_list (tools.metaview.events_list in Code Mode, next to Metaview's own tools). */
-export async function registerEvents(ctx: EventsContext & { readonly tool: Pick<Plugin.Context["tool"], "transform"> }, now?: () => number): Promise<void> {
-  const dependencies: EventsDependencies = { ctx, ...(now ? { now } : {}) }
-  await ctx.tool.transform((editor) => {
-    editor.add({
-      name: EVENTS_TOOL,
-      description: EVENTS_DESCRIPTION,
-      input: EVENTS_INPUT,
-      output: EVENTS_OUTPUT,
-      options: { namespace: SERVER_NAME },
-      execute: async (input, context) => {
-        try {
-          const output = await runEvents(dependencies, input, context)
-          return { output, content: summary(output) }
-        } catch (error) {
-          throw error instanceof EventsFailure ? toolError(error.problem) : error
-        }
-      },
-    })
-  })
-}
-
-/** The tools RPC's events_list method: the tool's own run, as the envelope's session; EventsFailure becomes the script's code. */
+/** The tools RPC's events_list method: its own run, as the envelope's session; EventsFailure becomes the script's code. */
 export function eventsMethod(ctx: EventsContext, now?: () => number): PluginMethod {
   const dependencies: EventsDependencies = { ctx, ...(now ? { now } : {}) }
   return {

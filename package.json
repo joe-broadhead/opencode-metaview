@@ -396,12 +396,6 @@
         "readOnly": true
       },
       {
-        "name": "metaview.events_list",
-        "permission": "metaview_events_list",
-        "effect": "allow",
-        "readOnly": true
-      },
-      {
         "name": "metaview.create_ai_field",
         "permission": "metaview_create_ai_field",
         "effect": "allow",

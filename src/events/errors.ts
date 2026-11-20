@@ -14,7 +14,7 @@ export interface Problem {
 /** The plugin's one error shape. */
 export const describe = (problem: Problem) => `${problem.code}: ${problem.message} Next step: ${problem.next}`
 
-/** A failure of events_list or probe. The tool shows it as a Tool.Error; the tools RPC as the script's code and next step. */
+/** A failure of events_list or probe. The tools RPC shows it as the script's code and next step. */
 export class EventsFailure extends Error {
   readonly problem: Problem
   constructor(problem: Problem) {
