@@ -32,7 +32,7 @@ const open: SessionContext = { account: ACCOUNT, permission: { assert: async () 
 // reuse it, as a listing in a probed session does. A run of its own starts from nothing.
 const memo = signIns()
 /** A new process: the kit's probe is the first identity read again. */
-export const fresh = () => memo.forget()
+export const fresh = () => memo.clear()
 const contextOf = (session: SessionContext) => syntheticContext((input) => session.permission.assert(input as never))
 
 /** events_list, as the tools RPC runs it, in a session. */

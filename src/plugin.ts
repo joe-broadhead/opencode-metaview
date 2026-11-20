@@ -111,12 +111,15 @@ export function createMetaviewPlugin(seam: MetaviewSeam) {
       // The conversations source (package.json's `sources`): events_list and probe, tools RPC methods only, never tools
       // the model sees. Scripts call the known reads with no model, as a session and its agent. They read through the
       // same Metaview tools.
+      const store = signIns()
       const stopTools = await registerToolsRpc(ctx as never, {
         plugin: PLUGIN,
-        methods: [...METHODS, eventsMethod(ctx, undefined, signIns()), probeMethod(ctx, signIns())],
+        // One store for both methods: what probe reads for a session is the listing's, and a credential update or
+        // switch clears it (watchIntegration, below).
+        methods: [...METHODS, eventsMethod(ctx, undefined, store), probeMethod(ctx, store)],
         mcp: { server: SERVER_NAME, managed: () => source?.type !== "conflict" },
       })
-      const stopWatch = watchIntegration(ctx, owned)
+      const stopWatch = watchIntegration(ctx, owned, () => store.clear())
       return async () => {
         await stopWatch()
         await stopTools()

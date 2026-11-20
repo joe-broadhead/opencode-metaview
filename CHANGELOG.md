@@ -15,7 +15,10 @@ All notable changes to this project are documented here. The format follows [Kee
   conversation with no interviewer is not yours. If `get_user_context` names no participant UUID, the listing is
   `UNAVAILABLE` and searches nothing. The fixed `rationale`s are unchanged and name no one.
 - **`events_list` reads who is signed in itself, once, in a session that has not probed,** with `get_user_context` (the
-  declared identity operation); a session whose `probe` ran reuses what it read, so identity reads stay probe's. A
+  declared identity operation); a session whose `probe` ran reuses what it read, so identity reads stay probe's. One
+  store serves both methods, and `credential.updated` or `credential.switched` clears it, as the other plugins of this
+  family do: a re-sign-in in the same session is seen at once, and a read that was out when it happened is used for
+  its call but not kept. A
   listing for another account than the signed-in one is `ACCOUNT_MISMATCH` before any search; until now it read the
   signed-in user's conversations and named them as the account it was asked for. The declaration names no
   `readsIdentity`, which a consumer on source-contract 0.1 refuses; `permission.operations` and `permission.identity`

@@ -132,7 +132,8 @@ for the last 30 days: an older cursor or start answers a `gap` and reads on from
 days behind the cursor, such as an upload, is still listed once (see Known limits). The account is `<organization id>/<user id>`, which `probe` names from
 `get_user_context` and a consumer binds; `probe` refuses another account. `events_list` needs no `probe` before it: on
 a session that has not probed, a listing reads `get_user_context` itself, once, and reuses what a `probe` in that
-session read, so it works after a restart of OpenCode and makes no repeat call there; a listing for another account
+session read, so it works after a restart of OpenCode and makes no repeat call there; a credential update or switch
+clears it, and a read that was out when it happened is not kept. A listing for another account
 than the signed-in one is `ACCOUNT_MISMATCH` before anything is searched. The declaration names no `readsIdentity`: a
 consumer on source-contract 0.1 refuses that key. The reads are
 Metaview's own `get_user_context` (`probe` and `events_list`) and `search_conversations` (`events_list`), through OpenCode's own sign-in and under the

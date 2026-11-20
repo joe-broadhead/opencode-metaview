@@ -365,8 +365,8 @@ describe.each(HOST_VERSIONS)("the tools RPC on stock OpenCode %s", (version) => 
     expect(probed).toEqual({ value: { source: "metaview", account: "4100/770077001", owner: { id: "metaview:4100/770077001", label: "Metaview user 770077001 in organization 4100" }, trust: "untrusted" } })
     const from = fake.calls.length
     const listed = await call("build", "events_list", { account: "4100/770077001", since: new Date(Date.now() - 7 * 86_400_000).toISOString() })
-    // A listing reads who is signed in itself, then searches: it needs no probe before it.
-    expect(fake.calls.slice(from)).toEqual(["get_user_context", "search_conversations"])
+    // In the probe's session the listing reuses what probe read: one identity read for both, then the search.
+    expect(fake.calls.slice(from)).toEqual(["search_conversations"])
     expect(listed.value).toMatchObject({ source: "metaview", account: "4100/770077001", more: false, trust: "untrusted" })
     expect(listed.value).not.toHaveProperty("gap")
     expect(listed.value.events).toEqual([

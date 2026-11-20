@@ -369,16 +369,45 @@ describe("events_list", () => {
     expect(asserted).toEqual([EVENTS_ACTION, "metaview_search_conversations"])
     expect(calls.map((entry) => entry.tool)).toEqual(["search_conversations"])
     // A new process knows nothing of that probe, and reads who is signed in itself.
-    memo.forget()
+    memo.clear()
     await list({ account: ACCOUNT, cursor: page["cursor"] }, { calls })
     expect(calls.map((entry) => entry.tool)).toEqual(["search_conversations", "get_user_context", "search_conversations"])
+  })
+
+  test("a clear bumps the generation, and an identity read that was out when it happened is used but not kept", async () => {
+    let release: (() => void) | undefined
+    const held = new Promise<void>((resolve) => (release = resolve))
+    let started: (() => void) | undefined
+    const out = new Promise<void>((resolve) => (started = resolve))
+    const ctx = syntheticContext(async () => {})
+    const tools = await ctx.tool.list()
+    const slow = {
+      ...ctx,
+      tool: {
+        list: async () =>
+          tools.map((tool) =>
+            tool.id === "metaview_get_user_context"
+              ? { ...tool, execute: async (input: never, context: never) => (started?.(), await held, tool.execute(input, context)) }
+              : tool,
+          ) as never,
+      },
+    }
+    const running = eventsMethod(slow, () => NOW, memo).run({ account: ACCOUNT, since: SINCE }, call())
+    await out
+    // The credential changes while the identity read is out.
+    memo.clear()
+    release?.()
+    const page = (await running) as Record<string, any>
+    // Its answer is this call's, and no later call's: nothing of the old sign-in is kept.
+    expect(ids(page)).toEqual(["9002", "9008"])
+    expect(memo.values.size).toBe(0)
   })
 
   test("a different signed-in user than the account it is asked for is ACCOUNT_MISMATCH, and nothing is searched", async () => {
     const calls: Call[] = []
     // Another sign-in in this process is a new session or a restart: the memo of what the old one was is gone.
     await expect(list({ account: ACCOUNT, since: SINCE }, { calls, user: OTHER_USER })).rejects.toThrow(/^ACCOUNT_MISMATCH: Metaview is signed in to another account than 4100\/77\./)
-    memo.forget()
+    memo.clear()
     await expect(list({ account: ACCOUNT, since: SINCE }, { calls, user: { ...FIXTURE.user, organization_id: 4101 } })).rejects.toThrow(/^ACCOUNT_MISMATCH: /)
     expect(calls.map((entry) => entry.tool)).toEqual(["get_user_context", "get_user_context"])
   })
@@ -401,6 +430,9 @@ describe("events_list", () => {
     // Nothing of that page is listed, so no cursor could have moved past anything: the code and next step are the caller's.
     const error = await refused.catch((caught: unknown) => caught)
     expect(error).toBeInstanceOf(EventsFailure)
+    // The next step says how to recover: whose account, then start again from a time.
+    expect(String((error as Error).message)).toMatch(/Next step: .*Memory's console.*since/)
+    expect(String((error as Error).message)).toMatch(/since/)
     expect((error as EventsFailure).problem).toMatchObject({ code: "UNAVAILABLE" })
   })
 
@@ -432,7 +464,7 @@ describe("events_list", () => {
       const calls: Call[] = []
       const { participant_id: _own, ...rest } = FIXTURE.user
       const user = participant_id === undefined ? rest : { ...rest, participant_id }
-      memo.forget()
+      memo.clear()
       await expect(list({ account: ACCOUNT, since: SINCE }, { calls, user })).rejects.toThrow(/^UNAVAILABLE: Metaview's get_user_context did not name the signed-in participant/)
       expect(calls.map((entry) => entry.tool)).toEqual(["get_user_context"])
     }

@@ -77,8 +77,9 @@ It has no tool of its own. Read [docs/architecture.md](docs/architecture.md) bef
   labels them), never a transcript, note, score, feedback, email or phone number, and `text` stays empty. Every
   `rationale` sent is fixed text. `events_list` lists only conversations where the signed-in user is an interviewer. It
   reads who that is with `get_user_context` (`permission.identity`) once in a session that has not probed, and reuses
-  what that session's `probe` read: a listing never depends on a probe in this process (Memory probes only at bind), and
-  another signed-in user than its account is `ACCOUNT_MISMATCH`. It lists no conversation where someone else is the
+  what that session's `probe` read from the one store both methods share (cleared on `credential.updated` and
+  `credential.switched`, with a generation so a read in flight then is not kept): a listing never depends on a probe in
+  this process (Memory probes only at bind), and another signed-in user than its account is `ACCOUNT_MISMATCH`. It lists no conversation where someone else is the
   interviewer: one Metaview returns refuses the page, so the cursor never moves past what could not be read. **Declare
   or send no key a consumer on source-contract 0.1 refuses** (`readsIdentity`, `removals[]`, `owner.verified`,
   `identityRules`, `accounts.server`, a price's `conditions` or `min`, an empty `identity`) until the consumers are on

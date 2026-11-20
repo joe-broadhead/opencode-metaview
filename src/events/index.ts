@@ -464,34 +464,42 @@ const accountOfUser = (user: UserFacts) => `${user.organization}/${user.user}`
  * Who is signed in, as `probe` read it, per tools RPC session, in this process: a listing in the session the probe ran
  * in reuses it and makes no identity read of its own, which is the source contract's rule (identity reads belong to
  * probe). A session that never probed, such as Memory's collector (it probes only at bind), or one after a restart,
- * makes the read itself, once, and every later listing there reuses it. Nothing outlives the process.
+ * makes the read itself, once, and every later listing there reuses it. Nothing outlives the process, and a credential
+ * update or switch clears it: the next read may be another person under the same credential.
  */
-export interface SignIns {
-  readonly values: Map<string, UserFacts>
+export class SignIns {
+  readonly values = new Map<string, UserFacts>()
+  /** How many times it was cleared. A read that started in an earlier generation must not store its answer. */
+  generation = 0
   /** A new sign-in or a switch: what was read for the old one is forgotten. */
-  forget(): void
+  clear() {
+    this.generation++
+    this.values.clear()
+  }
+  /** Keeps `who` for the session, unless the sign-ins were cleared after the read began in `since`. */
+  keep(sessionID: string, who: UserFacts, since: number) {
+    if (since !== this.generation) return
+    if (this.values.size >= SIGN_INS_MAX) this.values.delete(this.values.keys().next().value!)
+    this.values.set(sessionID, who)
+  }
 }
-export const signIns = (): SignIns => {
-  const values = new Map<string, UserFacts>()
-  return { values, forget: () => values.clear() }
-}
-/** The process's one memo: every method a plugin instance builds shares it, and a new sign-in clears it. */
-const processSignIns = signIns()
+export const signIns = () => new SignIns()
 
 /** The most sessions one process remembers; the oldest goes first, so a long day's scripts do not grow it. */
 const SIGN_INS_MAX = 256
-const signInsStore = () => processSignIns
 
 /**
  * Who the session is signed in to Metaview as: what its `probe` recorded, else one `get_user_context` read, recorded for
- * the session. Read on a miss, never on a probe in this process alone.
+ * the session unless the sign-in changed while the read was out. Read on a miss, never on a probe in this process alone.
  */
 async function signedInFor(signIns: SignIns, read: Read, sessionID: string): Promise<UserFacts> {
   const known = signIns.values.get(sessionID)
   if (known !== undefined) return known
+  const since = signIns.generation
   const user = await signedInUser(read)
-  if (signIns.values.size >= SIGN_INS_MAX) signIns.values.delete(signIns.values.keys().next().value!)
-  signIns.values.set(sessionID, user)
+  // Its answer is this call's; a credential update or switch while it was out means it is for the old sign-in, so it is
+  // not kept.
+  signIns.keep(sessionID, user, since)
   return user
 }
 
@@ -768,17 +776,18 @@ export async function runEvents(dependencies: EventsDependencies, input: unknown
   const { ctx } = dependencies
   await assertAction(ctx, EVENTS_ACTION, context)
   const read = metaviewReader(ctx, context)
-  const signIns = dependencies.signIns ?? signInsStore()
-  return listEvents(read, input, (dependencies.now ?? Date.now)(), () => signedInFor(signIns, read, context.sessionID))
+  const store = dependencies.signIns ?? signIns()
+  return listEvents(read, input, (dependencies.now ?? Date.now)(), () => signedInFor(store, read, context.sessionID))
 }
 
 /** probe's one run: asserts metaview_probe for the caller, then reads who is signed in. */
-export async function runProbe(ctx: EventsContext, input: unknown, context: ToolContext, signIns: SignIns = signInsStore()): Promise<ProbeResult> {
+export async function runProbe(ctx: EventsContext, input: unknown, context: ToolContext, store: SignIns = signIns()): Promise<ProbeResult> {
   await assertAction(ctx, PROBE_ACTION, context)
   const read = metaviewReader(ctx, context, PROBE)
   // A probe always reads the identity: it is the source's identity read. A listing in its session then reuses it.
+  const since = store.generation
   const user = await signedInUser(read)
-  signIns.values.set(context.sessionID, user)
+  store.keep(context.sessionID, user, since)
   return metaviewProbe(read, input, async () => user)
 }
 

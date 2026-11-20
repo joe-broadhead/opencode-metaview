@@ -17,6 +17,8 @@ function fake(initial: { server?: string; integrationID?: string } = {}) {
   const transforms: ((editor: Editor) => void)[] = []
   const reported: unknown[] = []
   let push: (() => void) | undefined
+  let next = "integration.updated"
+  const queue = (type: string) => { next = type; push?.() }
   const name = () => {
     let current = state.hostName
     const editor = {
@@ -64,14 +66,14 @@ function fake(initial: { server?: string; integrationID?: string } = {}) {
               push = resolve
               signal.addEventListener("abort", () => resolve(), { once: true })
             })
-            if (!signal.aborted) yield { type: "integration.updated", data: {} }
+            if (!signal.aborted) yield { type: next, data: {} }
           }
         },
       }),
     },
   } as unknown as IntegrationContext
   const settle = () => new Promise((resolve) => setTimeout(resolve, 30))
-  return { ctx, state, transforms, reported, name, emit: () => push?.(), settle }
+  return { ctx, state, transforms, reported, name, emit: () => push?.(), queue, settle }
 }
 
 const SIGN_IN_AGAIN = "Metaview needs a new sign-in. Choose this account to sign in again."
@@ -127,6 +129,23 @@ describe("watchIntegration", () => {
     view.emit()
     await view.settle()
     expect(view.reported).toHaveLength(2)
+    await stop()
+  })
+
+  test("forgets the sign-in probe read on a credential update or switch, and on nothing else", async () => {
+    const { ctx, queue, settle } = fake()
+    let forgotten = 0
+    const stop = watchIntegration(ctx, () => true, () => void forgotten++)
+    await settle()
+    queue("integration.updated")
+    await settle()
+    expect(forgotten).toBe(0)
+    queue("credential.updated")
+    await settle()
+    expect(forgotten).toBe(1)
+    queue("credential.switched")
+    await settle()
+    expect(forgotten).toBe(2)
     await stop()
   })
 })

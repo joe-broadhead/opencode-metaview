@@ -100,7 +100,8 @@ export function foreignConversation(): Problem {
   return {
     code: "UNAVAILABLE",
     message: "Metaview returned a conversation where the signed-in user is not an interviewer, though the read asked only for theirs, so this page is not listed and its cursor does not move.",
-    next: "Call events_list again with the same cursor; if it keeps failing, run /metaview-status and update the plugin.",
+    next:
+      "Confirm this Metaview account in Memory's console, or call events_list again with since inside the last 30 days; if it keeps failing, run /metaview-status and update the plugin.",
   }
 }
 
