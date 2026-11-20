@@ -10,15 +10,16 @@ All notable changes to this project are documented here. The format follows [Kee
   every recorded conversation your sign-in could see, which for an admin is the whole organization. Now `events_list`
   asks Metaview for the conversations with its `"$self"` interviewer filter, and checks every conversation's
   interviewers against your own participant id (the `participant_id` that `get_user_context` names) again, so a
-  conversation where someone else is the interviewer is never listed, even if Metaview ignores the filter. A
+  conversation where someone else is the interviewer is never listed, even if Metaview ignores the filter: such a
+  conversation refuses the page with `UNAVAILABLE`, so nothing is dropped in silence and the cursor does not move. A
   conversation with no interviewer is not yours. If `get_user_context` names no participant UUID, the listing is
   `UNAVAILABLE` and searches nothing. The fixed `rationale`s are unchanged and name no one.
-- **`events_list` reads who is signed in itself, on every listing,** with `get_user_context` (the declared identity
-  operation) and keeps nothing. A listing for another account than the signed-in one is `ACCOUNT_MISMATCH` before any
-  search; until now it read the signed-in user's conversations and named them as the account it was asked for. The
-  declaration says so with `permission.readsIdentity: true` (a key source-contract 0.1.x consumers refuse; Memory
-  vendors 0.3.0, which accepts it); its `permission.operations` and `permission.identity` are unchanged. This is a new
-  descriptor, so a consumer asks for consent again.
+- **`events_list` reads who is signed in itself, once, in a session that has not probed,** with `get_user_context` (the
+  declared identity operation); a session whose `probe` ran reuses what it read, so identity reads stay probe's. A
+  listing for another account than the signed-in one is `ACCOUNT_MISMATCH` before any search; until now it read the
+  signed-in user's conversations and named them as the account it was asked for. The declaration names no
+  `readsIdentity`, which a consumer on source-contract 0.1 refuses; `permission.operations` and `permission.identity`
+  are unchanged. This is a new descriptor, so a consumer asks for consent again.
 - An event's `url` is kept only when it is https on `app.metaview.ai`, without credentials, and with its query and
   fragment removed. It used to be any https link as Metaview gave it.
 - `events_list`'s description says it lists the user's own conversations, as metadata only.

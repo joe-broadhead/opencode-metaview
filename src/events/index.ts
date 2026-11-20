@@ -27,6 +27,7 @@ import {
   accountMismatch,
   accountRequired,
   cursorInvalid,
+  foreignConversation,
   invalidInput,
   notConnected,
   ownerUnknown,
@@ -48,9 +49,11 @@ import { FIELDS, conversationsPage, userOf, type ConversationFacts, type UserFac
  * - `probe` reads get_user_context, the source's one identity operation: the account is `<organization id>/<user id>`,
  *   and the owner `metaview:` and the same. A consumer binds the account probe answers, and probe refuses another.
  * - `events_list` names its account, the one probe answers. It reads who is signed in itself, with the same
- *   get_user_context read (the descriptor's `permission.identity`, which its `readsIdentity` says it reads), on every
- *   listing and keeping nothing, so it needs no probe before it, also after a restart of OpenCode or in another process,
- *   and a different signed-in user than the account is ACCOUNT_MISMATCH before any search. Then it reads
+ *   get_user_context read (the descriptor's `permission.identity`), in a session that has not probed, once, and reuses
+ *   what its `probe` read there, so identity reads stay probe's where a probe ran and a listing needs no probe before it
+ *   (after a restart of OpenCode, or Memory's collector, which probes only at bind). It declares no `readsIdentity`: a
+ *   consumer on source-contract 0.1 refuses that key, and the kit runs its cases after its probe for the same reason. A
+ *   different signed-in user than the account is ACCOUNT_MISMATCH before any search. Then it reads
  *   search_conversations: the recorded conversations that started between the cursor and SETTLE_MS ago, sorted by
  *   start, oldest first, SEARCH_LIMIT at a time by offset, asking only for the start, the event's title, the
  *   candidates, the interviewers and the conversation type, and only for the ones where the signed-in user is an
@@ -269,6 +272,8 @@ export interface EventsDependencies {
   readonly ctx: EventsContext
   /** The clock; Date.now by default. */
   readonly now?: () => number
+  /** What this process remembers per session; a new one by default. */
+  readonly signIns?: SignIns
 }
 
 const record = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value)
@@ -455,6 +460,41 @@ async function signedInUser(read: Read): Promise<UserFacts> {
 /** The signed-in account, `<organization id>/<user id>`. */
 const accountOfUser = (user: UserFacts) => `${user.organization}/${user.user}`
 
+/**
+ * Who is signed in, as `probe` read it, per tools RPC session, in this process: a listing in the session the probe ran
+ * in reuses it and makes no identity read of its own, which is the source contract's rule (identity reads belong to
+ * probe). A session that never probed, such as Memory's collector (it probes only at bind), or one after a restart,
+ * makes the read itself, once, and every later listing there reuses it. Nothing outlives the process.
+ */
+export interface SignIns {
+  readonly values: Map<string, UserFacts>
+  /** A new sign-in or a switch: what was read for the old one is forgotten. */
+  forget(): void
+}
+export const signIns = (): SignIns => {
+  const values = new Map<string, UserFacts>()
+  return { values, forget: () => values.clear() }
+}
+/** The process's one memo: every method a plugin instance builds shares it, and a new sign-in clears it. */
+const processSignIns = signIns()
+
+/** The most sessions one process remembers; the oldest goes first, so a long day's scripts do not grow it. */
+const SIGN_INS_MAX = 256
+const signInsStore = () => processSignIns
+
+/**
+ * Who the session is signed in to Metaview as: what its `probe` recorded, else one `get_user_context` read, recorded for
+ * the session. Read on a miss, never on a probe in this process alone.
+ */
+async function signedInFor(signIns: SignIns, read: Read, sessionID: string): Promise<UserFacts> {
+  const known = signIns.values.get(sessionID)
+  if (known !== undefined) return known
+  const user = await signedInUser(read)
+  if (signIns.values.size >= SIGN_INS_MAX) signIns.values.delete(signIns.values.keys().next().value!)
+  signIns.values.set(sessionID, user)
+  return user
+}
+
 /** An actor's id: the participant ID Metaview gives, which is not an address. */
 const participantID = (id: string) => `metaview-participant:${encodeURIComponent(id)}`
 
@@ -523,9 +563,11 @@ async function scan(read: Read, self: string, from: number, to: number, pages: n
       if (time === undefined) throw new EventsFailure(unreadable("search_conversations", EVENTS_TOOL))
       // Outside the window asked for: not this read's to place.
       if (time < from || time > to + 999) continue
-      // Every start read moves `last`, another person's too: Metaview sorts by start, so everything before it was read.
+      // Only the user's own: a conversation where someone else is the interviewer, returned though the read asked for
+      // the user's, refuses the whole call before the cursor moves, so nothing is dropped without a word.
+      if (!mine) throw new EventsFailure(foreignConversation())
       last = Math.max(last, time)
-      if (mine) conversations.set(conversation.id, { ...conversation, time })
+      conversations.set(conversation.id, { ...conversation, time })
     }
     offset += result.count
     const more = result.more ?? (result.total !== undefined && offset < result.total)
@@ -596,7 +638,7 @@ async function candidates(read: Read, self: string, position: Position, end: num
  * clock. Throws EventsFailure for the caller's mistakes and Metaview's failures; the input, the account and the cursor
  * are checked before any read.
  */
-export async function listEvents(read: Read, input: unknown, now: number): Promise<EventsListResult> {
+export async function listEvents(read: Read, input: unknown, now: number, who: () => Promise<UserFacts> = () => signedInUser(read)): Promise<EventsListResult> {
   const parsed = parseEventsListInput(input)
   if (!parsed.ok) throw new EventsFailure(invalidInput(EVENTS_TOOL, parsed.problems))
   const request = parsed.value
@@ -627,9 +669,10 @@ export async function listEvents(read: Read, input: unknown, now: number): Promi
     position = { ...position, floor: position.gapLine ?? edge }
   }
 
-  // Who is signed in: read now, with the source's identity operation, and kept nowhere, so a listing needs no probe before
-  // it (after a restart of OpenCode, in another process) and a new sign-in is seen at once. The account must be theirs.
-  const me = await signedInUser(read)
+  // Who is signed in: what this session's probe read, else one read of the source's identity operation, so a listing
+  // needs no probe before it (after a restart of OpenCode, or Memory's collector, which probes only at bind). The
+  // account must be theirs.
+  const me = await who()
   if (accountOfUser(me) !== account) throw new EventsFailure(accountMismatch(account, "signed-in"))
   if (me.participant === undefined) throw new EventsFailure(participantUnknown())
 
@@ -694,13 +737,13 @@ export async function listEvents(read: Read, input: unknown, now: number): Promi
  * `probe` (the source contract's): who is signed in to Metaview, and nothing it reads. One get_user_context read, the
  * source's identity operation. A caller that names another account than the signed-in one is ACCOUNT_MISMATCH.
  */
-export async function metaviewProbe(read: Read, input: unknown): Promise<ProbeResult> {
+export async function metaviewProbe(read: Read, input: unknown, who?: () => Promise<UserFacts>): Promise<ProbeResult> {
   const parsed = parseProbeInput(input)
   if (!parsed.ok) throw new EventsFailure(invalidInput(PROBE, parsed.problems))
   const source = parsed.value.source ?? SOURCE
   if (source !== SOURCE) throw new EventsFailure(sourceUnknown())
   const asked = parsed.value.account === undefined ? undefined : (accountOf(parsed.value.account) ?? parsed.value.account)
-  const account = accountOfUser(await signedInUser(read))
+  const account = accountOfUser(await (who ?? (() => signedInUser(read)))())
   if (asked !== undefined && asked !== account) throw new EventsFailure(accountMismatch(asked, "signed-in"))
   return probeResult({ source, account, owner: ownerOf(account) })
 }
@@ -724,18 +767,24 @@ const assertAction = (ctx: EventsContext, action: string, context: ToolContext) 
 export async function runEvents(dependencies: EventsDependencies, input: unknown, context: ToolContext): Promise<EventsListResult> {
   const { ctx } = dependencies
   await assertAction(ctx, EVENTS_ACTION, context)
-  return listEvents(metaviewReader(ctx, context), input, (dependencies.now ?? Date.now)())
+  const read = metaviewReader(ctx, context)
+  const signIns = dependencies.signIns ?? signInsStore()
+  return listEvents(read, input, (dependencies.now ?? Date.now)(), () => signedInFor(signIns, read, context.sessionID))
 }
 
 /** probe's one run: asserts metaview_probe for the caller, then reads who is signed in. */
-export async function runProbe(ctx: EventsContext, input: unknown, context: ToolContext): Promise<ProbeResult> {
+export async function runProbe(ctx: EventsContext, input: unknown, context: ToolContext, signIns: SignIns = signInsStore()): Promise<ProbeResult> {
   await assertAction(ctx, PROBE_ACTION, context)
-  return metaviewProbe(metaviewReader(ctx, context, PROBE), input)
+  const read = metaviewReader(ctx, context, PROBE)
+  // A probe always reads the identity: it is the source's identity read. A listing in its session then reuses it.
+  const user = await signedInUser(read)
+  signIns.values.set(context.sessionID, user)
+  return metaviewProbe(read, input, async () => user)
 }
 
 /** The tools RPC's events_list method: its own run, as the envelope's session; EventsFailure becomes the script's code. */
-export function eventsMethod(ctx: EventsContext, now?: () => number): PluginMethod {
-  const dependencies: EventsDependencies = { ctx, ...(now ? { now } : {}) }
+export function eventsMethod(ctx: EventsContext, now?: () => number, signIns?: SignIns): PluginMethod {
+  const dependencies: EventsDependencies = { ctx, ...(now ? { now } : {}), ...(signIns ? { signIns } : {}) }
   return {
     kind: "plugin",
     class: "read",
@@ -749,7 +798,7 @@ export function eventsMethod(ctx: EventsContext, now?: () => number): PluginMeth
 }
 
 /** The tools RPC's probe method: it asserts metaview_probe as the calling tool, then makes its one read. */
-export function probeMethod(ctx: EventsContext): PluginMethod {
+export function probeMethod(ctx: EventsContext, signIns?: SignIns): PluginMethod {
   return {
     kind: "plugin",
     class: "read",
@@ -758,6 +807,6 @@ export function probeMethod(ctx: EventsContext): PluginMethod {
     description: PROBE_DESCRIPTION,
     input: PROBE_INPUT,
     output: PROBE_OUTPUT,
-    run: (input: unknown, call: ToolCall) => runProbe(ctx, input, call as unknown as ToolContext),
+    run: (input: unknown, call: ToolCall) => runProbe(ctx, input, call as unknown as ToolContext, ...(signIns ? [signIns] : [])),
   }
 }

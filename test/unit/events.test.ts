@@ -1,13 +1,13 @@
 // events_list and probe, the metaview.conversations source's reads, against the synthetic Metaview
 // (test/support/synthetic-metaview.ts): the events and what they leave out, paging (the plugin's cursor and Metaview's
 // offset), an empty page, an old cursor, Metaview's failures, the sign-in, and another account. Every name is invented.
-import { describe, expect, test } from "bun:test"
+import { beforeEach, describe, expect, test } from "bun:test"
 import { readFileSync } from "node:fs"
 import { probeResultProblems, resultProblems } from "@we-the-rebel-alliance/source-contract/events"
 import type { ToolCall } from "@we-the-rebel-alliance/source-contract/tools-rpc"
 import { EventsFailure } from "../../src/events/errors.js"
 import { EVENT_LIMITS } from "@we-the-rebel-alliance/source-contract/events"
-import { EVENTS_ACTION, LOOKBACK_MS, listEvents, MAX_BYTES, PROBE_ACTION, RATIONALE, SEARCH_LIMIT, SETTLE_MS, WINDOW_MS, eventsMethod, probeMethod } from "../../src/events/index.js"
+import { EVENTS_ACTION, LOOKBACK_MS, listEvents, signIns, type SignIns, MAX_BYTES, PROBE_ACTION, RATIONALE, SEARCH_LIMIT, SETTLE_MS, WINDOW_MS, eventsMethod, probeMethod } from "../../src/events/index.js"
 import { FIELDS, LINK_HOST, linkOf, timeOf } from "../../src/events/metaview.js"
 import { pluginError } from "../../src/tools-rpc.js"
 import { ACCOUNT, FIXTURE, ME, NOW, SINCE, cursorAt, syntheticContext, type Call, type SyntheticConversation, type SyntheticOptions } from "../support/synthetic-metaview.js"
@@ -21,13 +21,17 @@ interface Setup extends SyntheticOptions {
 
 function list(input: Record<string, unknown>, setup: Setup = {}) {
   const ctx = syntheticContext(async ({ action }) => void setup.asserted?.push(action), setup)
-  return eventsMethod(ctx, () => setup.now ?? NOW).run(input, call()) as Promise<Record<string, any>>
+  return eventsMethod(ctx, () => setup.now ?? NOW, memo).run(input, call()) as Promise<Record<string, any>>
 }
 
 function probe(input: Record<string, unknown>, setup: Setup = {}) {
   const ctx = syntheticContext(async ({ action }) => void setup.asserted?.push(action), setup)
-  return probeMethod(ctx).run(input, call()) as Promise<Record<string, any>>
+  return probeMethod(ctx, memo).run(input, call()) as Promise<Record<string, any>>
 }
+
+// Each case is a process of its own: what a case's probe read for a session is not another case's.
+let memo: SignIns
+beforeEach(() => { memo = signIns() })
 
 const ids = (page: Record<string, any>) => (page["events"] as { external_id: string }[]).map((event) => event.external_id)
 const OWNER = { id: "metaview:4100/77", label: "Metaview user 77 in organization 4100" }
@@ -340,24 +344,41 @@ describe("events_list", () => {
     expect(calls).toEqual([])
   })
 
-  test("reads who is signed in itself, with get_user_context alone, then search_conversations: after a restart it needs no probe", async () => {
+  test("after a restart it needs no probe: a listing with a session that never probed reads who is signed in itself, once, and reuses it", async () => {
     const asserted: string[] = []
     const calls: Call[] = []
-    // A new method is made for every call, as after a restart of OpenCode: no probe ran in any of them.
     const page = await list({ account: ACCOUNT, since: SINCE }, { asserted, calls })
     expect(asserted).toEqual([EVENTS_ACTION, "metaview_get_user_context", "metaview_search_conversations"])
     expect(calls.map((entry) => entry.tool)).toEqual(["get_user_context", "search_conversations"])
     expect(calls[0]!.input).toEqual({ rationale: RATIONALE.identity })
     expect(ids(page)).toEqual(["9002", "9008"])
-    // Nothing is kept: the next listing reads who is signed in again, so a new sign-in is seen at once.
+    // Kept for the session in this process: the next listing there reads nobody, and a new sign-in is a new process.
     calls.length = 0
     await list({ account: ACCOUNT, cursor: page["cursor"] }, { calls })
-    expect(calls[0]!.tool).toBe("get_user_context")
+    expect(calls[0]!.tool).toBe("search_conversations")
+  })
+
+  test("in the session a probe ran in, a listing makes no identity read of its own: identity reads belong to probe", async () => {
+    const asserted: string[] = []
+    const calls: Call[] = []
+    await probe({}, { asserted, calls })
+    expect(asserted).toEqual([PROBE_ACTION, "metaview_get_user_context"])
+    asserted.length = 0
+    calls.length = 0
+    const page = await list({ account: ACCOUNT, since: SINCE }, { asserted, calls })
+    expect(asserted).toEqual([EVENTS_ACTION, "metaview_search_conversations"])
+    expect(calls.map((entry) => entry.tool)).toEqual(["search_conversations"])
+    // A new process knows nothing of that probe, and reads who is signed in itself.
+    memo.forget()
+    await list({ account: ACCOUNT, cursor: page["cursor"] }, { calls })
+    expect(calls.map((entry) => entry.tool)).toEqual(["search_conversations", "get_user_context", "search_conversations"])
   })
 
   test("a different signed-in user than the account it is asked for is ACCOUNT_MISMATCH, and nothing is searched", async () => {
     const calls: Call[] = []
+    // Another sign-in in this process is a new session or a restart: the memo of what the old one was is gone.
     await expect(list({ account: ACCOUNT, since: SINCE }, { calls, user: OTHER_USER })).rejects.toThrow(/^ACCOUNT_MISMATCH: Metaview is signed in to another account than 4100\/77\./)
+    memo.forget()
     await expect(list({ account: ACCOUNT, since: SINCE }, { calls, user: { ...FIXTURE.user, organization_id: 4101 } })).rejects.toThrow(/^ACCOUNT_MISMATCH: /)
     expect(calls.map((entry) => entry.tool)).toEqual(["get_user_context", "get_user_context"])
   })
@@ -373,20 +394,37 @@ describe("events_list", () => {
     for (const other of ["9003", "9004", "9010"]) expect(ids(page)).not.toContain(other)
   })
 
-  test("and still when Metaview ignores the filter and answers with everyone's: the plugin checks each interviewer itself", async () => {
-    const calls: Call[] = []
-    const page = await list({ account: ACCOUNT, since: "2026-11-01T00:00:00Z" }, { calls, selfFilter: "ignored" })
-    expect(ids(page)).toEqual(["9001", "9002", "9008"])
-    // The other interviewers' conversations, their candidates and their panels, are nowhere in the page.
-    const text = JSON.stringify(page)
-    for (const absent of ["9003", "9004", "9010", "Mae Fixture", "metaview-participant:e0000000-0000-4000-8000-000000000004", "000000000003"]) expect({ absent, found: text.includes(absent) }).toEqual({ absent, found: false })
+  test("a conversation Metaview returns where the user is not an interviewer refuses the page, with its code: it is never dropped or listed", async () => {
+    // Metaview ignores the filter and answers with everyone's: 9003 is another interviewer's, and it comes before the user's own.
+    const refused = list({ account: ACCOUNT, since: "2026-11-01T00:00:00Z" }, { selfFilter: "ignored" })
+    await expect(refused).rejects.toThrow(/^UNAVAILABLE: Metaview returned a conversation where the signed-in user is not an interviewer/)
+    // Nothing of that page is listed, so no cursor could have moved past anything: the code and next step are the caller's.
+    const error = await refused.catch((caught: unknown) => caught)
+    expect(error).toBeInstanceOf(EventsFailure)
+    expect((error as EventsFailure).problem).toMatchObject({ code: "UNAVAILABLE" })
   })
 
-  test("the person is whoever get_user_context names: another interviewer's own interviews are theirs alone, and a non-interviewer has none", async () => {
+  test("the same conversation on a later page refuses that page too: a page is never reported as shorter than it is", async () => {
+    const all = ids(await list({ account: ACCOUNT, since: "2026-11-01T00:00:00Z" }))
+    const first = await list({ account: ACCOUNT, since: "2026-11-01T00:00:00Z", limit: 2 })
+    expect(ids(first)).toEqual(all.slice(0, 2))
+    await expect(list({ account: ACCOUNT, cursor: first["cursor"], limit: 2 }, { selfFilter: "ignored" })).rejects.toThrow(/^UNAVAILABLE: Metaview returned a conversation where the signed-in user is not an interviewer/)
+    // The cursor that was not refused still reads the same page as before, so nothing was skipped.
+    expect(ids(await list({ account: ACCOUNT, cursor: first["cursor"], limit: 2 }))).toEqual(all.slice(2, 4))
+  })
+
+  test("and a participant id that never matches the interviewers refuses rather than listing nothing for ever", async () => {
+    // The ids differ, as they would if get_user_context's participant_id were not the id on a conversation: loudly, not empty.
+    const unmatched = { ...FIXTURE.user, participant_id: "e0000000-0000-4000-8000-0000000000ff" }
+    await expect(list({ account: ACCOUNT, since: "2026-11-01T00:00:00Z" }, { user: unmatched, selfFilter: "ignored" })).rejects.toThrow(/^UNAVAILABLE: Metaview returned a conversation where the signed-in user is not an interviewer/)
+    // With the filter honoured there is nothing to refuse, and no conversation of anyone else's is there to drop.
+    const none = await list({ account: ACCOUNT, since: "2026-11-01T00:00:00Z" }, { user: unmatched })
+    expect(none).toMatchObject({ events: [], more: false })
+  })
+
+  test("the person is whoever get_user_context names: another interviewer's conversations are theirs", async () => {
     const asOther = { ...FIXTURE.user, participant_id: "e0000000-0000-4000-8000-000000000004" }
-    expect(ids(await list({ account: ACCOUNT, since: "2026-11-01T00:00:00Z" }, { user: asOther, selfFilter: "ignored" }))).toEqual(["9004", "9010"])
-    const nobody = { ...FIXTURE.user, participant_id: "e0000000-0000-4000-8000-0000000000ff" }
-    expect(await list({ account: ACCOUNT, since: "2026-11-01T00:00:00Z" }, { user: nobody, selfFilter: "ignored" })).toMatchObject({ events: [], more: false })
+    expect(ids(await list({ account: ACCOUNT, since: "2026-11-01T00:00:00Z" }, { user: asOther }))).toEqual(["9004", "9010"])
   })
 
   test("a get_user_context that names no participant UUID is UNAVAILABLE, and nothing is searched: it cannot say whose they are", async () => {
@@ -394,6 +432,7 @@ describe("events_list", () => {
       const calls: Call[] = []
       const { participant_id: _own, ...rest } = FIXTURE.user
       const user = participant_id === undefined ? rest : { ...rest, participant_id }
+      memo.forget()
       await expect(list({ account: ACCOUNT, since: SINCE }, { calls, user })).rejects.toThrow(/^UNAVAILABLE: Metaview's get_user_context did not name the signed-in participant/)
       expect(calls.map((entry) => entry.tool)).toEqual(["get_user_context"])
     }
@@ -411,7 +450,7 @@ describe("events_list", () => {
         return { output: { result: answer.content[0]!.text } }
       },
     }))
-    const method = eventsMethod({ ...ctx, tool: { list: async () => wrap as never } }, () => NOW)
+    const method = eventsMethod({ ...ctx, tool: { list: async () => wrap as never } }, () => NOW, memo)
     await expect(method.run({ account: ACCOUNT, since: SINCE }, call())).rejects.toThrow(/^UNAVAILABLE: Metaview's get_user_context did not name the signed-in user and organization\./)
     // It stopped at the identity read: nothing was searched, and no cursor moved.
     expect(calls).toEqual(["metaview_get_user_context"])

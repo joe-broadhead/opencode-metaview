@@ -157,7 +157,8 @@ opencode api post /api/rpc/metaview.workspace.tools/probe -H "x-opencode-directo
 `events_list` lists the recorded conversations where the signed-in user is an interviewer, oldest first, as
 source-contract events: their own, not the others they can see. Pass the account probe named, and `since` the first
 time, then the previous result's `cursor`. It needs no `probe` before it: on every listing it reads `get_user_context`
-itself, once, keeps nothing, and refuses with `ACCOUNT_MISMATCH` an account other than the signed-in one, before any
+itself, once, in a session that has not probed (one that has reuses what its `probe` read), and refuses with
+`ACCOUNT_MISMATCH` an account other than the signed-in one, before any
 search. It asks Metaview for the user's conversations with the `"$self"` interviewer filter, and checks each one's
 interviewers against the `participant_id` that `get_user_context` names, so a conversation where someone else is the
 interviewer is never listed. A `get_user_context` that names no participant UUID is `UNAVAILABLE`.
