@@ -184,12 +184,6 @@ export const PARAMETERS: Readonly<Record<string, readonly string[]>> = {
   upsert_job_post_template: ["name*:string", "sections*:array<object>", "title:string|null", "template_id:string|null", "rationale*:string"],
 }
 
-/**
- * The plugin's own reads that are tools RPC methods only, never tools the model sees: `events_list`, the
- * `metaview.conversations` source's listing, and `probe`, who is signed in. Their actions are allowed like the reads.
- */
-export const PLUGIN_METHODS: readonly string[] = ["events_list", "probe"]
-
 type ToolClass = "read" | "write" | "destructive" | "unknown"
 
 export function classify(name: string): ToolClass {

@@ -26,7 +26,7 @@ const jelly = pkg.jelly as Declaration & {
   contributes: unknown
 }
 const byPermission = new Map(jelly.tools.map((tool) => [tool.permission, tool]))
-// Metaview's tools. events_list and probe are tools RPC methods only, never tools, so they are not declared.
+// Metaview's native tools. This standalone build has no collection source or collection methods to declare.
 const known = [...READ_TOOLS, ...WRITE_TOOLS, ...DESTRUCTIVE_TOOLS].map((tool) => `${SERVER_NAME}_${tool}`)
 
 describe("the jelly declaration", () => {

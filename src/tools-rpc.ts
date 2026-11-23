@@ -8,14 +8,13 @@
  *
  * A script runs as a session and the agent it names; the rule for the method's permission action is resolved before
  * dispatch, and only `allow` runs. An MCP method then runs through OpenCode's own executor, which checks
- * `metaview_<tool>` against the same rules and sends OpenCode's own credential; the plugin's own methods (`events_list`
- * and `probe`, the conversations source's) run their own specs. `docs/scripting.md` describes the calls.
+ * `metaview_<tool>` against the same rules and sends OpenCode's own credential. The table is the native Metaview tools
+ * only; this standalone build registers no collection methods. `docs/scripting.md` describes the calls.
  */
-import type { Failure, McpResult, MethodSpec, NextSteps, ShapeCall, ToolsRpcPlugin } from "@we-the-rebel-alliance/source-contract/tools-rpc"
+import type { McpResult, MethodSpec, NextSteps, ShapeCall, ToolsRpcPlugin } from "@we-the-rebel-alliance/source-contract/tools-rpc"
 import { toolsRpcId } from "@we-the-rebel-alliance/source-contract/tools-rpc"
 import { ACCOUNT_TOOL, captureAccount } from "./account.js"
 import { PLUGIN_ID, SERVER_NAME } from "./constants.js"
-import { EventsFailure } from "./events/errors.js"
 import { DESTRUCTIVE_TOOLS, READ_TOOLS, SEND_TOOLS, WRITE_TOOLS } from "./metaview-tools.js"
 
 export { PLUGIN_ID }
@@ -27,7 +26,7 @@ export const TOOLS_RPC_ID = toolsRpcId(PLUGIN_ID)
  * Every tool this plugin knows, by exact upstream name, with the class the tools RPC reports. An allowlist: a tool the
  * server adds later is not a method until it is classified in `src/metaview-tools.ts`, and `describe` lists it as
  * unclassified. Any tool is a method, the destructive ones included: the class says what it does, and the rules decide
- * whether a call runs. The plugin's own `events_list` and `probe` are added in setup, where they get the context.
+ * whether a call runs. There are no plugin-owned methods: the collection-only source methods are not part of this build.
  */
 export const METHODS: readonly MethodSpec[] = [
   ...READ_TOOLS.map((name): MethodSpec => ({ kind: "mcp", name, class: "read" })),
@@ -65,12 +64,5 @@ export const NEXT_STEPS: NextSteps = {
   CANCELLED: "Call the method again if you still need the result.",
 }
 
-/** The plugin's own errors, thrown by plugin-owned specs, as a code, what happened and the next step: events_list's and probe's. */
-export function pluginError(error: unknown): Failure | undefined {
-  if (!(error instanceof EventsFailure)) return undefined
-  const { code, message, next } = error.problem
-  return { code, what: message.replace(/[.\s]+$/, ""), next }
-}
-
 /** Metaview's plugin value for the tools RPC. */
-export const PLUGIN: ToolsRpcPlugin = { id: PLUGIN_ID, nextSteps: NEXT_STEPS, shapeInput, shapeResult, pluginError }
+export const PLUGIN: ToolsRpcPlugin = { id: PLUGIN_ID, nextSteps: NEXT_STEPS, shapeInput, shapeResult }
