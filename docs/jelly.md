@@ -19,8 +19,8 @@ in too". It grants and blocks nothing; the README's Organisation rollout gives t
 ## Tools and permissions
 
 68 tools are declared (43 read-only): every tool in `src/metaview-tools.ts`, 43 reads, 22 writes and 3 destructive
-tools, each once and each with `allow`. `events_list` is not among them: it is a tools RPC method for Memory's
-collector, not a tool. Jelly's agents have no base "allow everything" rule, so this plugin's own
+tools, each once and each with `allow`. This standalone build declares no collection source or collection methods.
+Jelly's agents have no base "allow everything" rule, so this plugin's own
 default rules, which it puts after that rule, never reach them. Jelly writes each declared `ask` or `deny` as that
 tool's default instead (the person's own choice replaces it), and denies a read-only helper every tool not marked
 `readOnly`. A declared `allow` changes nothing in Jelly.

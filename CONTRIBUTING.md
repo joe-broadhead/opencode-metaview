@@ -39,8 +39,7 @@ npm run check
 | Stage | What it does |
 | --- | --- |
 | `typecheck` | `tsc --noEmit` over `src/` and `test/`, strict, with unused names as errors |
-| `unit` | `bun test ./test/unit`: every module in `src/`, the docs' counts and error table, and the Jelly declaration |
-| `conformance` | `bun scripts/conformance.ts` (`npm run conformance`): the source contract's conformance kit over `metaview.conversations`, on the fixtures in `test/fixtures/conformance.json` with no Metaview call; writes `reports/conformance-report.json`, which a release attaches |
+| `unit` | `bun test ./test/unit`: every module in `src/`, the docs' counts and error table, the Jelly declaration, and the standalone compatibility endpoints' fail-closed tests |
 | `build` | `node scripts/build.mjs`: deletes `dist/` and bundles `src/index.ts` and `src/tui.ts` with esbuild into the self-contained `dist/index.js` and `dist/tui.js`. Fails if a bundle imports anything the host does not provide |
 | `icons` | `node scripts/check-icons.mjs`: the three icons, the manifest's declarations and the tarball's `files` against the family icon contract |
 | `host` | `bun test ./test/host`: the plugin inside an embedded OpenCode host, once on each tested release (`@opencode/sdk` 2.2.3, 2.2.4, 2.2.5, 2.2.6, 2.2.7, 2.3.0, 2.3.1 and 2.3.2) |
@@ -57,7 +56,7 @@ node scripts/check.mjs typecheck unit
 ```
 
 Shortcuts: `npm run typecheck`, `npm run build`, `npm test` (the `unit` stage), `npm run test:host`,
-`npm run test:pack`, `npm run conformance` (the `conformance` stage) and `npm run lint` (the `forbidden` stage).
+`npm run test:pack` and `npm run lint` (the `forbidden` stage).
 
 `TESTED_HOSTS` in `src/constants.ts` is the one list of tested OpenCode releases: 2.2.3, 2.2.4, 2.2.5, 2.2.6, 2.2.7, 2.3.0, 2.3.1 and 2.3.2. The host
 and pack stages, status and CI all take their versions from it. Add a release there, and to the README's
@@ -229,12 +228,19 @@ more than 14 days old, unless `provenance.json` holds the owner's written waiver
 with no capture yet, or only a names-only one, releases with a warning on the run; one that serves only its own tools
 says so with `"upstream": "none"` in the registry.
 
-A plugin that declares sources (a top-level `sources` key in `package.json`, the source contract's declaration) releases
-with its conformance report. Its `npm run conformance` runs the source contract's conformance kit and writes
-`reports/conformance-report.json` (keep `reports/` out of git); `npm run check` runs it too. The release runs it again on
-the parent in its own `conformance` job, which has no write token, and stops unless the run passes and the report's `ok`
-is `true` for this version. The report becomes the Release asset `conformance-report.json`, listed in `SHA256SUMS`. A
+A build that declares sources (a top-level `sources` key in `package.json`, the source contract's declaration) releases
+with its conformance report. It has an `npm run conformance` that runs the source contract's conformance kit and writes
+`reports/conformance-report.json` (keep `reports/` out of git), and a `conformance` stage in `npm run check`. The
+release runs it again on the parent in its own `conformance` job, which has no write token, and stops unless the run
+passes and the report's `ok` is `true` for this version. The report becomes the Release asset `conformance-report.json`, listed in `SHA256SUMS`. A
 plugin without `sources` has no report, and its release is unchanged.
+
+**This standalone build declares no `sources`.** It therefore has no `npm run conformance`, no
+`reports/conformance-report.json`, and no conformance job or report asset in the release workflow; the workflow's
+source gate reads `sources: false` from `package.json`. Its old `events_list` and `probe` methods are not registered
+or listed; the `unit`, `host` and `pack` stages prove that an old call is an unknown method and reaches no MCP or
+identity read. The removed collection RPC has no supported replacement in this standalone build; native
+`search_conversations` remains for ordinary explicit requests, not old collection scripts.
 
 Before the approval, the workflow:
 - **plans:** refuses a run that is not on `master`, a sha that is not `master`'s head, a sha without a successful

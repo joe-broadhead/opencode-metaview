@@ -6,40 +6,26 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Changed
 
-- **`metaview.conversations` lists only your own conversations: the ones where you are an interviewer.** It used to list
-  every recorded conversation your sign-in could see, which for an admin is the whole organization. Now `events_list`
-  asks Metaview for the conversations with its `"$self"` interviewer filter, and checks every conversation's
-  interviewers against your own participant id (the `participant_id` that `get_user_context` names) again, so a
-  conversation where someone else is the interviewer is never listed, even if Metaview ignores the filter: such a
-  conversation refuses the page with `UNAVAILABLE`, so nothing is dropped in silence and the cursor does not move. A
-  conversation with no interviewer is not yours. If `get_user_context` names no participant UUID, the listing is
-  `UNAVAILABLE` and searches nothing. The fixed `rationale`s are unchanged and name no one.
-- **`events_list` reads who is signed in itself, once, in a session that has not probed,** with `get_user_context` (the
-  declared identity operation); a session whose `probe` ran reuses what it read, so identity reads stay probe's. One
-  store serves both methods, and `credential.updated` or `credential.switched` clears it, as the other plugins of this
-  family do: a re-sign-in in the same session is seen at once, and a read that was out when it happened is used for
-  its call but not kept. A
-  listing for another account than the signed-in one is `ACCOUNT_MISMATCH` before any search; until now it read the
-  signed-in user's conversations and named them as the account it was asked for. The declaration names no
-  `readsIdentity`, which a consumer on source-contract 0.1 refuses; `permission.operations` and `permission.identity`
-  are unchanged. This is a new descriptor, so a consumer asks for consent again.
-- An event's `url` is kept only when it is https on `app.metaview.ai`, without credentials, and with its query and
-  fragment removed. It used to be any https link as Metaview gave it.
-- `events_list`'s description says it lists the user's own conversations, as metadata only.
-
-### Fixed
-
-- The restart defect that other plugins' sources had (a listing that is `UNAVAILABLE` until a `probe` ran in the same
-  process) never applied here, since the plugin kept no sign-in; a test now reads each listing in a fresh instance with
-  no `probe` before it.
+- **This is a standalone-only build: `package.json` declares no `sources`, and `metaview.conversations` is not
+  advertised or available.** Memory, Artifacts and Jelly see no source to bind or collect, so this build makes no
+  collection, identity or Metaview call for one.
+- The collection-only runtime, its registrations, default rules, conformance report and tests are removed. There are no
+  `events_list` or `probe` compatibility stubs: neither is in `describe` or any method list, and an old script's call
+  fails as an unknown RPC method before any Metaview or identity read. Old collection callers have no supported
+  replacement in this standalone build; ordinary explicit native searches remain available but are not a migration
+  path and do not inherit the collection's identity, cursor, metadata or privacy guarantees.
+- Older pinned installs are unchanged, and data already collected by a consumer is not deleted or reset by this build.
+- Native Metaview tools, the general tools RPC, permissions for the tools that remain, the supported host range,
+  credential handling and the version are unchanged. No conformance report is generated or attached; the release
+  workflow's source gate reads `sources: false`.
 
 ## [0.0.7] - 2026-11-20
 
 ### Changed
 
 - `events_list` is a tools RPC method only, like `probe`, and is no longer a tool in the `metaview` namespace or a
-  `jelly.tools` entry. Memory still collects through `metaview.workspace.tools/events_list`. The default rule
-  `metaview_events_list` is unchanged.
+  `jelly.tools` entry. The old collection rule was unchanged in that release. (This standalone build removes both
+  methods and their rules; see 0.0.8 above.)
 - `scripts/check-copies.mjs` no longer names a copied `src/host/tools-rpc.ts`: the tools RPC is the source contract's
   module, bundled into `dist/index.js`.
 - The `@we-the-rebel-alliance/source-contract` dev dependency is v0.3.0 (it was v0.2.0): `package.json` and the

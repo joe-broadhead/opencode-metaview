@@ -19,7 +19,7 @@ import { METHODS, TOOLS_RPC_ID } from "../../src/tools-rpc.js"
 import { DESTRUCTIVE_TOOLS, READ_TOOLS, WRITE_TOOLS } from "../../src/metaview-tools.js"
 import { defaultRules, type Rule } from "../../src/permissions.js"
 import { SKILL_NAMES } from "../../src/skills.js"
-import { CONVERSATION_START, NEW_TOOL, startFakeMcp, UPSTREAM_FAILURE, type FakeMcp } from "../host/fake-mcp.js"
+import { NEW_TOOL, startFakeMcp, UPSTREAM_FAILURE, type FakeMcp } from "../host/fake-mcp.js"
 
 const root = fileURLToPath(new URL("../..", import.meta.url))
 const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8")) as {
@@ -157,10 +157,14 @@ describe("package tarball", () => {
 
   // OpenCode reloads a plugin in place and reuses the module records it holds for unchanged paths, so an entry that
   // imported a sibling module could get an older cached copy of it. Each entry must stand alone.
-  test("dist holds only the two entry bundles, and they import no sibling module", () => {
+  test("dist holds only the two entry bundles, they import no sibling module, and the preserved source is not bundled", () => {
     const dist = join(installedPackage(true), "dist")
     expect(tree(relative(root, dist), dist).sort()).toEqual(["index.js", "tui.js"])
     for (const file of ["index.js", "tui.js"]) expect(relativeImports(readFileSync(join(dist, file), "utf8"))).toEqual([])
+    // The live bundle holds no collection implementation, compatibility shims or preserved source.
+    const server = readFileSync(join(dist, "index.js"), "utf8")
+    expect(server).not.toContain("metaview.conversations")
+    expect(server).not.toContain("signIns")
   }, 300_000)
 
   test("dist imports only modules the host provides", () => {
@@ -294,7 +298,7 @@ describe.each(HOST_VERSIONS)("the tools RPC on stock OpenCode %s", (version) => 
       // Config-only agents get no default rules: their own rules decide, after the host's defaults.
       agents: { locked: { permissions: [rule("metaview_*", "deny")] }, careful: { permissions: [rule(`metaview_${READ_A}`, "ask")] } },
     })
-    // Every known tool, and the fake's new one, which is the only unknown. events_list is a tools RPC method, not a tool.
+    // Every known native tool, and the fake's new one, which is the only unknown. This build has no collection methods.
     const tools = READ_TOOLS.length + WRITE_TOOLS.length + DESTRUCTIVE_TOOLS.length + 1
     await host.until(`metaview is connected with its ${tools} tools`, async () => {
       const output = await status()
@@ -317,17 +321,13 @@ describe.each(HOST_VERSIONS)("the tools RPC on stock OpenCode %s", (version) => 
     await fake?.close()
   }, 60_000)
 
-  test("describes every known tool with its class, each available with its live schema, and the source's two reads", async () => {
+  test("describes every known tool with its class, each available with its live schema, and no collection methods", async () => {
     const { value } = await script("describe", {})
     expect(value.id).toBe(TOOLS_RPC_ID)
-    expect(value.methods.map((method: { name: string }) => method.name)).toEqual([...METHODS.map((method) => method.name), "events_list", "probe"])
+    expect(value.methods.map((method: { name: string }) => method.name)).toEqual(METHODS.map((method) => method.name))
     const classes = Object.fromEntries(METHODS.map((method) => [method.name, method.class]))
-    const own = value.methods.filter((method: { kind: string }) => method.kind === "plugin")
-    expect(own.map((method: Record<string, unknown>) => [method["name"], method["class"], method["action"], method["available"]])).toEqual([
-      ["events_list", "read", "metaview_events_list", true],
-      ["probe", "read", "metaview_probe", true],
-    ])
-    for (const method of value.methods.filter((method: { kind: string }) => method.kind !== "plugin")) {
+    expect(value.methods.filter((method: { kind: string }) => method.kind === "plugin")).toEqual([])
+    for (const method of value.methods) {
       expect({ name: method.name, kind: method.kind, class: method.class, action: method.action, available: method.available }).toEqual({
         name: method.name,
         kind: "mcp",
@@ -360,32 +360,19 @@ describe.each(HOST_VERSIONS)("the tools RPC on stock OpenCode %s", (version) => 
     expect(JSON.stringify(output)).not.toMatch(/0e0e0e0e-0000-4000-8000-000000000001|770077001/)
   })
 
-  test("the conversations source: probe names the account, and events_list lists metadata only, through the host", async () => {
-    const probed = await call("build", "probe", { source: "metaview" })
-    expect(probed).toEqual({ value: { source: "metaview", account: "4100/770077001", owner: { id: "metaview:4100/770077001", label: "Metaview user 770077001 in organization 4100" }, trust: "untrusted" } })
-    const from = fake.calls.length
-    const listed = await call("build", "events_list", { account: "4100/770077001", since: new Date(Date.now() - 7 * 86_400_000).toISOString() })
-    // In the probe's session the listing reuses what probe read: one identity read for both, then the search.
-    expect(fake.calls.slice(from)).toEqual(["search_conversations"])
-    expect(listed.value).toMatchObject({ source: "metaview", account: "4100/770077001", more: false, trust: "untrusted" })
-    expect(listed.value).not.toHaveProperty("gap")
-    expect(listed.value.events).toEqual([
-      expect.objectContaining({
-        external_id: "5001",
-        kind: "meeting",
-        occurred_at: CONVERSATION_START.toISOString(),
-        title: "Fake interview",
-        text: "",
-        url: "https://app.metaview.ai/notes/5001",
-        labels: ["Phone-Screen"],
-        actors: [
-          { role: "candidate", id: "metaview-participant:0c0c0c0c-0000-4000-8000-000000000001", name: "Fake Candidate" },
-          { role: "interviewer", id: "metaview-participant:0e0e0e0e-0000-4000-8000-000000000001", name: "Fake Interviewer" },
-        ],
-      }),
-    ])
-    expect(JSON.stringify(listed.value)).not.toMatch(/example\.test|\+1 555/)
-    expect(await call("build", "probe", { account: "4100/1" })).toMatchObject({ code: "ACCOUNT_MISMATCH" })
+  test("the old source methods are not methods: describe omits them and a call reaches no Metaview tool", async () => {
+    const before = fake.calls.length
+    const { value } = await script("describe", {})
+    expect(value.methods.map((method: { name: string }) => method.name)).toEqual(METHODS.map((method) => method.name))
+    for (const [method, input] of [
+      ["probe", { source: "metaview" }],
+      ["events_list", { account: "4100/770077001", since: new Date(Date.now() - 7 * 86_400_000).toISOString() }],
+    ] as const) {
+      const refused = await call("build", method, input)
+      expect(refused).toMatchObject({ type: "rpc.method_not_found" })
+      expect(refused).not.toHaveProperty("value")
+    }
+    expect(fake.calls.slice(before)).toEqual([])
   })
 
   test("a write and a destructive tool are methods that run at the default access; an unknown tool has no method, though OpenCode lists them all", async () => {

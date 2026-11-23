@@ -15,7 +15,7 @@ import { DESTRUCTIVE_TOOLS } from "../../src/metaview-tools.js"
 import { defaultRules, type Rule } from "../../src/permissions.js"
 import { SKILL_NAMES } from "../../src/skills.js"
 import { StatusRpc } from "../../src/status.js"
-import { TOOLS_RPC_ID } from "../../src/tools-rpc.js"
+import { METHODS, TOOLS_RPC_ID } from "../../src/tools-rpc.js"
 import { MODEL_ID } from "./fake-mcp.js"
 import { agentRules, attempt, cleanup, effect, HOST_VERSION, session, startHost, unattended, until, type Host } from "./harness.js"
 
@@ -67,8 +67,8 @@ const hidden = (rules: readonly Rule[], action: string) => {
 }
 
 /**
- * The host lists an MCP server's tools shortly after it connects, the three destructive ones included. events_list is
- * a tools RPC method only, so it is not among them.
+ * The host lists an MCP server's tools shortly after it connects, the three destructive ones included. The standalone
+ * build registers no collection methods, so none is among them.
  */
 const metaviewTools = (host: Host) =>
   until("Metaview's tools are registered", async () => {
@@ -85,10 +85,10 @@ async function status(host: Host, sessionID: string) {
   })
 }
 
-/** Enough of the tools RPC's contract for the client to call describe, the account read, one search and the source. */
+/** Enough of the tools RPC's contract for the client to call describe, the account read and one search. */
 const TOOLS_CONTRACT = {
   id: TOOLS_RPC_ID,
-  methods: Object.fromEntries(["describe", "get_user_context", "search_conversations", "events_list", "probe"].map((name) => [name, { input: { type: "object" }, output: { type: "object" } }])),
+  methods: Object.fromEntries(["describe", "get_user_context", "search_conversations"].map((name) => [name, { input: { type: "object" }, output: { type: "object" } }])),
   events: {},
 }
 type ToolsClient = Record<string, (input: object, options: object) => Promise<unknown>>
@@ -208,15 +208,23 @@ describe(`the plugin on OpenCode ${HOST_VERSION}`, () => {
     expect(text).toContain(`- OpenCode: ${HOST_VERSION} (${TESTED_HOSTS.includes(HOST_VERSION) ? "tested" : "untested"}; supported range ${SUPPORTED_HOST})`)
   })
 
-  test("the source's probe and events_list share one sign-in store: a listing in the probe's session reads no identity", async () => {
+  test("the old source methods are not methods: describe omits them and an old call reaches no Metaview tool", async () => {
     const sessionID = await session(host)
     const from = host.fake.calls.length
-    await toolsRpc(host).probe!({ sessionID, input: { source: "metaview" } }, { location: host.location })
-    const listed = (await toolsRpc(host).events_list!({ sessionID, input: { account: "4100/770077001", since: new Date(Date.now() - 7 * 86_400_000).toISOString() } }, { location: host.location })) as Record<string, unknown>
-    expect((listed["events"] as unknown[]).length).toBe(1)
-    // One identity read for both: what probe read is the listing's, not a second call.
-    expect(host.fake.calls.slice(from).filter((call) => call === "get_user_context")).toHaveLength(1)
-    expect(host.fake.calls.slice(from)).toEqual(["get_user_context", "search_conversations"])
+    const described = JSON.parse(await scriptCall(host, "describe", {})) as { methods: { name: string }[] }
+    expect(described.methods.map((method) => method.name)).toEqual(METHODS.map((method) => method.name))
+    const call = (host.client.rpc as unknown as { call: (input: object) => Promise<unknown> }).call
+    for (const [method, input] of [
+      ["probe", { source: "metaview" }],
+      ["events_list", { account: "4100/770077001", since: new Date(Date.now() - 7 * 86_400_000).toISOString() }],
+    ] as const) {
+      const refused = await call({ rpcID: TOOLS_RPC_ID, method, input: { sessionID, input }, location: host.location }).then(() => undefined, (error: unknown) => error)
+      expect(refused).toBeDefined()
+      expect(String((refused as Error)?.message ?? JSON.stringify(refused))).toMatch(/unknown|not found|method/i)
+    }
+    // A refused old method never reached Metaview, identity or a prompt.
+    expect(host.fake.calls.slice(from)).toEqual([])
+    expect(await host.client.permission.list({ sessionID })).toEqual([])
   })
 
   test("H5: an account read fills the account, role and plan, in /metaview-status and the dialog's RPC", async () => {

@@ -9,7 +9,6 @@ the OpenCode server. It uses the tools RPC, `metaview.workspace.tools`, through 
 | send | `send_job_post_message`, `send_sourcing_message`: they send a message to a person |
 | write | every other known write, from `create_snippet` to `update_screen_plan` (`WRITE_TOOLS`) |
 | destructive | `give_application_review_candidate_feedback`, `manage_candidate_sequence`, `submit_feedback` (`DESTRUCTIVE_TOOLS` in `src/metaview-tools.ts`): the three Metaview marks destructive, because each changes something that cannot be undone once sent |
-| read, the plugin's own | `events_list` and `probe`, the conversations source's tools RPC methods, never tools the model sees (see [The conversations source](#the-conversations-source)) |
 | `describe` | not a tool: lists the methods, their classes and permission actions, whether OpenCode lists each tool now, each tool's input as JSON Schema, and — with a session — that session's permission for each |
 
 The class is the worst thing a tool can do. It never decides whether a call runs: the rules do. It is what `describe`
@@ -140,81 +139,19 @@ OpenCode itself answers `rpc.method_not_found` for a method that does not exist,
 | `input` not an object | `"input" must be an object` |
 | `describe` given anything but `{}`, a session or nothing | `describe takes nothing, or {"sessionID":"<session>"}` |
 
-## The conversations source
+## The old collection methods are absent
 
-`package.json` declares one [source-contract](https://github.com/we-the-rebel-alliance/source-contract) source,
-`metaview.conversations`, read through two of the plugin's own methods on this RPC. They are reads: the default rules
-allow `metaview_events_list` and `metaview_probe` like Metaview's reads, and each reads through Metaview's own tools,
-so the session also needs `metaview_get_user_context` (for `probe`) and `metaview_search_conversations` (for
-`events_list`).
+This standalone build declares no `metaview.conversations` source and does not register its `events_list` or `probe`
+methods. They are absent from `describe`, are not tools in the `metaview` namespace, and an old script's call fails as
+an unknown RPC method before any Metaview or identity read. There is no page, event, cursor or probe answer, and no
+empty success.
 
-`probe` names the signed-in account, `<organization id>/<user id>`, and its owner, from one `get_user_context` read:
+An old collection caller has **no supported replacement in this standalone build**. Ordinary explicit native searches
+remain available, but they are not a migration path and do not inherit the collection's identity binding, cursor,
+metadata-only event shape or privacy guarantees.
 
-```sh
-opencode api post /api/rpc/metaview.workspace.tools/probe -H "x-opencode-directory:$PWD" -d '{"input":{"sessionID":"ses_…","input":{"source":"metaview"}}}'
-```
-
-`events_list` lists the recorded conversations where the signed-in user is an interviewer, oldest first, as
-source-contract events: their own, not the others they can see. Pass the account probe named, and `since` the first
-time, then the previous result's `cursor`. It needs no `probe` before it: on every listing it reads `get_user_context`
-itself, once, in a session that has not probed (one that has reuses what its `probe` read; a credential update or
-switch clears it), and refuses with
-`ACCOUNT_MISMATCH` an account other than the signed-in one, before any
-search. It asks Metaview for the user's conversations with the `"$self"` interviewer filter, and checks each one's
-interviewers against the `participant_id` that `get_user_context` names, so a conversation where someone else is the
-interviewer is never listed. A `get_user_context` that names no participant UUID is `UNAVAILABLE`.
-
-```sh
-opencode api post /api/rpc/metaview.workspace.tools/events_list -H "x-opencode-directory:$PWD" -d '{"input":{"sessionID":"ses_…","input":{"account":"4100/77","since":"2026-11-01T00:00:00Z","limit":100}}}'
-```
-
-Each conversation is one event of kind `meeting`: its id (`external_id`), its start (`occurred_at`), the calendar
-event's `title`, its Metaview `url` (null without a transcript), the conversation type as a label, and the candidates
-and interviewers as `actors`, by participant id (`metaview-participant:<id>`) and the name Metaview shows. Candidate
-data is personal data: an event carries no transcript, summary, note, score, feedback, email or phone number, and its
-`text` is always empty. The cursor is the (start, id) of the last conversation listed, bound to this plugin, the
-source and the account: Metaview's search sorts and filters conversations by their start only. A conversation is
-listed once it started 3 hours ago: Metaview writes its notes about five minutes after a call ends, so a recorded call
-of up to almost 3 hours is in the search by then. Metaview lists an uploaded recording at the start its uploader gave,
-so one can appear days behind the cursor: a conversation that appears after the cursor passed its start (a longer
-call processed later, an upload, a conversation shared with you later) is listed once if it started within 7 days of
-the cursor. For that, the cursor keeps a key (25 bits of a hash of the id) for each conversation it listed in those 7
-days, as a Golomb-Rice coded set of about 19 bits a key: about 200 fit in its 1024 characters. When more were listed,
-the oldest keys go, the lookback is shorter, and a `window-truncated` gap whose `since` is the new lookback's start
-says so once; the cursor marks the lookback short until its keys use at most 80% of their room again, and each later
-shortening answers its own gap. Two ids can share a key, so a late arrival is missed at worst about once in 168,000
-(200 keys of 2^25). One later
-than 7 days is not listed, and no gap says so. A burst of conversations sharing one start, larger than a read's pages,
-is read whole and walked by id, so the cursor always moves. A conversation whose title holds a secret is refused for
-good (`refused[]`), and the cursor moves past it. An email address or phone number in a title is masked, and a
-participant whose id is not a Metaview participant id, or whose label is an address or a number, carries no id or no
-name. An answer the plugin cannot read fails the call with `UNAVAILABLE`, and your cursor stays where it was.
-
-Metaview keeps conversations, and their call metadata, only as long as your organization's retention setting says,
-which can be any period and which no Metaview tool names. So the source vouches for the last 30 days: a cursor older
-than that answers `gap: { "reason": "expired", "since": … }`, and a first listing whose `since` is older answers
-`gap: { "reason": "window-truncated", "since": … }`, on the page where the read restarts at the window's edge; what
-started before `since` may be gone. The cursor carries that line while the read drains (up to 7 days after the gap),
-so the gap is answered once per read, however many pages the read takes; a read paused longer is judged again, and
-answers a new gap if it fell behind the window. A workspace retention shorter than 30 days can delete conversations
-before a read reaches them, with no gap: no Metaview tool names the retention. A conversation deleted in Metaview, or
-one you lose access to, before a read reaches it is not listed and is not a gap; one already listed is not
-retracted.
-
-They refuse with the source contract's codes, in the same `CODE: what happened. Next step: what to do.` form:
-
-| Code | When |
-| --- | --- |
-| `INPUT_INVALID` | The input has a field the method does not take, names no account, or a `since` or `limit` it cannot read. |
-| `ACCOUNT_MISMATCH` | `probe` names an account, and Metaview is signed in to another; or the cursor is another account's. |
-| `CURSOR_INVALID` | The cursor was not issued by this source for this account; start again with `since`. |
-| `SOURCE_UNKNOWN` | The input names another source than `metaview`. |
-| `NEEDS_SIGN_IN` | Metaview needs a sign-in: run `/connect` and choose Metaview. |
-| `UNAVAILABLE` | Metaview's server is not connected, or a read failed or answered in a shape the plugin does not read. Call again with the same cursor; `/metaview-status` gives the details. |
-
-`npm run conformance` runs the contract's conformance kit over both methods on the fixtures in
-`test/fixtures/conformance.json`, with no Metaview call, and writes `reports/conformance-report.json`, which a release
-attaches.
+Older pinned installs are unchanged, and data already collected by a consumer is not deleted or reset by this build.
+Whether a future build declares the collection source is a separate owner decision; this build does not offer one.
 
 ## What scripts cannot do
 

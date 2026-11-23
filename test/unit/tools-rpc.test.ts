@@ -14,7 +14,7 @@ import {
   type ToolCall,
   type ToolsRpcOptions,
 } from "@we-the-rebel-alliance/source-contract/tools-rpc"
-import { METHODS, NEXT_STEPS, PLUGIN, PLUGIN_ID, pluginError, shapeInput, shapeResult, TOOLS_RPC_ID } from "../../src/tools-rpc.js"
+import { METHODS, NEXT_STEPS, PLUGIN, PLUGIN_ID, shapeInput, shapeResult, TOOLS_RPC_ID } from "../../src/tools-rpc.js"
 import { DESTRUCTIVE_TOOLS, READ_TOOLS, SEND_TOOLS, WRITE_TOOLS } from "../../src/metaview-tools.js"
 
 type Effect = "allow" | "deny" | "ask"
@@ -620,13 +620,6 @@ describe("plugin-owned methods", () => {
     const now = (await methods())[0]
     expect(now).toMatchObject({ name: "owned_write", available: true })
     expect(Object.hasOwn(now, "reason")).toBe(false)
-  })
-
-  test("a failure that is not a permission refusal propagates, unless pluginError names it", async () => {
-    const problem = new Error("plugin bug")
-    const h = await setup({ methods: [ownedMethod(async () => Promise.reject(problem))], agents: { build: [rule("*", "allow"), rule("plugin_owned_write", "allow")] } })
-    if (pluginError(problem) === undefined) await expect(call(h, "owned_write", {})).rejects.toBe(problem)
-    else expect(await call(h, "owned_write", {})).toMatchObject({ type: "failed" })
   })
 
   test("needs no MCP server when the table has no MCP method", async () => {

@@ -6,7 +6,7 @@ import { readdirSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { TESTED_HOSTS } from "../../src/constants.js"
-import { DESTRUCTIVE_TOOLS, PLUGIN_METHODS, READ_TOOLS, WRITE_TOOLS } from "../../src/metaview-tools.js"
+import { DESTRUCTIVE_TOOLS, READ_TOOLS, WRITE_TOOLS } from "../../src/metaview-tools.js"
 import { defaultRules } from "../../src/permissions.js"
 
 const ROOT = fileURLToPath(new URL("../..", import.meta.url))
@@ -20,8 +20,8 @@ const FILES = [
   ...readdirSync(join(ROOT, "docs")).map((name) => `docs/${name}`),
   ...readdirSync(join(ROOT, "skills")).map((name) => `skills/${name}/SKILL.md`),
 ]
-// Metaview's tools, and the conversations source's RPC methods, events_list and probe, which are not model tools.
-const KNOWN = [...READ_TOOLS, ...WRITE_TOOLS, ...DESTRUCTIVE_TOOLS, ...PLUGIN_METHODS]
+// The native Metaview tools; this standalone build has no collection methods.
+const KNOWN = [...READ_TOOLS, ...WRITE_TOOLS, ...DESTRUCTIVE_TOOLS]
 const text = (file: string) => readFileSync(join(ROOT, file), "utf8").replace(/\s+/g, " ")
 const raw = (file: string) => readFileSync(join(ROOT, file), "utf8")
 

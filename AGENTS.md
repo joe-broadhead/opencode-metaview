@@ -68,24 +68,17 @@ It has no tool of its own. Read [docs/architecture.md](docs/architecture.md) bef
   built from `READ_TOOLS`, `WRITE_TOOLS`, `SEND_TOOLS` and `DESTRUCTIVE_TOOLS` in `src/metaview-tools.ts`: every known
   tool, by exact name, with its class. The rule is resolved before dispatch, so only an `allow` runs and an `ask` or a
   `deny` is refused; at the default `access` every tool is allowed. An unknown tool is never a method. Keep the RPC id
-  `metaview.workspace.tools` and its method names stable: scripts call them by name. Setup adds the plugin's own
-  `events_list` and `probe`, the conversations source's (`src/events/`), as tools RPC methods only, never tools the
-  model sees.
-- **The conversations source.** `package.json`'s `sources` declares `metaview.conversations`; `src/events/` reads it
-  with the source contract's `events` and `cursor` modules. Candidate data is personal data: an event carries
-  metadata only (ids, the start, the title, the link, the conversation type, and participant ids and names as Metaview
-  labels them), never a transcript, note, score, feedback, email or phone number, and `text` stays empty. Every
-  `rationale` sent is fixed text. `events_list` lists only conversations where the signed-in user is an interviewer. It
-  reads who that is with `get_user_context` (`permission.identity`) once in a session that has not probed, and reuses
-  what that session's `probe` read from the one store both methods share (cleared on `credential.updated` and
-  `credential.switched`, with a generation so a read in flight then is not kept): a listing never depends on a probe in
-  this process (Memory probes only at bind), and another signed-in user than its account is `ACCOUNT_MISMATCH`. It lists no conversation where someone else is the
-  interviewer: one Metaview returns refuses the page, so the cursor never moves past what could not be read. **Declare
-  or send no key a consumer on source-contract 0.1 refuses** (`readsIdentity`, `removals[]`, `owner.verified`,
-  `identityRules`, `accounts.server`, a price's `conditions` or `min`, an empty `identity`) until the consumers are on
-  0.2: Jelly's host pins 0.1.0, so conformance runs its cases after its probe and the fresh-instance case is a unit
-  test.
-  `npm run conformance` must stay ok.
+  `metaview.workspace.tools` and its method names stable: scripts call them by name. Setup registers `METHODS` only:
+  it adds no tool of its own and no plugin-owned collection methods.
+- **This standalone build has no collection source and no collection methods.** `package.json` has no `sources`, and
+  `metaview.conversations` is not advertised to Memory, Artifacts or Jelly. `events_list` and `probe` are not
+  registered: they are absent from `describe`, absent from the native and tools RPC method lists, and an old script's
+  call fails as an unknown RPC method before any Metaview or identity read. Do not add compatibility stubs, duplicate
+  source schemas or hidden methods: a build that restores the source must restore a complete, owned implementation and
+  the source declaration together. Old collection callers have no supported replacement in this standalone build; the
+  native `search_conversations` tool remains for ordinary explicit requests, not old collection scripts. No conformance
+  report is generated or attached, and the release workflow's source gate stays off because the package declares no
+  source.
 - **Tests.** Unit tests use narrow `Pick<Plugin.Context, ...>` fakes. Host tests use the public `@opencode/sdk` with
   `OpenCode.create({ app: { version } })`, a loopback fake server and the temp root from `test/host/isolate.ts`. On
   2.3.1 and later the harness builds that host through `PromiseSdk.create`, which `OpenCode.create` calls, with the

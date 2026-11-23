@@ -1,10 +1,10 @@
-// One typed code table (with the conversations source's contract codes), and two docs that must match it exactly. A code that is thrown or returned anywhere must be in
+// One typed code table, and two docs that must match it exactly. A code that is thrown or returned anywhere must be in
 // the table, and the README's and the scripting doc's tables must not drift in either direction.
 import { describe, expect, test } from "bun:test"
 import { readdirSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 import { fileURLToPath } from "node:url"
-import { PLUGIN_CODES, RPC_CODES, SOURCE_CODES } from "../../src/constants.js"
+import { PLUGIN_CODES, RPC_CODES } from "../../src/constants.js"
 
 const ROOT = fileURLToPath(new URL("../..", import.meta.url))
 const read = (file: string) => readFileSync(join(ROOT, file), "utf8")
@@ -42,7 +42,7 @@ const SCRIPTING = read("docs/scripting.md")
 describe("codes", () => {
   test("every code raised in src is in one of the two tables", () => {
     // ACCOUNT_UNKNOWN comes from the shared tools RPC and only exists for per-account servers; this plugin has none.
-    const known = new Set<string>([...PLUGIN_CODES, ...RPC_CODES, ...SOURCE_CODES, "ACCOUNT_UNKNOWN"])
+    const known = new Set<string>([...PLUGIN_CODES, ...RPC_CODES, "ACCOUNT_UNKNOWN"])
     // Not plugin codes: Node's errno codes, and the platform names a description quotes.
     const plain = new Set(["ENOENT", "EACCES", "EEXIST"])
     expect([...raised].filter((code) => !known.has(code) && !plain.has(code))).toEqual([])
@@ -52,7 +52,7 @@ describe("codes", () => {
     expect(tableCodes(TROUBLESHOOTING).sort()).toEqual([...PLUGIN_CODES].sort())
   })
 
-  test("docs/scripting.md lists exactly the tools RPC's codes, and the conversations source's", () => {
-    expect(tableCodes(SCRIPTING).sort()).toEqual([...new Set([...RPC_CODES, ...SOURCE_CODES])].sort())
+  test("docs/scripting.md lists exactly the tools RPC's codes", () => {
+    expect(tableCodes(SCRIPTING).sort()).toEqual([...RPC_CODES].sort())
   })
 })

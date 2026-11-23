@@ -67,45 +67,6 @@
       "mark": true
     }
   },
-  "sources": {
-    "contractVersion": 1,
-    "rpc": "metaview.workspace.tools",
-    "probe": {
-      "action": "metaview_probe"
-    },
-    "items": [
-      {
-        "id": "metaview.conversations",
-        "kind": "events",
-        "reads": "meeting",
-        "tool": "events_list",
-        "input": {
-          "source": "metaview"
-        },
-        "accounts": {
-          "named": true
-        },
-        "permission": {
-          "events": "metaview_events_list",
-          "operations": [
-            "get_user_context",
-            "search_conversations"
-          ],
-          "identity": [
-            "get_user_context"
-          ]
-        },
-        "private": true,
-        "cost": {
-          "class": "free"
-        },
-        "maxBytes": 65536,
-        "urlHosts": [
-          "app.metaview.ai"
-        ]
-      }
-    ]
-  },
   "scripts": {
     "check": "node scripts/check.mjs",
     "typecheck": "node scripts/check.mjs typecheck",
@@ -115,8 +76,7 @@
     "test:pack": "node scripts/check.mjs pack",
     "lint": "node scripts/check.mjs forbidden",
     "drift": "node scripts/check-metaview-tools.mjs",
-    "capture": "node scripts/capture-tools.mjs",
-    "conformance": "bun scripts/conformance.ts"
+    "capture": "node scripts/capture-tools.mjs"
   },
   "devDependencies": {
     "@opencode/client": "2.2.3",
