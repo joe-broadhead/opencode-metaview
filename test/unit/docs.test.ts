@@ -1,6 +1,6 @@
-// The docs and skills must match the code: tool names, the default rules for every access value, the tested releases,
-// the error codes, the uninstall order and the Jelly guide. They state no tool counts, so a change to
-// src/metaview-tools.ts cannot leave a stale number behind.
+// The docs and skills must match the code: tool names, the default rules for every access value, the tested releases
+// and the error codes. They state no tool counts, so a change to src/metaview-tools.ts cannot leave a stale number
+// behind.
 import { describe, expect, test } from "bun:test"
 import { readdirSync, readFileSync } from "node:fs"
 import { join } from "node:path"
@@ -31,10 +31,9 @@ function blockAfter(file: string, pattern: RegExp): unknown {
   return JSON.parse(body)
 }
 
-/** The release the install specs name: package.json's version. */
+/** The package's version. */
 const VERSION = (JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")) as { version: string }).version
-/** The README's upgrade example removes an earlier release's entry; it must name one before VERSION. */
-const UPGRADE_FROM = /remove the old entry with `opencode plugin remove github:joe-broadhead\/opencode-metaview#v(\d+)\.(\d+)\.(\d+)`/
+const INSTALL = "github:we-the-rebel-alliance/metaview-plugin"
 
 describe("docs", () => {
   test.each(FILES)("%s states no count of read, write or declared tools that could go stale", (file) => {
@@ -49,28 +48,29 @@ describe("docs", () => {
     expect(named.filter((tool) => !KNOWN.includes(tool))).toEqual([])
   })
 
-  test.each(["README.md", "docs/configuration.md", "docs/scripting.md", "docs/jelly.md", "SECURITY.md"])("%s says nothing provisional or pending", (file) => {
+  test.each(["README.md", "docs/configuration.md", "docs/scripting.md", "SECURITY.md"])("%s says nothing provisional or pending", (file) => {
     expect(text(file)).not.toMatch(/provisional|not yet (?:checked|published|signed)|private package|TODO/i)
   })
 
-  test("the README names no version of the plugin, not even in an example", () => {
-    // The install and uninstall specs name the release tag (D19), and nothing else may name a version.
-    expect(text("README.md").replaceAll(`opencode-metaview#v${VERSION}`, "").replace(UPGRADE_FROM, "")).not.toMatch(/opencode-metaview@\d|\b0\.\d+\.\d+\b|\bv\d+\.\d+\.\d+\b/)
+  test("the README names no version of the plugin, and its install lines name the new repository", () => {
+    expect(text("README.md")).not.toMatch(new RegExp(`metaview-plugin@\\d|\\bv?${VERSION.replaceAll(".", "\\.")}\\b`))
+    expect(text("README.md")).toContain(`opencode plugin add ${INSTALL}`)
+    expect(text("README.md")).toContain(`opencode plugin remove ${INSTALL}`)
+    expect(text("README.md")).not.toMatch(/joe-broadhead|opencode-metaview/)
   })
 
   // A person reads the README first, so it says plainly what an all-allow default means here and the one-line way out.
-  test("the README opens Permissions with what every-tool-allowed means for candidates and the ATS, and the two one-line restrictions", () => {
-    const permissions = /## Permissions([\s\S]*?)## Configure/.exec(raw("README.md"))?.[1] ?? ""
+  test("the README opens Permissions with what every-tool-allowed means for candidates and the ATS, and the one-line restriction", () => {
+    const permissions = /## Permissions([\s\S]*?)## Options/.exec(raw("README.md"))?.[1] ?? ""
     expect(permissions).toContain("**Every tool is allowed by default.**")
     expect(text("README.md")).toContain("act on candidates and your ATS without asking")
     for (const value of ['| `"all"` (the default) |', '| `"ask-changes"` |', '| `"read-only"` |']) expect(permissions).toContain(value)
     expect(permissions).toContain('"options": { "access": "read-only" }')
-    // The three ways to restrict, in the order the family states them.
-    for (const way of ["The `access` option", "An agent that asks, or reads only", "A rule per tool"]) expect(permissions).toContain(way)
+    expect(permissions).toContain("A rule of your own in an agent's `permissions` still wins")
   })
 
-  test("every destructive tool is named in the README, the guide and the write skill", () => {
-    for (const file of ["README.md", "docs/configuration.md", "skills/metaview-write/SKILL.md"]) {
+  test("every destructive tool is named in the guide and the write skill", () => {
+    for (const file of ["docs/configuration.md", "skills/metaview-write/SKILL.md"]) {
       for (const name of DESTRUCTIVE_TOOLS) expect({ file, name, named: text(file).includes(name) }).toEqual({ file, name, named: true })
     }
   })
@@ -103,7 +103,7 @@ describe("docs", () => {
     const uninstall = /## Uninstall(.*?)## Links/.exec(text("README.md"))?.[1] ?? ""
     const logout = uninstall.indexOf("opencode mcp logout metaview")
     const list = uninstall.indexOf("opencode auth list")
-    const remove = uninstall.indexOf(`opencode plugin remove github:joe-broadhead/opencode-metaview#v${VERSION}`)
+    const remove = uninstall.indexOf(`opencode plugin remove ${INSTALL}`)
     expect(logout).toBeGreaterThanOrEqual(0)
     expect(list).toBeGreaterThan(logout)
     expect(remove).toBeGreaterThan(list)
@@ -129,23 +129,6 @@ describe("docs", () => {
     expect(documented.filter((code) => !raised.includes(`"${code}"`) && !raised.includes(`${code}:`))).toEqual([])
   })
 
-  test("the Jelly guide describes the declaration as Jelly reads it, with no placeholder or version", () => {
-    const guide = text("docs/jelly.md")
-    expect(guide).not.toMatch(/`latest` is|None yet/)
-    expect(guide).toContain("the one line in `jelly.summary`, and beside it the mark in `jelly.icon`")
-    // Jelly's contracts drop an unknown top-level key; they do not refuse the declaration for it.
-    expect(guide).toContain("drop a top-level key they don't know")
-    expect(guide).not.toMatch(/refuses this declaration|accepts no unknown keys/)
-    // Every tool is declared allowed, and a tool Metaview adds later runs unasked: the guide says so plainly.
-    expect(guide).toContain("- Ask: none. Every tool is allowed by default, in Jelly as in OpenCode.")
-    expect(guide).toContain("in Jelly it runs without asking, even if it changes something")
-    expect(guide).not.toContain("not asked about")
-    const section = guide.split("Three of the declared tools")[1]?.split("A tool the upstream server adds later")[0] ?? ""
-    for (const name of DESTRUCTIVE_TOOLS) expect(section).toContain(`\`metaview_${name}\``)
-    const skills = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")).jelly.skills as string[]
-    expect(guide).toContain(`Declared: ${skills.map((name) => `\`${name}\``).join(", ")}.`)
-  })
-
   test("the scripting guide points at the known reads, and says rationale goes inside the tool's input", () => {
     const guide = text("docs/scripting.md")
     expect(guide).toContain("(`READ_TOOLS` in `src/metaview-tools.ts`)")
@@ -153,14 +136,9 @@ describe("docs", () => {
   })
 })
 
-// The README prints the block the plugin inserts, in full, generated from defaultRules(): it is what an administrator
-// copies into an agent's own permissions, so it cannot be elided or drift.
+// The configuration guide prints each block the plugin inserts, in full, generated from defaultRules(): it is what an
+// administrator copies into an agent's own permissions, so it cannot be elided or drift.
 describe("the default rules block", () => {
-  test("the README's Permissions section prints defaultRules() in full", () => {
-    const printed = blockAfter("README.md", /## Permissions[\s\S]*?generated from[\s\S]*?```json\n([\s\S]*?)\n```/)
-    expect(printed).toEqual(defaultRules())
-  })
-
   test.each(["all", "ask-changes", "read-only"] as const)("the configuration guide prints the %s block in full", (access) => {
     const printed = blockAfter("docs/configuration.md", new RegExp(`\`access: "${access}"\`[\\s\\S]*?\\n\\n\`\`\`json\\n([\\s\\S]*?)\\n\`\`\``))
     expect({ access, printed }).toEqual({ access, printed: defaultRules(access) })
@@ -189,7 +167,7 @@ describe("tested hosts", () => {
   // While a release is prepared, its Unreleased section; otherwise the newest released one. Older released
   // sections are history and keep their own list.
   const SECTIONS = CHANGELOG.split(/\n(?=## \[)/)
-  const NOTES = SECTIONS.find((section) => section.startsWith("## [Unreleased]")) ?? SECTIONS.find((section) => /^## \[\d+\.\d+\.\d+\]/.test(section)) ?? ""
+  const NOTES = SECTIONS.find((section) => section.startsWith("## 0.0.0 (unreleased)")) ?? ""
   const SOURCES: [string, string][] = [
     ["README.md", readFileSync(join(ROOT, "README.md"), "utf8")],
     ["AGENTS.md", readFileSync(join(ROOT, "AGENTS.md"), "utf8")],
@@ -212,28 +190,17 @@ describe("tested hosts", () => {
   })
 
   test("the README's Requirements line names every tested release", () => {
-    const requirements = /## Requirements([\s\S]*?)## /i.exec(readFileSync(join(ROOT, "README.md"), "utf8"))?.[1] ?? ""
-    const named = [...requirements.matchAll(/\b\d+\.\d+\.\d+\b/g)].map((match) => match[0]).filter((version) => version !== "2.4.0")
+    const requirements = (/## Requirements([\s\S]*?)## /i.exec(readFileSync(join(ROOT, "README.md"), "utf8"))?.[1] ?? "").replace(/`[^`]*>=[^`]*`/g, "")
+    const named = [...requirements.matchAll(/\b\d+\.\d+\.\d+\b/g)].map((match) => match[0])
     expect([...new Set(named)].sort()).toEqual([...TESTED_HOSTS].sort())
   })
 
   // A release inside the range that ships later is the untested example, so it must be one that never ships.
-  test("the untested example is 2.2.99, and no doc names a future release as tested", () => {
+  test("the untested example is 2.4.99, and no doc names a future release as tested", () => {
     const all = SOURCES.map(([, body]) => body).join("\n")
-    expect(all).toContain("2.2.99")
-    // Every 2.2 or 2.3 release a doc names is one the checks run on, apart from the example outside the list.
-    const named = [...new Set([...all.matchAll(/\b2\.[23]\.\d+\b/g)].map((match) => match[0]!))]
-    expect(named.filter((version) => version !== "2.2.99" && !TESTED_HOSTS.includes(version))).toEqual([])
-  })
-})
-
-describe("the upgrade example", () => {
-  test("removes an earlier release than the one the install specs name", () => {
-    const match = UPGRADE_FROM.exec(text("README.md"))
-    expect(match).not.toBeNull()
-    const earlier = match!.slice(1, 4).map(Number)
-    const current = VERSION.split(".").map(Number)
-    const order = earlier.map((part, index) => part - current[index]!).find((difference) => difference !== 0) ?? 0
-    expect(order).toBeLessThan(0)
+    expect(all).toContain("2.4.99")
+    // Every 2.4 release a doc names is one the checks run on, apart from the example outside the list.
+    const named = [...new Set([...all.matchAll(/\b2\.4\.\d+\b/g)].map((match) => match[0]!))]
+    expect(named.filter((version) => version !== "2.4.99" && !TESTED_HOSTS.includes(version))).toEqual([])
   })
 })

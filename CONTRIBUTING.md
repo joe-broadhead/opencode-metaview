@@ -6,7 +6,7 @@ Read [AGENTS.md](AGENTS.md) first: it lists the rules for this repository and th
 ## Set up
 
 You need Node.js 22.18 or later, npm, and [Bun](https://bun.sh). CI and the release use Node.js 24 and Bun 1.4.4,
-the Bun inside stock OpenCode 2.2.3, 2.2.4, 2.2.5, 2.2.6, 2.2.7, 2.3.0, 2.3.1 and 2.3.2.
+the Bun inside stock OpenCode 2.4.1.
 
 ```sh
 npm ci --ignore-scripts
@@ -24,7 +24,7 @@ pull changes.
 
 ```json
 {
-  "plugins": ["/path/to/opencode-metaview"]
+  "plugins": ["/path/to/metaview-plugin"]
 }
 ```
 
@@ -39,15 +39,15 @@ npm run check
 | Stage | What it does |
 | --- | --- |
 | `typecheck` | `tsc --noEmit` over `src/` and `test/`, strict, with unused names as errors |
-| `unit` | `bun test ./test/unit`: every module in `src/`, the docs' counts and error table, the Jelly declaration, and the standalone compatibility endpoints' fail-closed tests |
+| `unit` | `bun test ./test/unit`: every module in `src/`, the docs' facts and error table, and the tools RPC's fail-closed tests |
 | `build` | `node scripts/build.mjs`: deletes `dist/` and bundles `src/index.ts` and `src/tui.ts` with esbuild into the self-contained `dist/index.js` and `dist/tui.js`. Fails if a bundle imports anything the host does not provide |
 | `icons` | `node scripts/check-icons.mjs`: the three icons, the manifest's declarations and the tarball's `files` against the family icon contract |
-| `host` | `bun test ./test/host`: the plugin inside an embedded OpenCode host, once on each tested release (`@opencode/sdk` 2.2.3, 2.2.4, 2.2.5, 2.2.6, 2.2.7, 2.3.0, 2.3.1 and 2.3.2) |
-| `pack` | `bun test ./test/pack`: builds, packs and installs the package, imports both entry points, and loads it in stock OpenCode 2.2.3, 2.2.4, 2.2.5, 2.2.6, 2.2.7, 2.3.0, 2.3.1 and 2.3.2 |
+| `host` | `bun test ./test/host`: the plugin inside an embedded OpenCode host, once on each tested release (`@opencode/sdk` 2.4.1) |
+| `pack` | `bun test ./test/pack`: builds, packs and installs the package, imports both entry points, and loads it in stock OpenCode 2.4.1 |
 | `forbidden` | `node scripts/check-forbidden.mjs`: scans `src/`, `test/`, `scripts/` and `dist/` for forbidden APIs and machine-local paths |
 | `copies` | `node scripts/check-copies.mjs`: Jelly's setting rules (`test/support/jelly-settings.ts`) and the release kit equal the copies every plugin carries. The tools RPC is the source contract's module, not a copied `src/host/tools-rpc.ts`. This repository's declaration kit, `test/support/jelly-kit.ts`, is not a family copy: Affinity and Ashby do not carry it |
 | `whitelist` | Checks `package.json` against the approved package shape, and that `dist/` holds exactly `index.js` and `tui.js` |
-| `actionlint` | `actionlint`, when it is on `PATH`, parses the workflows as workflows; otherwise it prints a notice and CI's own `workflows` job runs it |
+| `actionlint` | `actionlint`, when it is on `PATH`, parses the workflows as workflows; otherwise it prints a notice. CI installs it before `npm run check`. |
 
 To run some stages only, name them; they run in the order given:
 
@@ -58,19 +58,18 @@ node scripts/check.mjs typecheck unit
 Shortcuts: `npm run typecheck`, `npm run build`, `npm test` (the `unit` stage), `npm run test:host`,
 `npm run test:pack` and `npm run lint` (the `forbidden` stage).
 
-`TESTED_HOSTS` in `src/constants.ts` is the one list of tested OpenCode releases: 2.2.3, 2.2.4, 2.2.5, 2.2.6, 2.2.7, 2.3.0, 2.3.1 and 2.3.2. The host
+`TESTED_HOSTS` in `src/constants.ts` is the one list of tested OpenCode releases: 2.4.1. The host
 and pack stages, status and CI all take their versions from it. Add a release there, and to the README's
 requirements, when every check passes on it.
 
 The host stage starts an embedded OpenCode host in a temporary home folder, with a local fake of Metaview's MCP server,
-once for each tested release. A request to any address other than the local machine fails the test. 2.2.3 is the
-locked `@opencode/sdk`; the stage installs the others from npm, outside this repository's lockfile, into a temporary
-folder that it deletes afterwards (about 370 MB each, from npm's cache after the first run). To run the host stage on
-one other OpenCode 2.2 or 2.3 release only, install that SDK in a separate folder and point `HOST_SDK_DIR` at it:
+once for each tested release. A request to any address other than the local machine fails the test. 2.4.1 is the
+locked `@opencode/sdk`. To run the host stage on another SDK, install it in a separate folder and point
+`HOST_SDK_DIR` at it:
 
 ```sh
-mkdir ../sdk-2.2.99 && cd ../sdk-2.2.99 && npm init -y && npm install @opencode/sdk@2.2.99 --ignore-scripts && cd -
-HOST_SDK_DIR=../sdk-2.2.99 node scripts/check.mjs host
+mkdir ../sdk-2.4.99 && cd ../sdk-2.4.99 && npm init -y && npm install @opencode/sdk@2.4.99 --ignore-scripts && cd -
+HOST_SDK_DIR=../sdk-2.4.99 node scripts/check.mjs host
 ```
 
 Every temporary folder of the host and pack stages is a git repository under the system's `/tmp`, never under
@@ -81,27 +80,23 @@ free port.
 The pack stage needs network access to the npm registry. It checks that the tarball contains exactly the `files`
 whitelist, with fewer than 30 entries and at most 100 KB; that `dist/` holds only `index.js` and `tui.js`, with no
 relative import, dynamic `import()` or `require()`; and that they import only modules OpenCode provides. It
-installs the tarball next to the host packages that OpenCode 2.2.3 provides and imports both entry points under Bun.
-Then it installs the tarball alone and loads it with `opencode serve` from stock OpenCode 2.2.3, 2.2.4, 2.2.5, 2.2.6, 2.2.7, 2.3.0, 2.3.1 and 2.3.2. Each server
+installs the tarball next to the host packages that OpenCode 2.4.1 provides and imports both entry points under Bun.
+Then it installs the tarball alone and loads it with `opencode serve` from stock OpenCode 2.4.1. Each server
 runs offline, in its own temporary home, on its own port with a password. The stage checks that every path in
 `opencode debug paths` is inside that home, that the plugin is active, that the `metaview` server and the default rules
 are registered, that `/connect` lists the server as "Metaview", and that the status RPC answers. It then points a
 copy of the installed plugin at a local fake of Metaview and calls the tools RPC as a script would.
 
-To use `opencode` binaries you already have, set `OPENCODE_BIN_2_2_3` through `OPENCODE_BIN_2_3_2`:
+To use an `opencode` binary you already have, set `OPENCODE_BIN_2_4_1`:
 
 ```sh
-OPENCODE_BIN_2_2_3=/path/to/opencode-2.2.3 OPENCODE_BIN_2_2_4=/path/to/opencode-2.2.4 \
-  OPENCODE_BIN_2_2_5=/path/to/opencode-2.2.5 OPENCODE_BIN_2_2_6=/path/to/opencode-2.2.6 \
-  OPENCODE_BIN_2_2_7=/path/to/opencode-2.2.7 OPENCODE_BIN_2_3_0=/path/to/opencode-2.3.0 \
-  OPENCODE_BIN_2_3_1=/path/to/opencode-2.3.1 OPENCODE_BIN_2_3_2=/path/to/opencode-2.3.2 \
-  node scripts/check.mjs pack
+OPENCODE_BIN_2_4_1=/path/to/opencode-2.4.1 node scripts/check.mjs pack
 ```
 
 Otherwise the stage installs `@opencode/cli` with the binary for your platform (macOS or Linux, arm64 or x64), a few
 hundred megabytes per version, once per run, into a temporary folder that it deletes afterwards.
 
-CI (`.github/workflows/ci.yml`) runs `npm ci --ignore-scripts` and `npm run check` on Linux and macOS.
+CI (`.github/workflows/ci.yml`) runs `npm ci --ignore-scripts` and `npm run check` on Node 24, in one `ci` job.
 
 ## Metaview's tools
 
@@ -160,9 +155,8 @@ newly saved list (the same fields, and a `source` line with no local path) when 
    to `DESTRUCTIVE_TOOLS`. A tool left out is unknown: it is not a method, and `access` decides whether what
    OpenCode lists runs, asks or is denied.
 4. Update `PARAMETERS` from the schemas, `jelly.tools` in `package.json`, and any skill example that names a changed
-   tool or parameter. Run `npm run check`: the Jelly test fails if `jelly.tools` differs from the lists, the skills
-   test if a skill's call names a tool or parameter that `PARAMETERS` doesn't have or leaves out `rationale`, and the
-   docs test if a doc names a tool in no list.
+   tool or parameter. Run `npm run check`: the skills test fails if a skill's call names a tool or parameter that
+   `PARAMETERS` doesn't have or leaves out `rationale`, and the docs test if a doc names a tool in no list.
 5. Record the change in `CHANGELOG.md`. Moving a tool between the lists changes the default rules and the tools RPC's
    methods, which are part of the plugin's contract.
 
@@ -186,17 +180,19 @@ check (`SUPPORTED_HOST` in `src/constants.ts`). Both must change together, with 
 
 ### Releasing
 
+This repository is being rebuilt for plugin-contract v0 and has no release yet. The release workflow below is the
+previous one, kept until 4b replaces it with the contract's kit; releases resume at `v0.0.0` then.
+
 Each release is the GitHub tag `v<version>`, where `<version>` is the `version` in `package.json`, and users install from
 that tag. The release is one commit on top of a `master` head that CI passed, and the tag points at it. The release
 workflow makes both, in GitHub Actions: nobody builds, commits or tags a release on their own machine, and no personal
 key signs it.
 
-While changes land, their notes go under `## [Unreleased]` at the top of `CHANGELOG.md`. Each earlier GitHub release is
-a `## [x.y.z] - YYYY-MM-DD` heading below it, newest first, and the npm history stays last, under
-`## Earlier releases on npm`.
+`CHANGELOG.md` restarts at `## 0.0.0 (unreleased)`; the contract's release tooling turns it into the first release
+section in 4b.
 
 1. On `master`, set `version` in `package.json` to the new version, and change every install spec in the README,
-   `CONTRIBUTING.md` and `docs/` to `#v<version>` (`test/docs.test.ts` fails until they match). Then run
+   `CONTRIBUTING.md` and `docs/` to `#v<version>`. Then run
    `node scripts/changelog.mjs release`: it turns `## [Unreleased]` into `## [<version>] - <today>`, above the earlier
    releases, and refuses a CHANGELOG it cannot shape. Run `npm run check`.
 2. Push that commit to `master`, and wait for CI to pass on it. A pull request's CI runs the Linux runners only; the
@@ -259,7 +255,7 @@ Before the approval, the workflow:
 - **verifies** on a fresh runner: the commit's identity, one parent on `master`, `package.json` exactly the parent's
   without the lifecycle scripts, only regular files in the allowed paths, no `package.json` under `dist/`, and a second,
   independent build of the parent (its own job) equal to the committed `dist/` byte for byte;
-- **installs** the release commit with `plugin add` on each stock OpenCode host (2.2.3 to 2.2.7, and 2.3.0 to 2.3.2);
+- **installs** the release commit with `plugin add` on each stock OpenCode host (2.4.1);
 - **packs** the commit before installing anything, keeps that tarball and records its sha256, then runs the pack stage
   against a copy;
 - **runs the conformance kit** on the parent, for a plugin that declares sources (above), and uploads only its report;
@@ -289,7 +285,7 @@ exact `package.json`, the allowed paths and the byte-for-byte rebuild. Never rel
 **A rejected, expired or failed run** leaves nothing behind: the `cleanup` job deletes `release/v<version>` when it points
 at the parent or at that run's commit, and never touches another branch. No tag exists before the approval, so the
 version is not burned: fix `master` and start again. If `cleanup` itself failed, the next run refuses until the branch
-is deleted: `gh api -X DELETE repos/joe-broadhead/opencode-metaview/git/refs/heads/release/v<version>`.
+is deleted: `gh api -X DELETE repos/we-the-rebel-alliance/metaview-plugin/git/refs/heads/release/v<version>`.
 
 **Resume.** If the run fails after creating the tag and before the Release is complete, start it again with the same `sha`. The plan finds the kit's tag on a release commit on that sha with no published Release, and resumes:
 it makes no new commit, checks and installs the tagged commit, stages the files, and after a new approval reuses the tag
@@ -302,10 +298,9 @@ released, so release the next one. To remove the tag anyway, an admin disables t
 tag, and restores the ruleset exactly as it was.
 
 **Known limit: a `v*` tag pushed by hand.** No ruleset limits who creates a `v*` tag, so anyone with write access can
-push one by hand, pointing at any commit. Such a tag has no published Release, the forward-only check ignores it, and
-Jelly installs only a published Release whose `SHA256SUMS` it verifies. But a user who installs
-`github:joe-broadhead/opencode-metaview#v<x>` directly gets whatever that tag points at. Only the release workflow makes
-release tags; never push one by hand.
+push one by hand, pointing at any commit. Such a tag has no published Release, the forward-only check ignores it. But a
+user who installs `github:we-the-rebel-alliance/metaview-plugin#v<x>` directly gets whatever that tag points at. Only
+the release workflow makes release tags; never push one by hand.
 
 The release kit is these files, the same in every plugin: `scripts/release-rules.mjs`, `scripts/release-commit.mjs`,
 `scripts/release-github.mjs`, `scripts/check-release-shape.mjs`, `scripts/changelog.mjs`, `scripts/release-version.mjs`,
@@ -316,10 +311,10 @@ pins each of the scripts whole by its sha256, so a plugin whose copy differs fro
 change the kit in every plugin at once, with the new hashes. Do not re-run the older `apply-release-kit.mjs`: it writes
 back the kit that could release only `v0.0.0`.
 
-Each release has its own tag, and a Git install does not update by itself. To move to a newer release, remove the old entry with `opencode plugin remove github:joe-broadhead/opencode-metaview#v<old version>`, then add the new tag with `opencode plugin add github:joe-broadhead/opencode-metaview#v<version>`.
+Each release has its own tag, and a Git install does not update by itself. To move to a newer release, remove the old entry with `opencode plugin remove github:we-the-rebel-alliance/metaview-plugin#v<old version>`, then add the new tag with `opencode plugin add github:we-the-rebel-alliance/metaview-plugin#v<version>`.
 
 Or add the plugin to `opencode.json` instead, with the same spec:
 
 ```json
-{ "plugins": [{ "package": "github:joe-broadhead/opencode-metaview#v0.0.8" }] }
+{ "plugins": [{ "package": "github:we-the-rebel-alliance/metaview-plugin" }] }
 ```

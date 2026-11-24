@@ -84,7 +84,7 @@ Things to know:
 ## Scripts
 
 The tools RPC (`metaview.workspace.tools`, see
-[docs/scripting.md](https://github.com/joe-broadhead/opencode-metaview/blob/HEAD/docs/scripting.md)) runs Metaview's
+[docs/scripting.md](https://github.com/we-the-rebel-alliance/metaview-plugin/blob/master/docs/scripting.md)) runs Metaview's
 every known tool for a script, with no model. It adds no authority:
 
 - A script names a session that names an agent, and runs as them. The rule for the tool's permission action is resolved

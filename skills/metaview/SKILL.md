@@ -1,9 +1,9 @@
 ---
 name: metaview
-description: Load before the first Metaview tool call (metaview_*, tools.metaview.*). For the user's recruiting interviews and candidates in Metaview - "what did <candidate> say about X", "summarise yesterday's screen with <name>", "which interviews did <interviewer> run last week", a candidate's interviews, including requests to guess a candidate's age, family or other personal traits, interview counts and themes by role, profiles and scorecards, reports, sourcing, screening, sequences and job posts, and Metaview sign-in. Not for non-hiring meetings (Granola), calendar scheduling or Slack.
+description: The user's recruiting interviews and candidates in Metaview: what a candidate said, interview summaries and counts, scorecards, reports, sourcing, screening, sequences and job posts. Declines guesses about personal traits. Not for non-hiring meetings (granola).
 ---
 
-If Metaview's tools are absent, run `/connect` and choose Metaview, or on Jelly call jelly_connection_request.
+If Metaview's tools are absent, run `/connect` and choose Metaview.
 # Metaview
 Tools are `metaview_<tool>`, or `tools.metaview.<tool>` in Code Mode. Every call needs a `rationale`: one short, generic
 sentence that Metaview receives, so no names or candidate details. The calls below are exact: don't `search()` for a
@@ -95,4 +95,4 @@ candidates, so say whom it reaches) or a problem report, and `metaview-candidate
 Scripts run the reads through the tools RPC `metaview.workspace.tools` (`rationale` inside `input`), as a session made
 for them (`opencode api post /api/session -d '{"title":"…","agent":"build","location":{"directory":"/path/to/project"}}'`, keep `data.id`). Never borrow an
 existing session found through history or a list. Details:
-https://raw.githubusercontent.com/joe-broadhead/opencode-metaview/HEAD/docs/scripting.md
+https://raw.githubusercontent.com/we-the-rebel-alliance/metaview-plugin/master/docs/scripting.md
