@@ -38,8 +38,12 @@ describe("the model-facing text at access all", () => {
     for (const [claim, pattern] of STALE) expect({ claim, hit: pattern.exec(atAll(text))?.[0] ?? null }).toEqual({ claim, hit: null })
   })
 
-  test("says the changes reach people, and that they run by default", () => {
-    expect(NAMESPACE_DESCRIPTION).toContain("By default every tool is allowed; the `access` option decides")
-    expect(NAMESPACE_DESCRIPTION).toContain("rejects candidates")
+  test("is within the 400-character namespace budget", () => {
+    expect(NAMESPACE_DESCRIPTION.length).toBeLessThanOrEqual(400)
+  })
+
+  test("points at the write skill, says some changes reach people, and labels AI notes", () => {
+    expect(NAMESPACE_DESCRIPTION).toContain("metaview-write before any change: some reach candidates or the ATS")
+    expect(NAMESPACE_DESCRIPTION).toContain("Label Metaview's AI notes as Metaview's")
   })
 })

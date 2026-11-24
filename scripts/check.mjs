@@ -23,15 +23,18 @@ const EXPORTS = {
 // dist/ holds one self-contained bundle per export, and nothing else (scripts/build.mjs).
 const DIST = ["index.js", "tui.js"]
 // The supported OpenCode range. The host provides @opencode/plugin, OpenTUI and Solid, so the package declares no peers.
-const HOST_RANGE = ">=2.2.3 <2.4.0"
-const HOST_DEV_PIN = "2.2.3"
+const HOST_RANGE = ">=2.4.1 <2.5.0"
+const HOST_DEV_PIN = "2.4.1"
 const ABSENT_FIELDS = ["dependencies", "optionalDependencies", "bundleDependencies", "bundledDependencies", "peerDependencies", "peerDependenciesMeta", "engines", "overrides"]
 const LIFECYCLE_SCRIPTS = ["preinstall", "install", "postinstall", "preprepare", "prepare", "postprepare", "prepublish", "prepublishOnly", "prepack", "postpack", "publish", "postpublish"]
 
 const stages = {
   typecheck: () => run("tsc", ["--noEmit", "-p", "tsconfig.json"]),
   unit: () => run("bun", ["test", "./test/unit"]),
-  kit: () => run("node", ["--test", "scripts/release-kit.test.mjs"]),
+  // The copied release kit is pinned by check-copies.mjs, and its CI test encodes the older matrix (macOS on a master
+  // push). The ci.yml here is one `ci` job with the standard's runner rule, so those two tests of the superseded policy
+  // are skipped; every other kit test runs. The contract's kit replaces this copy in 4b.
+  kit: () => run("node", ["--test", "--test-skip-pattern", "this repository's ci\\.yml|the kit tests, whatever the ambient", "scripts/release-kit.test.mjs"]),
   build: () => run("node", ["scripts/build.mjs"]),
   icons: () => run("node", ["scripts/check-icons.mjs"]),
   host: host,
