@@ -72,12 +72,13 @@ function run(command, args, options = {}) {
  * installs it before this command.
  */
 function actionlint() {
-  const probe = spawnSync("actionlint", ["-version"], { encoding: "utf8" })
+  const bin = process.env.ACTIONLINT_BIN || "actionlint"
+  const probe = spawnSync(bin, ["-version"], { encoding: "utf8" })
   if (probe.error?.code === "ENOENT") {
-    console.log("actionlint is not on PATH, so the workflow check is skipped here; CI installs it before npm run check.")
+    console.log(`${bin} was not found, so the workflow check is skipped here; CI installs it before npm run check.`)
     return 0
   }
-  return run("actionlint", ["-color"])
+  return run(bin, ["-color"])
 }
 
 function whitelist() {
