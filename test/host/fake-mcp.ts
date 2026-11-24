@@ -106,7 +106,12 @@ export interface FakeMcp {
   close(): Promise<void>
 }
 
-type Message = { jsonrpc: "2.0"; id?: number | string; method: string; params?: { protocolVersion?: string; name?: string; arguments?: { query?: unknown; fields?: unknown } } }
+type Message = {
+  jsonrpc: "2.0"
+  id?: number | string
+  method: string
+  params?: { protocolVersion?: string; name?: string; arguments?: { query?: unknown; fields?: unknown }; _meta?: Record<string, unknown> }
+}
 
 export async function startFakeMcp(options: FakeMcpOptions = {}): Promise<FakeMcp> {
   const calls: string[] = []
@@ -117,12 +122,17 @@ export async function startFakeMcp(options: FakeMcpOptions = {}): Promise<FakeMc
   const tokens: Record<string, string>[] = []
   let codes = 0
   const answer = (message: Message, path: string) => {
-    const reply = (result: unknown) => ({ jsonrpc: "2.0", id: message.id, result })
+    // Protocol revision 2026-07-28 requires `resultType: "complete"` on every result; an older client ignores it.
+    const reply = (result: unknown) => ({ jsonrpc: "2.0", id: message.id, result: typeof result === "object" && result !== null ? { resultType: "complete", ...result } : result })
     switch (message.method) {
       case "initialize":
         return reply({ protocolVersion: message.params?.protocolVersion, capabilities: { tools: {} }, serverInfo: { name: "fake-metaview", version: "0.0.0" } })
+      // OpenCode 2.4 probes a server that declares no protocol with `server/discover` first. It answers with the
+      // modern revision so every request stays in that era, with no initialize.
+      case "server/discover":
+        return reply({ ttlMs: 0, cacheScope: "private", supportedVersions: ["2026-07-28"], capabilities: { tools: {} }, instructions: "Fake Metaview server instructions." })
       case "tools/list":
-        return reply({ tools: options.catalog === "metaview" ? CATALOG : TOOLS })
+        return reply({ ttlMs: 0, cacheScope: "private", tools: options.catalog === "metaview" ? CATALOG : TOOLS })
       case "tools/call": {
         const name = message.params?.name ?? ""
         calls.push(name)

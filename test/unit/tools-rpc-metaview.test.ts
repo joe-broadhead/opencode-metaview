@@ -41,14 +41,13 @@ describe("Metaview's tools RPC", () => {
     expect(NEXT_STEPS.ACCOUNT_UNKNOWN).toBeUndefined()
   })
 
-  test("leaves Metaview's arguments alone: the model path has no before hook", () => {
+  test("leaves Metaview's arguments alone", () => {
     expect(shapeInput("search_conversations", { query: "q" }, { sessionID: "s", agent: "a", action: "metaview_search_conversations" })).toEqual({ query: "q" })
   })
 
   test("a script's account read reaches status, and the result passes through unchanged", async () => {
     const never = { subscribe: ({ signal }: { signal: AbortSignal }) => ({ [Symbol.asyncIterator]: () => ({ next: () => new Promise((resolve) => signal.addEventListener("abort", () => resolve({ done: true, value: undefined }))) }) }) }
     const account = await watchAccount({
-      tool: { hook: async () => ({ dispose: async () => {} }) },
       mcp: { list: async () => ({ data: [] }) },
       event: never,
     } as never)

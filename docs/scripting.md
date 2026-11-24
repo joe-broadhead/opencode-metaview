@@ -139,20 +139,6 @@ OpenCode itself answers `rpc.method_not_found` for a method that does not exist,
 | `input` not an object | `"input" must be an object` |
 | `describe` given anything but `{}`, a session or nothing | `describe takes nothing, or {"sessionID":"<session>"}` |
 
-## The old collection methods are absent
-
-This standalone build declares no `metaview.conversations` source and does not register its `events_list` or `probe`
-methods. They are absent from `describe`, are not tools in the `metaview` namespace, and an old script's call fails as
-an unknown RPC method before any Metaview or identity read. There is no page, event, cursor or probe answer, and no
-empty success.
-
-An old collection caller has **no supported replacement in this standalone build**. Ordinary explicit native searches
-remain available, but they are not a migration path and do not inherit the collection's identity binding, cursor,
-metadata-only event shape or privacy guarantees.
-
-Older pinned installs are unchanged, and data already collected by a consumer is not deleted or reset by this build.
-Whether a future build declares the collection source is a separate owner decision; this build does not offer one.
-
 ## What scripts cannot do
 
 - Call a tool that Metaview adds later, even with an allow rule, until this plugin classifies it.
@@ -161,6 +147,5 @@ Whether a future build declares the collection source is a separate owner decisi
 - Use a token or key: the plugin has none to give.
 
 A script's calls write nothing to the session, and OpenCode's `execute.before` and `execute.after` tool hooks, from
-any plugin, do not run for them. The account read still records the workspace, role and plan for `/metaview-status`:
-the tools RPC's `shapeResult` runs the same capture as the model path's `execute.after` hook. Metaview's model path
-changes no arguments, so `shapeInput` is the identity.
+any plugin, do not run for them. The account read records the workspace, role and plan for `/metaview-status` in the
+tools RPC's `shapeResult`. Metaview changes no arguments, so `shapeInput` is the identity.

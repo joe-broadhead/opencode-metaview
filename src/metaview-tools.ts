@@ -28,7 +28,7 @@ export const READ_TOOLS: readonly string[] = [
   "get_search_details",
   "get_sourcing_analytics",
   "get_sourcing_messages",
-  // The account read: workspace name, role and plan, which status shows once the model or a script has called it.
+  // The account read: workspace name, role and plan, which status shows once a script has called it.
   "get_user_context",
   "group_conversations",
   "list_application_review_candidates",

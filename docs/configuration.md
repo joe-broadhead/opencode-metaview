@@ -4,15 +4,17 @@ Every option is optional. The smallest setup is one entry in `plugins`:
 
 ```json
 {
-  "plugins": ["github:joe-broadhead/opencode-metaview#v0.0.8"]
+  "plugins": ["github:we-the-rebel-alliance/metaview-plugin#v<version>"]
 }
 ```
+
+The first release on plugin-contract is `v0.0.0` (phase 4b); install from a release tag.
 
 To set options, use the object form:
 
 ```json
 {
-  "plugins": [{ "package": "github:joe-broadhead/opencode-metaview#v0.0.8", "options": { "allowUntestedHost": true } }]
+  "plugins": [{ "package": "github:we-the-rebel-alliance/metaview-plugin#v<version>", "options": { "allowUntestedHost": true } }]
 }
 ```
 
@@ -28,7 +30,7 @@ adds later included; `"ask-changes"` lets the reads run and asks for everything 
 and denies everything else. Each value's block is printed in full under [Permissions](#permissions).
 
 ```json
-{ "plugins": [{ "package": "github:joe-broadhead/opencode-metaview#v0.0.8", "options": { "access": "read-only" } }] }
+{ "plugins": [{ "package": "github:we-the-rebel-alliance/metaview-plugin#v<version>", "options": { "access": "read-only" } }] }
 ```
 
 A rule of your own still wins over the block, whichever value you set.
@@ -38,18 +40,18 @@ A rule of your own still wins over the block, whichever value you set.
 - Type: `true` or `false`.
 - Default: `false`.
 
-The plugin supports OpenCode `>=2.2.3 <2.4.0`, the range `opencode.host` in `package.json` declares, and every check
-runs on 2.2.3, 2.2.4, 2.2.5, 2.2.6, 2.2.7, 2.3.0, 2.3.1 and 2.3.2, the tested releases. Status shows the version, whether it is tested and the supported
-range in its `OpenCode` row, for example `2.2.5 (tested; supported range >=2.2.3 <2.4.0)`.
+The plugin supports OpenCode `>=2.4.1 <2.5.0`, the range `opencode.host` in `package.json` declares, and every check
+runs on 2.4.1, the tested release. Status shows the version, whether it is tested and the supported
+range in its `OpenCode` row, for example `2.4.1 (tested; supported range >=2.4.1 <2.5.0)`.
 
 - **A tested release:** the plugin starts.
-- **Another release inside the range, such as 2.2.99:** the plugin starts too. Status marks the version `untested`, and
+- **Another release inside the range, such as 2.4.99:** the plugin starts too. Status marks the version `untested`, and
   the status RPC's `host.tested` is `false`. The next step is the same as on a tested release.
-- **Outside the range, including 2.4.0, prereleases and development builds:** the plugin refuses to start, and
+- **Outside the range, including 2.5.0, prereleases and development builds:** the plugin refuses to start, and
   `/plugins` shows:
 
   ```text
-  HOST_UNTESTED: This plugin supports OpenCode >=2.2.3 <2.4.0, found 2.4.0. Next step: Use OpenCode >=2.2.3 <2.4.0, or set the plugin option "allowUntestedHost": true to run anyway.
+  HOST_UNTESTED: This plugin supports OpenCode >=2.4.1 <2.5.0, found 2.5.0. Next step: Use OpenCode >=2.4.1 <2.5.0, or set the plugin option "allowUntestedHost": true to run anyway.
   ```
 
 - **Outside the range with `"allowUntestedHost": true`:** it starts anyway, and `/metaview-status` and `/metaview` show
@@ -362,7 +364,8 @@ The three destructive tools are the ones to think about before you leave the def
 - `metaview_manage_candidate_sequence` adds candidates to outreach sequences, which send email, LinkedIn, SMS or
   WhatsApp messages, or pauses, cancels or removes them.
 - `metaview_submit_feedback` sends text to the Metaview team, and its own description asks the model to call it after
-  any tool error, unasked; text written after a failed candidate lookup could carry candidate data.
+  any tool error, unasked; the namespace line counters it, and text written after a failed candidate lookup could carry
+  candidate data.
 
 Two more reach people when they run: `update_screen_outreach` emails candidates, copying CC and BCC, and with
 `reject_at_deadline` true rejects them automatically at their deadline; `manage_sequence` with `set_enabled` true
@@ -551,7 +554,7 @@ Every error from the plugin reads `CODE: What happened. Next step: What to do.`
 | Code | When | Next step |
 | --- | --- | --- |
 | `OPTIONS_INVALID` | Setup: an option is unknown or has a wrong value. `/plugins` shows the message, which names the option and the accepted values. | Fix the plugin options in `opencode.json`. |
-| `HOST_UNTESTED` | Setup: OpenCode is outside `>=2.2.3 <2.4.0`, and `allowUntestedHost` is not set. | Use OpenCode `>=2.2.3 <2.4.0`, or set `"allowUntestedHost": true`. |
+| `HOST_UNTESTED` | Setup: OpenCode is outside `>=2.4.1 <2.5.0`, and `allowUntestedHost` is not set. | Use OpenCode `>=2.4.1 <2.5.0`, or set `"allowUntestedHost": true`. |
 | `STATUS_UNAVAILABLE` | `/metaview-status`, `/metaview` or the status RPC: the status could not be read, or the plugin is not running on the server. The RPC answers with its error `unavailable`. | The message's own next step: restart OpenCode and run the command again, or, when the plugin is not running, run `/plugins` to see why. |
 | `SKILLS_INVALID` | Setup: a skill file is missing or broken. The plugin still starts; status shows the problem. | Reinstall the plugin. |
 | `SERVER_NOT_REGISTERED` | Setup: the `metaview` server could not be registered. Status shows the problem. | Restart OpenCode. |
@@ -560,7 +563,7 @@ Every error from the plugin reads `CODE: What happened. Next step: What to do.`
 For example:
 
 ```text
-OPTIONS_INVALID: Unknown option "apiKey". Accepted options: "allowUntestedHost", "access". Next step: Fix the plugin options in opencode.json, for example "plugins": [{ "package": "github:joe-broadhead/opencode-metaview#v0.0.8", "options": { "allowUntestedHost": true } }].
+OPTIONS_INVALID: Unknown option "apiKey". Accepted options: "allowUntestedHost", "access". Next step: Fix the plugin options in opencode.json, for example "plugins": [{ "package": "github:we-the-rebel-alliance/metaview-plugin#v<version>", "options": { "allowUntestedHost": true } }].
 ```
 
 Errors from Metaview's server and from OpenCode pass through unchanged, except in the tools RPC for scripts, whose codes
@@ -578,7 +581,7 @@ model. It holds no token, no header and no URL query, and makes no Metaview call
 | `state` | `connected`, `sign_in_required`, `connecting`, `disabled`, `failed`, `not_configured` or `conflict`. The `Connection` row shows the same states as `connected`, `sign-in required`, `connecting`, `disabled`, `failed`, `not configured` and `conflict`. |
 | `error` | For a failed connection only: OpenCode's reason, on one line of at most 160 characters, with any URL cut before its query. The text for a needed sign-in can hold an authorization URL, so it is never shown. |
 | `source` | `type` (`plugin`, `adopted` or `conflict`), `url`, `signIn` (`oauth`, or `own` for your own entry with `"oauth": false`), and for a conflict the `expected` URL |
-| `workspace` | The Metaview workspace's name, or `null` until the first `get_user_context` call since OpenCode started |
+| `workspace` | The Metaview workspace's name, or `null` until the first script `get_user_context` call through the tools RPC |
 | `role` | `admin` (every conversation in the workspace), `member` (your own and those shared with you), or `null` until read |
 | `plan` | `paid`, `free` (transcripts, summaries and AI fields may be limited), `credits` (conversations unlock on the workspace's shared platform credits), or `null` until read |
 | `access` | `all`, `ask-changes` or `read-only`: what the generated default rules allow |
@@ -587,12 +590,12 @@ model. It holds no token, no header and no URL query, and makes no Metaview call
 | `unknownCount`, `unknownTools` | How many of them the plugin does not know, and at most 20 of their names, only those made of lowercase letters, digits and `_` |
 | `unguardedAgents` | Agents where a new Metaview tool would run without asking; empty when there are none. An agent whose own rules already ask or deny for every Metaview tool is not listed. |
 | `shadowedSkills` | Present only when a skill with one of the plugin's ids, such as your own `metaview` skill, replaces the plugin's: each `id` and the `path` OpenCode loads instead |
-| `host` | `version` (`null` if OpenCode reports none), `range` (the supported range) and `tested` (true only for 2.2.3, 2.2.4, 2.2.5, 2.2.6, 2.2.7, 2.3.0, 2.3.1 and 2.3.2) |
+| `host` | `version` (`null` if OpenCode reports none), `range` (the supported range) and `tested` (true only for 2.4.1) |
 | `problems` | Setup problems, each `CODE: What happened. Next step: What to do.` |
 | `nextStep` | Exactly one next step: the `Next step` row, `Nothing to do.` when nothing is needed |
 
 The workspace, role and plan come from the fields `workspace_name`, `is_admin` and `is_paying_plan` of a
-`get_user_context` result, made by the model or by a script, and are kept in memory only. When the result has
+`get_user_context` result, made by a script through the tools RPC, and are kept in memory only. When the result has
 `notes_on_platform_credits` instead of `is_paying_plan`, the plan is `credits`; that note's text is not read. Nothing
 else of the result is read. They are forgotten when the server is no longer connected, or the account is switched.
 

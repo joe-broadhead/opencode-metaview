@@ -1,9 +1,9 @@
 ---
 name: metaview-candidate-brief
-description: Prep me for my interview with a candidate, brief me before a round, build a debrief or evidence pack, compare candidates or finalists for a role, check a scorecard against the transcript, or draft my interview feedback or scorecard, from Metaview. Builds a sourced brief and leaves every hiring decision to the user. Load with metaview before the first Metaview tool call. Not for non-hiring meetings or calls (granola-meeting-brief).
+description: Interview prep, debriefs, evidence packs, finalist comparisons, scorecard checks and draft feedback from Metaview, leaving every hiring decision to the user. Not for non-hiring meetings.
 ---
 
-If Metaview's tools are absent, run `/connect` and choose Metaview, or on Jelly call jelly_connection_request.
+If Metaview's tools are absent, run `/connect` and choose Metaview.
 
 # Candidate brief
 
@@ -27,7 +27,7 @@ up. Everything here is read-only: nothing is saved to Metaview or the ATS.
 4. `fetch_candidates` for the profile and the ATS scorecards. A missing ATS part is "not available", not "none".
 5. Sources stop there. A calendar may give only this interview's own time and title, when Metaview lacks them: ask for
    those fields alone (no attendees or descriptions), and never name or list other meetings. Never search mail, chat,
-   Drive or the web for the candidate, or try variants of their name, unless the user asks. Nothing found in Metaview:
+   files or the web for the candidate, or try variants of their name, unless the user asks. Nothing found in Metaview:
    say so, as the `metaview` skill's "An empty result" says, and ask for the candidate's email or the role.
 
 ## Prep brief (before a round)
@@ -69,5 +69,5 @@ saved to Metaview or the ATS. No comments on personality, accent, age or appeara
 
 ## Follow-ups, only when asked
 
-- Sending the brief to a document, Slack or email: the user names the destination; confirm it and what is left out.
+- Sending the brief to a document, chat or email: the user names the destination; confirm it and what is left out.
 - A Metaview candidate pack or debrief note (`generate_notes`, `manage_notes_sources`) is a change: load `metaview-write`.

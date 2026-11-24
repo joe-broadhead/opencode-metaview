@@ -59,7 +59,7 @@ export interface Status {
   /** For a failed connection only: OpenCode's reason, on one line of at most 160 characters, URLs without their query. */
   readonly error?: string
   readonly source?: ServerSource
-  /** The workspace's name from the last account read since OpenCode started, or null before one. */
+  /** The workspace's name from the last script account read since OpenCode started, or null before one. */
   readonly workspace: string | null
   /** `admin` sees every conversation in the workspace; `member` their own and those shared with them. */
   readonly role: "admin" | "member" | null
@@ -99,7 +99,7 @@ const AGENTS_NEXT_STEP =
 
 const NOTHING_TO_DO = "Nothing to do."
 
-const TESTED_TEXT = `${TESTED_HOSTS.slice(0, -1).join(", ")} or ${TESTED_HOSTS.at(-1)}`
+const TESTED_TEXT = TESTED_HOSTS.length === 1 ? TESTED_HOSTS[0]! : `${TESTED_HOSTS.slice(0, -1).join(", ")} or ${TESTED_HOSTS.at(-1)}`
 const LISTED_UNKNOWN = 20
 // A tool name comes from the server; list only plain names.
 const SAFE_NAME = /^[a-z][a-z0-9_]{0,63}$/
@@ -253,7 +253,7 @@ export function formatStatus(status: Status) {
   return [
     "Metaview status",
     `- Connection: ${STATE_TEXT[status.state]}${details ? ` (${details})` : ""}`,
-    `- Account: ${status.workspace ?? `${NOT_READ} (it appears after the first ${SERVER_NAME}_get_user_context call since OpenCode started)`}`,
+    `- Account: ${status.workspace ?? `${NOT_READ} (it appears after the first ${SERVER_NAME}_get_user_context call from a script through the tools RPC)`}`,
     `- Access: ${accessText(status)}`,
     `- Plan: ${status.plan ? PLAN_TEXT[status.plan] : NOT_READ}`,
     `- Tools: ${toolsText(status)}`,
@@ -333,8 +333,8 @@ const count = { type: "integer", minimum: 0 }
 const nullableString = { type: ["string", "null"] }
 
 /**
- * One read-only method for the TUI view and scripts. The TUI part does not receive the plugin options on 2.2.x, and
- * cannot see the server's own findings, so it asks the server for the same status /metaview-status reports.
+ * One read-only method for the TUI view and scripts. The TUI part cannot see the server's own findings, so it asks the
+ * server for the same status /metaview-status reports.
  */
 export const StatusRpc = {
   id: PLUGIN_ID,

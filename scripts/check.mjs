@@ -1,15 +1,12 @@
 // The one local entry point: `npm run check` runs every stage in order and stops at the first failure.
 // `node scripts/check.mjs <stage>...` runs only the named stages, in the order given.
 import { spawnSync } from "node:child_process"
-import { existsSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs"
+import { existsSync, readdirSync, readFileSync } from "node:fs"
 import { delimiter, join } from "node:path"
 import { fileURLToPath } from "node:url"
 
 const root = fileURLToPath(new URL("..", import.meta.url))
 const env = { ...process.env, PATH: `${join(root, "node_modules", ".bin")}${delimiter}${process.env.PATH ?? ""}` }
-// The one list of tested OpenCode releases. Node loads src/constants.ts by stripping its types, so that file keeps to
-// type-only imports.
-const { TESTED_HOSTS } = await import(new URL("../src/constants.ts", import.meta.url).href)
 
 // The approved package shape. Change it here only together with the release policy.
 const FILES = ["dist", "assets/icon.svg", "assets/icon-128.png", "assets/icon-256.png", "skills", "README.md", "LICENSE", "CHANGELOG.md"]
@@ -23,8 +20,8 @@ const EXPORTS = {
 // dist/ holds one self-contained bundle per export, and nothing else (scripts/build.mjs).
 const DIST = ["index.js", "tui.js"]
 // The supported OpenCode range. The host provides @opencode/plugin, OpenTUI and Solid, so the package declares no peers.
-const HOST_RANGE = ">=2.2.3 <2.4.0"
-const HOST_DEV_PIN = "2.2.3"
+const HOST_RANGE = ">=2.4.1 <2.5.0"
+const HOST_DEV_PIN = "2.4.1"
 const ABSENT_FIELDS = ["dependencies", "optionalDependencies", "bundleDependencies", "bundledDependencies", "peerDependencies", "peerDependenciesMeta", "engines", "overrides"]
 const LIFECYCLE_SCRIPTS = ["preinstall", "install", "postinstall", "preprepare", "prepare", "postprepare", "prepublish", "prepublishOnly", "prepack", "postpack", "publish", "postpublish"]
 
@@ -34,7 +31,7 @@ const stages = {
   kit: () => run("node", ["--test", "scripts/release-kit.test.mjs"]),
   build: () => run("node", ["scripts/build.mjs"]),
   icons: () => run("node", ["scripts/check-icons.mjs"]),
-  host: host,
+  host: () => run("bun", ["test", "./test/host"]),
   pack: () => run("bun", ["test", "./test/pack"]),
   forbidden: () => run("node", ["scripts/check-forbidden.mjs"]),
   copies: () => run("node", ["scripts/check-copies.mjs"]),
@@ -70,44 +67,18 @@ function run(command, args, options = {}) {
 }
 
 /**
- * The host suite on each tested release: the locked @opencode/sdk for HOST_DEV_PIN, and the others installed from npm
- * into a temp folder under the system's /tmp, outside the lockfile, once per run. HOST_SDK_DIR runs only that SDK.
- */
-function host() {
-  if (process.env.HOST_SDK_DIR) return run("bun", ["test", "./test/host"])
-  for (const version of TESTED_HOSTS) {
-    console.log(`\n[check] host on @opencode/sdk ${version}`)
-    if (version === HOST_DEV_PIN) {
-      const code = run("bun", ["test", "./test/host"])
-      if (code !== 0) return code
-      continue
-    }
-    const dir = mkdtempSync(join(realpathSync("/tmp"), `metaview-sdk-${version}-`))
-    try {
-      // Its own package.json, so npm never walks up to another one.
-      writeFileSync(join(dir, "package.json"), JSON.stringify({ name: "metaview-host-sdk", private: true }))
-      const code = run("npm", ["install", `@opencode/sdk@${version}`, "--ignore-scripts", "--no-audit", "--no-fund", "--prefer-offline"], { cwd: dir })
-        || run("bun", ["test", "./test/host"], { env: { HOST_SDK_DIR: dir } })
-      if (code !== 0) return code
-    } finally {
-      rmSync(dir, { recursive: true, force: true })
-    }
-  }
-  return 0
-}
-
-/**
  * The workflows are parsed as workflows, not as YAML: `actionlint` catches a `${{ }}` that only exists in some
- * contexts, which makes GitHub reject the whole file and run nothing. CI runs it in its own job; here it runs when the
- * tool is on PATH.
+ * contexts, which makes GitHub reject the whole file and run nothing. It runs here when the tool is on PATH; CI
+ * installs it before this command.
  */
 function actionlint() {
-  const probe = spawnSync("actionlint", ["-version"], { encoding: "utf8" })
+  const bin = process.env.ACTIONLINT_BIN || "actionlint"
+  const probe = spawnSync(bin, ["-version"], { encoding: "utf8" })
   if (probe.error?.code === "ENOENT") {
-    console.log("actionlint is not on PATH, so the workflow check is skipped here; CI runs it in its own job.")
+    console.log(`${bin} was not found, so the workflow check is skipped here; CI installs it before npm run check.`)
     return 0
   }
-  return run("actionlint", ["-color"])
+  return run(bin, ["-color"])
 }
 
 function whitelist() {

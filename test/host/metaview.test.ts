@@ -1,7 +1,7 @@
 // The plugin on the public @opencode/sdk host: H1 load and connect, H2 what runs, H3 the permission model (P1-P5), H4
 // adoption and conflict, H5 /metaview-status and the account capture, H6 unload, the user's own server with an API key
-// that never reaches status, the account read by model turns with Code Mode off and on, the proofs on the tools RPC and
-// Code Mode paths with nobody present, the `access` values, a server that asks for a sign-in, and the /connect entry.
+// that never reaches status, script account reads, the proofs on the tools RPC and Code Mode paths with nobody present,
+// the `access` values, a server that asks for a sign-in, and the /connect entry.
 // Each describe owns one host.
 import { ROOT } from "./isolate.js"
 import { afterAll, beforeAll, describe, expect, setDefaultTimeout, test } from "bun:test"
@@ -15,7 +15,7 @@ import { DESTRUCTIVE_TOOLS } from "../../src/metaview-tools.js"
 import { defaultRules, type Rule } from "../../src/permissions.js"
 import { SKILL_NAMES } from "../../src/skills.js"
 import { StatusRpc } from "../../src/status.js"
-import { METHODS, TOOLS_RPC_ID } from "../../src/tools-rpc.js"
+import { TOOLS_RPC_ID } from "../../src/tools-rpc.js"
 import { MODEL_ID } from "./fake-mcp.js"
 import { agentRules, attempt, cleanup, effect, HOST_VERSION, session, startHost, unattended, until, type Host } from "./harness.js"
 
@@ -66,10 +66,7 @@ const hidden = (rules: readonly Rule[], action: string) => {
   return last?.resource === "*" && last.effect === "deny"
 }
 
-/**
- * The host lists an MCP server's tools shortly after it connects, the three destructive ones included. The standalone
- * build registers no collection methods, so none is among them.
- */
+/** The host lists an MCP server's tools shortly after it connects, the three destructive ones included. */
 const metaviewTools = (host: Host) =>
   until("Metaview's tools are registered", async () => {
     const ids = (await host.probe().tool.list()).map((tool) => tool.id).filter((id) => id.startsWith("metaview_"))
@@ -208,28 +205,8 @@ describe(`the plugin on OpenCode ${HOST_VERSION}`, () => {
     expect(text).toContain(`- OpenCode: ${HOST_VERSION} (${TESTED_HOSTS.includes(HOST_VERSION) ? "tested" : "untested"}; supported range ${SUPPORTED_HOST})`)
   })
 
-  test("the old source methods are not methods: describe omits them and an old call reaches no Metaview tool", async () => {
-    const sessionID = await session(host)
-    const from = host.fake.calls.length
-    const described = JSON.parse(await scriptCall(host, "describe", {})) as { methods: { name: string }[] }
-    expect(described.methods.map((method) => method.name)).toEqual(METHODS.map((method) => method.name))
-    const call = (host.client.rpc as unknown as { call: (input: object) => Promise<unknown> }).call
-    for (const [method, input] of [
-      ["probe", { source: "metaview" }],
-      ["events_list", { account: "4100/770077001", since: new Date(Date.now() - 7 * 86_400_000).toISOString() }],
-    ] as const) {
-      const refused = await call({ rpcID: TOOLS_RPC_ID, method, input: { sessionID, input }, location: host.location }).then(() => undefined, (error: unknown) => error)
-      expect(refused).toBeDefined()
-      expect(String((refused as Error)?.message ?? JSON.stringify(refused))).toMatch(/unknown|not found|method/i)
-    }
-    // A refused old method never reached Metaview, identity or a prompt.
-    expect(host.fake.calls.slice(from)).toEqual([])
-    expect(await host.client.permission.list({ sessionID })).toEqual([])
-  })
-
-  test("H5: an account read fills the account, role and plan, in /metaview-status and the dialog's RPC", async () => {
-    // The host's executors skip execute.after hooks, so this read goes through the tools RPC, which records the
-    // account with the same function; a model turn records it through the hook.
+  test("H5: a script's account read fills the account, role and plan, in /metaview-status and the dialog's RPC", async () => {
+    // The tools RPC's result shaping records the account; the plugin registers no execute hook.
     await toolsRpc(host).get_user_context!({ sessionID: await session(host), input: { rationale: "who is signed in" } }, { location: host.location })
     const text = await status(host, await session(host))
     expect(text).toContain("- Account: Acme Recruiting\n")
@@ -297,7 +274,7 @@ describe("the user's own metaview server, signing in with an API key", () => {
   })
 })
 
-describe("a model turn that reads the account", () => {
+describe("a model turn can call Metaview", () => {
   let host: Host
   beforeAll(async () => {
     host = await startHost({
@@ -314,25 +291,18 @@ describe("a model turn that reads the account", () => {
   })
   afterAll(() => host?.close())
 
-  test("the model's own get_user_context call fills the account, role and plan through the execute.after hook", async () => {
+  test("the model's own get_user_context call does not fill status", async () => {
     host.fake.model.script = [{ tool: "metaview_get_user_context", arguments: { rationale: "who is signed in" } }]
     const sessions = host.client.sessions as unknown as {
       create: (input: object) => Promise<{ id: string }>
       prompt: (input: object) => Promise<unknown>
     }
     const sessionID = (await sessions.create({ agent: "build", location: host.location, model: { providerID: "lmstudio", id: MODEL_ID } })).id
-    expect(await status(host, await session(host))).toContain("- Account: not read yet")
     await sessions.prompt({ sessionID, text: "Which Metaview workspace am I in?" })
     await until("the model's final turn", async () => host.fake.model.requests.filter((request) => (request as { messages?: { role: string }[] }).messages?.some((message) => message.role === "tool")).length > 0)
     expect(host.fake.calls).toContain("get_user_context")
-    const text = await until("status shows the account", async () => {
-      const posted = await status(host, await session(host))
-      return posted.includes("Acme Recruiting") ? posted : undefined
-    })
-    expect(text).toContain("- Account: Acme Recruiting\n")
-    expect(text).toContain("member: your own conversations and those shared with you;")
-    expect(text).toContain("- Plan: paid\n")
-    expect(text).not.toMatch(/0e0e0e0e-0000-4000-8000-000000000001|770077001/)
+    // The model path records nothing; only a script's tools RPC read does, and this host uses the user's own key entry.
+    expect(await status(host, await session(host))).toContain("- Account: not read yet")
   })
 
   test("DC-5: the model is offered the three destructive tools at this access, and each call reaches Metaview", async () => {
@@ -352,41 +322,6 @@ describe("a model turn that reads the account", () => {
       expect(offered).toContain(`metaview_${tool}`)
       expect(host.fake.calls).toContain(tool)
     }
-  })
-})
-
-describe("a Code Mode turn that reads the account", () => {
-  let host: Host
-  beforeAll(async () => {
-    host = await startHost({
-      config: (url) => ({
-        // Code Mode on, as users run it by default: the model calls Metaview inside Code Mode's execute tool.
-        mcp: { servers: { metaview: { type: "remote", url, oauth: false } } },
-        providers: { lmstudio: { settings: { baseURL: `${new URL(url).origin}/v1` } }, ollama: { settings: { baseURL: "" } }, vllm: { settings: { baseURL: "" } } },
-      }),
-    })
-    const models = host.client as unknown as { model: { list: (input: object) => Promise<{ data: { id: string; providerID: string }[] }> } }
-    await until("the scripted model is listed", async () => (await models.model.list({ location: host.location })).data.find((model) => model.providerID === "lmstudio" && model.id === MODEL_ID))
-    await metaviewTools(host)
-  })
-  afterAll(() => host?.close())
-
-  test("DC-10: an inner tools.metaview.get_user_context call fills the account through the execute.after hook", async () => {
-    host.fake.model.script = [{ tool: "execute", arguments: { code: 'return await tools.metaview.get_user_context({ rationale: "who is signed in" })' } }]
-    const sessions = host.client.sessions as unknown as {
-      create: (input: object) => Promise<{ id: string }>
-      prompt: (input: object) => Promise<unknown>
-    }
-    const sessionID = (await sessions.create({ agent: "build", location: host.location, model: { providerID: "lmstudio", id: MODEL_ID } })).id
-    await sessions.prompt({ sessionID, text: "Which Metaview workspace am I in?" })
-    await until("the model's final turn", async () => host.fake.model.requests.some((request) => (request as { messages?: { role: string }[] }).messages?.some((message) => message.role === "tool")))
-    expect(host.fake.calls).toContain("get_user_context")
-    const text = await until("status shows the account", async () => {
-      const posted = await status(host, await session(host))
-      return posted.includes("Acme Recruiting") ? posted : undefined
-    })
-    expect(text).toContain("- Account: Acme Recruiting\n")
-    expect(text).not.toMatch(/0e0e0e0e-0000-4000-8000-000000000001|770077001/)
   })
 })
 

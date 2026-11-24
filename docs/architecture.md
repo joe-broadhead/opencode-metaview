@@ -12,7 +12,7 @@ adds no tool of its own, makes no Metaview call of its own, and has no runtime d
 | `src/index.ts` | The server part: the plugin `metaview.workspace`, pointed at Metaview's server |
 | `src/plugin.ts` | Setup, and server registration or adoption |
 | `src/integration.ts` | The `/connect` entry: its name "Metaview", and the sign-in problem on its account |
-| `src/account.ts` | The account capture: workspace name, role and plan from a `get_user_context` result, in memory |
+| `src/account.ts` | The account capture: workspace name, role and plan from a script's `get_user_context` result, in memory |
 | `src/options.ts` | Option parsing and validation, including the `access` values |
 | `src/host-version.ts` | The host check: the supported range, and the tested releases |
 | `src/metaview-tools.ts` | `READ_TOOLS`, `WRITE_TOOLS`, `SEND_TOOLS`, `DESTRUCTIVE_TOOLS`, `PARAMETERS` and `classify()`: every fact the plugin keeps about Metaview's tools. No runtime imports, so `scripts/check-metaview-tools.mjs` (`npm run drift`) can load it. `PARAMETERS` is used by that script and the tests only, and the build leaves it out |
@@ -40,8 +40,8 @@ typechecks. The package exports `.` (`dist/index.js`) and `./tui` (`dist/tui.js`
 ## Setup
 
 1. `parseOptions` validates `allowUntestedHost`; anything else fails with `OPTIONS_INVALID`.
-2. `checkHost` compares `ctx.app.version` with `>=2.2.3 <2.4.0`, the same range as `opencode.host` in `package.json`.
-   Inside it the plugin starts, and status calls only 2.2.3, 2.2.4, 2.2.5, 2.2.6, 2.2.7, 2.3.0, 2.3.1 and 2.3.2 tested. Outside it, setup fails with
+2. `checkHost` compares `ctx.app.version` with `>=2.4.1 <2.5.0`, the same range as `opencode.host` in `package.json`.
+   Inside it the plugin starts, and status calls only 2.4.1 tested. Outside it, setup fails with
    `HOST_UNTESTED` unless `allowUntestedHost` is set.
 3. The skills are read from the package's `skills/` folder, before the synchronous skill transform needs them.
 4. `ctx.mcp.transform` registers `metaview` at Metaview's URL with `oauth.scope`, or adopts the user's own entry at that
@@ -49,12 +49,11 @@ typechecks. The package exports `.` (`dist/index.js`) and `./tui` (`dist/tui.js`
    nothing is added, and status reports it.
 5. `ctx.tool.transform` gives the `metaview` namespace its Code Mode description.
 6. `ctx.agent.transform` inserts the default rules after each agent's base `* * allow`.
-7. `watchAccount` adds one `execute.after` hook, which reads the account from `metaview_get_user_context` results, and
-   forgets it on `credential.switched` and when the server is no longer connected.
+7. `watchAccount` records the account from a script's `get_user_context` result, and forgets it on `credential.switched`
+   and when the server is no longer connected. No execute hook is registered.
 8. `ctx.skill.transform`, `ctx.command.transform` (`/metaview-status`) and `ctx.rpc.register` (`metaview.workspace/status`).
 9. The source contract's `registerToolsRpc` registers the tools RPC, `metaview.workspace.tools`, with the native
-   Metaview tools only, and its `evaluate` hook. This build has no collection methods, no source declaration and no
-   conformance report.
+   Metaview tools and its `evaluate` hook.
 10. `watchIntegration` starts. Setup returns one cleanup that stops it, disposes the tools RPC and stops the account
     capture.
 
@@ -92,8 +91,8 @@ is never shown, and a failure's reason is cut to one line of 160 characters with
 - `/metaview-status` posts the text with `ctx.session.synthetic` (`resume: false`).
 - The RPC method returns the model to the terminal UI and to scripts, with the fields every plugin of this family
   shares (`version`, `host`, `state`, `unguardedAgents`, `nextStep`). Its input and output are JSON Schemas that
-  OpenCode validates. A status it cannot read is its declared error `unavailable`, with a next step. The UI part needs
-  the RPC because on OpenCode 2.2.x it receives no plugin options and cannot see the server part's findings.
+  OpenCode validates. A status it cannot read is its declared error `unavailable`, with a next step. The UI part reads
+  the same model over the RPC, so it sees the server part's findings.
 
 ## Tools RPC
 
@@ -132,8 +131,8 @@ instead of refusing them. So the envelope's schema carries a strict Standard Sch
 `~standard` property, which OpenCode prefers. The contract still reads and serialises as plain JSON Schema, and
 OpenCode answers a bad envelope with `rpc.invalid_input`.
 
-The executor does not run `execute.before` and `execute.after` hooks, so the module's `shapeResult` does what the
-account hook does: a `get_user_context` result records the account. Results are otherwise unchanged.
+The executor does not run `execute.before` and `execute.after` hooks. The module's `shapeResult` records a script's
+`get_user_context` result for status; results are otherwise unchanged.
 
 ## Terminal UI part
 
@@ -145,19 +144,19 @@ and `credential.switched`. The newest answer wins, and a refresh never reopens a
 
 ## Platform facts
 
-These facts about OpenCode 2.2.3 hold on every later tested release too, 2.2.4 to 2.3.2. Links point to the source at tag `v2.2.3`.
+These facts about OpenCode 2.4.1, the tested release. Links point to the source at tag `v2.4.1`.
 
 | Topic | Fact | Source |
 | --- | --- | --- |
-| MCP tool permissions | The host asserts every MCP call: action `<server>_<tool>`, resource `*`. A last-matching `deny` on `*` hides the tool. | [`tool/mcp.ts`](https://github.com/anomalyco/opencode/blob/v2.2.3/packages/core/src/tool/mcp.ts) |
-| Rule evaluation | The last match wins. Saved approvals come after all rules as `allow`. An unattended `ask` is refused. | [`permission.ts`](https://github.com/anomalyco/opencode/blob/v2.2.3/packages/core/src/permission.ts) |
-| Agent rule order | Built-in agents start from a base `* * allow` and exist before package plugins run. User `permissions`, and agents defined only in user config, come after. | [`config/plugin/agent.ts`](https://github.com/anomalyco/opencode/blob/v2.2.3/packages/core/src/config/plugin/agent.ts) |
-| User MCP config | `mcp.servers` is applied before package plugins. A later plugin `set` would replace the user's entry. | [`config/plugin/mcp.ts`](https://github.com/anomalyco/opencode/blob/v2.2.3/packages/core/src/config/plugin/mcp.ts) |
-| MCP integrations | Integration ID `mcp_` + the first 16 hex digits of sha1(`<name>\0<url>`), so credentials are kept per name and URL. | [`mcp/index.ts`](https://github.com/anomalyco/opencode/blob/v2.2.3/packages/core/src/mcp/index.ts) |
-| Credential status | A status set with `integration.connection.status` is not on what `connection.active` returns; `integration.get` projects it as `connections[].status`. A 401 whose token refresh fails with no refresh token leaves the credential in place, so the `/connect` mark is only observable then. The host test signs in through the loopback callback and the token endpoint, then challenges, and asserts the mark is set and cleared. | The host test, on 2.2.3, 2.2.4, 2.2.5, 2.2.6, 2.2.7, 2.3.0, 2.3.1 and 2.3.2 |
-| Code Mode | MCP tools are in Code Mode by default (`tools.metaview.<tool>`). A declined prompt is an error the program can catch. | [`codemode/tool.ts`](https://github.com/anomalyco/opencode/blob/v2.2.3/packages/core/src/codemode/tool.ts) |
-| Unattended Code Mode | Up to 2.3.0 a schedule's `if: { code }` check runs once at creation, with asks settled unattended. From 2.3.1 `experimental.automation` replaces `experimental.schedule`: a code action's tools are authorized at creation the same way (an ask or a deny is refused), and the program runs, under an unattended grant for those tools, when the scheduler finds it due. Only a server process starts the scheduler; the host test starts it in its embedded host. The flag is `experimental.automations`, also read as `experimental.schedules`. | [`automation/code.ts`](https://github.com/anomalyco/opencode/blob/v2.3.2/packages/core/src/automation/code.ts), [`server/process.ts`](https://github.com/anomalyco/opencode/blob/v2.3.2/packages/server/src/process.ts) |
+| MCP tool permissions | The host asserts every MCP call: action `<server>_<tool>`, resource `*`. A last-matching `deny` on `*` hides the tool. | [`tool/mcp.ts`](https://github.com/anomalyco/opencode/blob/v2.4.1/packages/core/src/tool/mcp.ts) |
+| Rule evaluation | The last match wins. Saved approvals come after all rules as `allow`. An unattended `ask` is refused. | [`permission.ts`](https://github.com/anomalyco/opencode/blob/v2.4.1/packages/core/src/permission.ts) |
+| Agent rule order | Built-in agents start from a base `* * allow` and exist before package plugins run. User `permissions`, and agents defined only in user config, come after. | [`config/plugin/agent.ts`](https://github.com/anomalyco/opencode/blob/v2.4.1/packages/core/src/config/plugin/agent.ts) |
+| User MCP config | `mcp.servers` is applied before package plugins. A later plugin `set` would replace the user's entry. | [`config/plugin/mcp.ts`](https://github.com/anomalyco/opencode/blob/v2.4.1/packages/core/src/config/plugin/mcp.ts) |
+| MCP integrations | Integration ID `mcp_` + the first 16 hex digits of sha1(`<name>\0<url>`), so credentials are kept per name and URL. | [`mcp/index.ts`](https://github.com/anomalyco/opencode/blob/v2.4.1/packages/core/src/mcp/index.ts) |
+| Credential status | A status set with `integration.connection.status` is not on what `connection.active` returns; `integration.get` projects it as `connections[].status`. A 401 whose token refresh fails with no refresh token leaves the credential in place, so the `/connect` mark is only observable then. The host test signs in through the loopback callback and the token endpoint, then challenges, and asserts the mark is set and cleared. | The host test, on 2.4.1 |
+| Code Mode | MCP tools are in Code Mode by default (`tools.metaview.<tool>`). A declined prompt is an error the program can catch. | [`codemode/tool.ts`](https://github.com/anomalyco/opencode/blob/v2.4.1/packages/core/src/codemode/tool.ts) |
+| Unattended Code Mode | An automation's code action authorizes its tools at creation (an ask or a deny is refused), and the program runs, under an unattended grant for those tools, when the scheduler finds it due. Only a server process starts the scheduler; the host test starts it in its embedded host. The config flag is `automations`. | [`automation/code.ts`](https://github.com/anomalyco/opencode/blob/v2.4.1/packages/core/src/automation/code.ts), [`server/process.ts`](https://github.com/anomalyco/opencode/blob/v2.4.1/packages/server/src/process.ts) |
 | Dialog close paths | A plugin's `ui.dialog.alert` resolves on its dialog's `onClose`. Opening another dialog (`replace`), `clear` (also a click outside), Escape and Ctrl+C all call `onClose` for each dialog they remove, so the `/metaview` dialog's `r` key and listeners stop on every path. | The pack test reads each stock release's terminal UI code for this |
-| UI part options | The UI part of a plugin listed in `opencode.json` gets no plugin options. | Observed on stock 2.2.3, 2.2.4, 2.2.5 and 2.2.6 |
-| Tool executors | `ctx.tool.list()` returns each MCP tool with a callable `execute`, which checks `<server>_<tool>` with the agent's and the session's rules and saved approvals, and gives the `evaluate` hook the call's `source`. A deny is a `Tool.Error` with a cause; the server's `isError` is one without. `execute.before` and `execute.after` hooks do not run for it. Not documented as an entry point: the package test checks it on stock 2.2.3, 2.2.4, 2.2.5, 2.2.6, 2.2.7, 2.3.0, 2.3.1 and 2.3.2. | [`tool/mcp.ts`](https://github.com/anomalyco/opencode/blob/v2.2.3/packages/core/src/tool/mcp.ts) |
-| RPC input | An RPC input given as a Standard Schema is validated with it; a plain JSON Schema is decoded with Effect, which drops unknown keys of an object that has properties. The package test checks the envelope on stock 2.2.3, 2.2.4, 2.2.5, 2.2.6, 2.2.7, 2.3.0, 2.3.1 and 2.3.2. | `@opencode/core` 2.2.3, the RPC service's `parse` |
+| UI part options | The UI part of a plugin listed in `opencode.json` gets no plugin options. | Observed on stock 2.4.1 |
+| Tool executors | `ctx.tool.list()` returns each MCP tool with a callable `execute`, which checks `<server>_<tool>` with the agent's and the session's rules and saved approvals, and gives the `evaluate` hook the call's `source`. A deny is a `Tool.Error` with a cause; the server's `isError` is one without. `execute.before` and `execute.after` hooks do not run for it. Not documented as an entry point: the package test checks it on stock 2.4.1. | [`tool/mcp.ts`](https://github.com/anomalyco/opencode/blob/v2.4.1/packages/core/src/tool/mcp.ts) |
+| RPC input | An RPC input given as a Standard Schema is validated with it; a plain JSON Schema is decoded with Effect, which drops unknown keys of an object that has properties. The package test checks the envelope on stock 2.4.1. | `@opencode/core` 2.4.1, the RPC service's `parse` |

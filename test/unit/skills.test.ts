@@ -48,11 +48,12 @@ describe("skills", () => {
     expect(NAMES.filter((name) => VENDOR_IDS.includes(name))).toEqual([])
   })
 
-  test.each(NAMES)("%s loads, is named after its folder and has a one-line description", (name) => {
+  test.each(NAMES)("%s loads, is named after its folder and has a one-line description within the budget", (name) => {
     const text = read(name)
     const skill = parseSkill(name, join(SKILLS_DIR, name, "SKILL.md"), text)
     expect(skill.name as string).toBe(name)
     expect(skill.description?.length).toBeGreaterThan(40)
+    expect(skill.description?.length).toBeLessThanOrEqual(300)
     expect(text.split("\n").filter((line) => line.startsWith("description:"))).toHaveLength(1)
     expect(skill.content.length).toBeGreaterThan(0)
   })
@@ -141,14 +142,15 @@ describe("skills", () => {
     expect(text).toContain("opencode mcp auth metaview")
   })
 
-  test("the descriptions name their requests and leave non-hiring meetings, calendars and Slack to other skills", () => {
-    expect(description("metaview")).toMatch(/Not for non-hiring meetings \(Granola\), calendar scheduling or Slack/)
-    expect(description("metaview")).toContain("Load before the first Metaview tool call")
-    expect(description("metaview-candidate-brief")).toMatch(/Prep me for my interview/)
-    // Granola's meeting brief fires on "brief me before my call with a person": this one leaves those to it.
-    expect(description("metaview-candidate-brief")).toContain("Not for non-hiring meetings or calls (granola-meeting-brief)")
-    expect(description("metaview-write")).toContain("Load before any Metaview change")
-    for (const name of NAMES) expect(description(name)).not.toMatch(/\bmeeting notes\b|\bschedule a\b|\bpost to Slack\b/i)
+  test("the descriptions name their requests and leave non-hiring meetings and calendars to other skills", () => {
+    expect(description("metaview")).toMatch(/The user's recruiting interviews and candidates in Metaview/)
+    expect(description("metaview")).toContain("Declines guesses about personal traits")
+    expect(description("metaview")).toContain("Not for non-hiring meetings.")
+    expect(description("metaview-candidate-brief")).toMatch(/^Interview prep, debriefs, evidence packs/)
+    expect(description("metaview-candidate-brief")).toContain("Not for non-hiring meetings.")
+    expect(description("metaview-write")).toContain("Before any Metaview change")
+    expect(description("metaview-write")).toContain("or a bug report to Metaview")
+    for (const name of NAMES) expect(description(name)).not.toMatch(/\bmeeting notes\b|\bschedule a\b|\bpost to chat\b/i)
   })
 
   test("the personal-data rules: AI output labelled as Metaview's, no protected inference, no unasked hiring decision", () => {
@@ -190,7 +192,7 @@ describe("skills", () => {
       expect(text).toMatch(/only (?:that|this) interview's (?:own )?time and title/)
       expect(text).toMatch(/no attendees or descriptions/)
       expect(text).toMatch(/never name (?:or list )?other meetings/)
-      expect(text).toMatch(/Never search mail, chat, Drive,? (?:other notes tools )?or the web for (?:a|the) candidate/)
+      expect(text).toMatch(/Never search mail, chat, files,? (?:other notes tools )?or the web for (?:a|the) candidate/)
     }
   })
 
@@ -230,7 +232,7 @@ describe("skills", () => {
 
   test.each(NAMES)("%s links only to plain files an agent can read, never to a GitHub page", (name) => {
     const links = read(name).match(/https?:\/\/[^\s)>]*[^\s)>.,]/g) ?? []
-    for (const link of links) expect(link).toMatch(/^https:\/\/raw\.githubusercontent\.com\/joe-broadhead\/opencode-metaview\/HEAD\//)
+    for (const link of links) expect(link).toMatch(/^https:\/\/raw\.githubusercontent\.com\/we-the-rebel-alliance\/metaview-plugin\/master\//)
   })
 
   test("metaview's scripts section creates a session for the script and never borrows one", () => {
