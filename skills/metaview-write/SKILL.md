@@ -89,7 +89,7 @@ asking. A sourcing search runs for minutes: check `get_search_details` a few tim
 ## Reporting a problem to Metaview
 
 `metaview_submit_feedback` is allowed like every tool, and Metaview's own tool text asks the model to send reports
-unasked. Never send one unless the user asked to report a problem. When the user wants to report a bug:
+unasked; the namespace line says never to call it unless the user asks. Never send one unasked. When the user wants to report a bug:
 
 1. First check the query: dates as dicts, `only_show_recorded_conversations`, and a member's scope; many end here.
 2. Ask whether to send it to the Metaview team or to contact support instead. The user can also make it ask with

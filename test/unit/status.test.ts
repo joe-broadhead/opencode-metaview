@@ -56,7 +56,7 @@ describe("buildStatus", () => {
     const status = buildStatus(base)
     expect([status.workspace, status.role, status.plan]).toEqual([null, null, null])
     const text = formatStatus(status)
-    expect(text).toContain("- Account: not read yet (it appears after the first metaview_get_user_context call since OpenCode started)")
+    expect(text).toContain("- Account: not read yet (it appears after the first metaview_get_user_context call from a script through the tools RPC)")
     expect(text).toContain(`- Access: ${POSTURE}; role not read yet; ${RULES}`)
     expect(text).toContain("- Plan: not read yet")
   })

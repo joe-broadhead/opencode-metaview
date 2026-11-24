@@ -10,7 +10,7 @@ Metaview is a trademark of Metaview Labs Inc.; this unofficial plugin is not end
 
 ## Requirements
 
-- OpenCode `>=2.4.1 <2.5.0`, tested on 2.4.1. Outside that range the plugin does not start, unless you set
+- OpenCode `>=2.4.1 <2.5.0`, tested on 2.4.1 only. Outside that range the plugin refuses to start, unless you set
   `allowUntestedHost`.
 - macOS or Linux.
 - A Metaview account in a workspace where an admin has turned on **MCP integration**. Members also need **MCP for
@@ -22,17 +22,19 @@ Metaview is a trademark of Metaview Labs Inc.; this unofficial plugin is not end
 
 ## Install
 
+Install from a release tag:
+
 ```sh
-opencode plugin add github:we-the-rebel-alliance/metaview-plugin
+opencode plugin add github:we-the-rebel-alliance/metaview-plugin#v<version>
 ```
 
-Run `opencode reload`, or restart OpenCode. Then run `/metaview-status`: it shows `sign-in required` until you sign in
-(see [Sign in](#sign-in)).
+The first release on plugin-contract is `v0.0.0` (phase 4b). Run `opencode reload`, or restart OpenCode. Then run
+`/metaview-status`: it shows `sign-in required` until you sign in (see [Sign in](#sign-in)).
 
 Or add the plugin to `opencode.json` instead, with the same spec:
 
 ```json
-{ "plugins": [{ "package": "github:we-the-rebel-alliance/metaview-plugin" }] }
+{ "plugins": [{ "package": "github:we-the-rebel-alliance/metaview-plugin#v<version>" }] }
 ```
 
 ## Sign in
@@ -101,7 +103,7 @@ feedback to the Metaview team. Every read runs without asking too, such as `sear
 | `"read-only"` | the read tools | nothing: everything else is **denied** |
 
 ```json
-{ "plugins": [{ "package": "github:we-the-rebel-alliance/metaview-plugin", "options": { "access": "read-only" } }] }
+{ "plugins": [{ "package": "github:we-the-rebel-alliance/metaview-plugin#v<version>", "options": { "access": "read-only" } }] }
 ```
 
 A rule of your own in an agent's `permissions` still wins over the plugin's block. Put it in the agent, not in the
@@ -146,7 +148,8 @@ credential store.
 
 1. Sign out: `opencode mcp logout metaview`.
 2. Check: `opencode auth list` no longer lists **Metaview**.
-3. Remove the plugin: `opencode plugin remove github:we-the-rebel-alliance/metaview-plugin`, then `opencode reload`.
+3. Remove the plugin: `opencode plugin remove github:we-the-rebel-alliance/metaview-plugin#v<version>`, then
+   `opencode reload`.
 4. Remove any Metaview rules you copied into your agents' own `permissions`. If you used an API key, delete it in
    Metaview: Settings, MCP.
 

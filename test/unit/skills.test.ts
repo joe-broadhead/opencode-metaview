@@ -142,16 +142,15 @@ describe("skills", () => {
     expect(text).toContain("opencode mcp auth metaview")
   })
 
-  test("the descriptions name their requests and leave non-hiring meetings, calendars and Slack to other skills", () => {
+  test("the descriptions name their requests and leave non-hiring meetings and calendars to other skills", () => {
     expect(description("metaview")).toMatch(/The user's recruiting interviews and candidates in Metaview/)
     expect(description("metaview")).toContain("Declines guesses about personal traits")
-    expect(description("metaview")).toContain("Not for non-hiring meetings (granola)")
+    expect(description("metaview")).toContain("Not for non-hiring meetings.")
     expect(description("metaview-candidate-brief")).toMatch(/^Interview prep, debriefs, evidence packs/)
-    // Granola's meeting brief fires on "brief me before my call with a person": this one leaves those to it.
-    expect(description("metaview-candidate-brief")).toContain("Not for non-hiring meetings (granola-meeting-brief)")
+    expect(description("metaview-candidate-brief")).toContain("Not for non-hiring meetings.")
     expect(description("metaview-write")).toContain("Before any Metaview change")
     expect(description("metaview-write")).toContain("or a bug report to Metaview")
-    for (const name of NAMES) expect(description(name)).not.toMatch(/\bmeeting notes\b|\bschedule a\b|\bpost to Slack\b/i)
+    for (const name of NAMES) expect(description(name)).not.toMatch(/\bmeeting notes\b|\bschedule a\b|\bpost to chat\b/i)
   })
 
   test("the personal-data rules: AI output labelled as Metaview's, no protected inference, no unasked hiring decision", () => {
@@ -193,7 +192,7 @@ describe("skills", () => {
       expect(text).toMatch(/only (?:that|this) interview's (?:own )?time and title/)
       expect(text).toMatch(/no attendees or descriptions/)
       expect(text).toMatch(/never name (?:or list )?other meetings/)
-      expect(text).toMatch(/Never search mail, chat, Drive,? (?:other notes tools )?or the web for (?:a|the) candidate/)
+      expect(text).toMatch(/Never search mail, chat, files,? (?:other notes tools )?or the web for (?:a|the) candidate/)
     }
   })
 

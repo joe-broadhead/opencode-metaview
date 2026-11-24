@@ -23,7 +23,7 @@ OpenCode project.
   whether `oauth` is `false`; it never reads, copies or reports its `headers`, where an API key may be. Status shows
   server URLs without their query strings, never OpenCode's text for a needed sign-in, which can hold an authorization
   URL, and cuts a connection failure's reason to one line with no URL query.
-- The account capture keeps three fields of a `get_user_context` result in memory only: the workspace's name, whether
+- The account capture keeps three fields of a script's `get_user_context` result in memory only: the workspace's name, whether
   the user is an admin, and whether the plan is paid (or runs on shared credits, from the presence of
   `notes_on_platform_credits`). It never reads IDs, names, emails or the `data_access` text, and
   forgets the three when the server is no longer connected, or the account is switched. The plugin never calls

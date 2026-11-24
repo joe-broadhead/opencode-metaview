@@ -4,15 +4,17 @@ Every option is optional. The smallest setup is one entry in `plugins`:
 
 ```json
 {
-  "plugins": ["github:we-the-rebel-alliance/metaview-plugin"]
+  "plugins": ["github:we-the-rebel-alliance/metaview-plugin#v<version>"]
 }
 ```
+
+The first release on plugin-contract is `v0.0.0` (phase 4b); install from a release tag.
 
 To set options, use the object form:
 
 ```json
 {
-  "plugins": [{ "package": "github:we-the-rebel-alliance/metaview-plugin", "options": { "allowUntestedHost": true } }]
+  "plugins": [{ "package": "github:we-the-rebel-alliance/metaview-plugin#v<version>", "options": { "allowUntestedHost": true } }]
 }
 ```
 
@@ -28,7 +30,7 @@ adds later included; `"ask-changes"` lets the reads run and asks for everything 
 and denies everything else. Each value's block is printed in full under [Permissions](#permissions).
 
 ```json
-{ "plugins": [{ "package": "github:we-the-rebel-alliance/metaview-plugin", "options": { "access": "read-only" } }] }
+{ "plugins": [{ "package": "github:we-the-rebel-alliance/metaview-plugin#v<version>", "options": { "access": "read-only" } }] }
 ```
 
 A rule of your own still wins over the block, whichever value you set.
@@ -362,7 +364,8 @@ The three destructive tools are the ones to think about before you leave the def
 - `metaview_manage_candidate_sequence` adds candidates to outreach sequences, which send email, LinkedIn, SMS or
   WhatsApp messages, or pauses, cancels or removes them.
 - `metaview_submit_feedback` sends text to the Metaview team, and its own description asks the model to call it after
-  any tool error, unasked; text written after a failed candidate lookup could carry candidate data.
+  any tool error, unasked; the namespace line counters it, and text written after a failed candidate lookup could carry
+  candidate data.
 
 Two more reach people when they run: `update_screen_outreach` emails candidates, copying CC and BCC, and with
 `reject_at_deadline` true rejects them automatically at their deadline; `manage_sequence` with `set_enabled` true
@@ -560,7 +563,7 @@ Every error from the plugin reads `CODE: What happened. Next step: What to do.`
 For example:
 
 ```text
-OPTIONS_INVALID: Unknown option "apiKey". Accepted options: "allowUntestedHost", "access". Next step: Fix the plugin options in opencode.json, for example "plugins": [{ "package": "github:we-the-rebel-alliance/metaview-plugin", "options": { "allowUntestedHost": true } }].
+OPTIONS_INVALID: Unknown option "apiKey". Accepted options: "allowUntestedHost", "access". Next step: Fix the plugin options in opencode.json, for example "plugins": [{ "package": "github:we-the-rebel-alliance/metaview-plugin#v<version>", "options": { "allowUntestedHost": true } }].
 ```
 
 Errors from Metaview's server and from OpenCode pass through unchanged, except in the tools RPC for scripts, whose codes
@@ -578,7 +581,7 @@ model. It holds no token, no header and no URL query, and makes no Metaview call
 | `state` | `connected`, `sign_in_required`, `connecting`, `disabled`, `failed`, `not_configured` or `conflict`. The `Connection` row shows the same states as `connected`, `sign-in required`, `connecting`, `disabled`, `failed`, `not configured` and `conflict`. |
 | `error` | For a failed connection only: OpenCode's reason, on one line of at most 160 characters, with any URL cut before its query. The text for a needed sign-in can hold an authorization URL, so it is never shown. |
 | `source` | `type` (`plugin`, `adopted` or `conflict`), `url`, `signIn` (`oauth`, or `own` for your own entry with `"oauth": false`), and for a conflict the `expected` URL |
-| `workspace` | The Metaview workspace's name, or `null` until the first `get_user_context` call since OpenCode started |
+| `workspace` | The Metaview workspace's name, or `null` until the first script `get_user_context` call through the tools RPC |
 | `role` | `admin` (every conversation in the workspace), `member` (your own and those shared with you), or `null` until read |
 | `plan` | `paid`, `free` (transcripts, summaries and AI fields may be limited), `credits` (conversations unlock on the workspace's shared platform credits), or `null` until read |
 | `access` | `all`, `ask-changes` or `read-only`: what the generated default rules allow |
@@ -592,7 +595,7 @@ model. It holds no token, no header and no URL query, and makes no Metaview call
 | `nextStep` | Exactly one next step: the `Next step` row, `Nothing to do.` when nothing is needed |
 
 The workspace, role and plan come from the fields `workspace_name`, `is_admin` and `is_paying_plan` of a
-`get_user_context` result, made by the model or by a script, and are kept in memory only. When the result has
+`get_user_context` result, made by a script through the tools RPC, and are kept in memory only. When the result has
 `notes_on_platform_credits` instead of `is_paying_plan`, the plan is `credits`; that note's text is not read. Nothing
 else of the result is read. They are forgotten when the server is no longer connected, or the account is switched.
 

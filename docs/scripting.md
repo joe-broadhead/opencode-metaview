@@ -147,6 +147,5 @@ OpenCode itself answers `rpc.method_not_found` for a method that does not exist,
 - Use a token or key: the plugin has none to give.
 
 A script's calls write nothing to the session, and OpenCode's `execute.before` and `execute.after` tool hooks, from
-any plugin, do not run for them. The account read still records the workspace, role and plan for `/metaview-status`:
-the tools RPC's `shapeResult` runs the same capture as the model path's `execute.after` hook. Metaview's model path
-changes no arguments, so `shapeInput` is the identity.
+any plugin, do not run for them. The account read records the workspace, role and plan for `/metaview-status` in the
+tools RPC's `shapeResult`. Metaview changes no arguments, so `shapeInput` is the identity.

@@ -16,5 +16,5 @@ The first release under the new name and organization.
 
 ### Removed
 
-- The Jelly guide, `docs/jelly.md`.
+- The app-specific guide; app guides live in each app's repository.
 - The collection source and its `events_list` and `probe` methods; the plugin registers Metaview's native tools only.

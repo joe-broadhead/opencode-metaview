@@ -12,7 +12,7 @@ adds no tool of its own, makes no Metaview call of its own, and has no runtime d
 | `src/index.ts` | The server part: the plugin `metaview.workspace`, pointed at Metaview's server |
 | `src/plugin.ts` | Setup, and server registration or adoption |
 | `src/integration.ts` | The `/connect` entry: its name "Metaview", and the sign-in problem on its account |
-| `src/account.ts` | The account capture: workspace name, role and plan from a `get_user_context` result, in memory |
+| `src/account.ts` | The account capture: workspace name, role and plan from a script's `get_user_context` result, in memory |
 | `src/options.ts` | Option parsing and validation, including the `access` values |
 | `src/host-version.ts` | The host check: the supported range, and the tested releases |
 | `src/metaview-tools.ts` | `READ_TOOLS`, `WRITE_TOOLS`, `SEND_TOOLS`, `DESTRUCTIVE_TOOLS`, `PARAMETERS` and `classify()`: every fact the plugin keeps about Metaview's tools. No runtime imports, so `scripts/check-metaview-tools.mjs` (`npm run drift`) can load it. `PARAMETERS` is used by that script and the tests only, and the build leaves it out |
@@ -49,12 +49,11 @@ typechecks. The package exports `.` (`dist/index.js`) and `./tui` (`dist/tui.js`
    nothing is added, and status reports it.
 5. `ctx.tool.transform` gives the `metaview` namespace its Code Mode description.
 6. `ctx.agent.transform` inserts the default rules after each agent's base `* * allow`.
-7. `watchAccount` adds one `execute.after` hook, which reads the account from `metaview_get_user_context` results, and
-   forgets it on `credential.switched` and when the server is no longer connected.
+7. `watchAccount` records the account from a script's `get_user_context` result, and forgets it on `credential.switched`
+   and when the server is no longer connected. No execute hook is registered.
 8. `ctx.skill.transform`, `ctx.command.transform` (`/metaview-status`) and `ctx.rpc.register` (`metaview.workspace/status`).
 9. The source contract's `registerToolsRpc` registers the tools RPC, `metaview.workspace.tools`, with the native
-   Metaview tools only, and its `evaluate` hook. This build has no collection methods, no source declaration and no
-   conformance report.
+   Metaview tools and its `evaluate` hook.
 10. `watchIntegration` starts. Setup returns one cleanup that stops it, disposes the tools RPC and stops the account
     capture.
 
@@ -132,8 +131,8 @@ instead of refusing them. So the envelope's schema carries a strict Standard Sch
 `~standard` property, which OpenCode prefers. The contract still reads and serialises as plain JSON Schema, and
 OpenCode answers a bad envelope with `rpc.invalid_input`.
 
-The executor does not run `execute.before` and `execute.after` hooks, so the module's `shapeResult` does what the
-account hook does: a `get_user_context` result records the account. Results are otherwise unchanged.
+The executor does not run `execute.before` and `execute.after` hooks. The module's `shapeResult` records a script's
+`get_user_context` result for status; results are otherwise unchanged.
 
 ## Terminal UI part
 

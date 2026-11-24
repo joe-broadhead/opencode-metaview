@@ -3,7 +3,7 @@
 // run. The Metaview plugin is built with the internal seam, pointed at the loopback fake without OAuth, and gets its
 // options injected the way the host passes config options. A probe plugin, loaded after it, lends its context to the
 // tests.
-import { HOST_SDK_DIR, ROOT as root } from "./isolate.js"
+import { ROOT as root } from "./isolate.js"
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { fileURLToPath, pathToFileURL } from "node:url"
@@ -22,8 +22,8 @@ type Client = Omit<OpenCodeClient, "plugin"> & {
   readonly close: () => Promise<void>
 }
 
-/** The locked @opencode/sdk, or another 2.4.x installed outside the lockfile in HOST_SDK_DIR's node_modules. */
-const SDK = HOST_SDK_DIR ? join(HOST_SDK_DIR, "node_modules", "@opencode", "sdk") : fileURLToPath(new URL("../../node_modules/@opencode/sdk", import.meta.url))
+/** The locked @opencode/sdk at 2.4.1. */
+const SDK = fileURLToPath(new URL("../../node_modules/@opencode/sdk", import.meta.url))
 export const HOST_VERSION = (JSON.parse(readFileSync(join(SDK, "package.json"), "utf8")) as { version: string }).version
 
 /**

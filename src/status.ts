@@ -59,7 +59,7 @@ export interface Status {
   /** For a failed connection only: OpenCode's reason, on one line of at most 160 characters, URLs without their query. */
   readonly error?: string
   readonly source?: ServerSource
-  /** The workspace's name from the last account read since OpenCode started, or null before one. */
+  /** The workspace's name from the last script account read since OpenCode started, or null before one. */
   readonly workspace: string | null
   /** `admin` sees every conversation in the workspace; `member` their own and those shared with them. */
   readonly role: "admin" | "member" | null
@@ -253,7 +253,7 @@ export function formatStatus(status: Status) {
   return [
     "Metaview status",
     `- Connection: ${STATE_TEXT[status.state]}${details ? ` (${details})` : ""}`,
-    `- Account: ${status.workspace ?? `${NOT_READ} (it appears after the first ${SERVER_NAME}_get_user_context call since OpenCode started)`}`,
+    `- Account: ${status.workspace ?? `${NOT_READ} (it appears after the first ${SERVER_NAME}_get_user_context call from a script through the tools RPC)`}`,
     `- Access: ${accessText(status)}`,
     `- Plan: ${status.plan ? PLAN_TEXT[status.plan] : NOT_READ}`,
     `- Tools: ${toolsText(status)}`,

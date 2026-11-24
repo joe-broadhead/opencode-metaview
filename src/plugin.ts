@@ -107,8 +107,7 @@ export function createMetaviewPlugin(seam: MetaviewSeam) {
       await registerSkills(ctx.skill, skills)
       await registerStatusCommand(ctx, read)
       await registerStatusRpc(ctx.rpc, read)
-      // The tools RPC is the native Metaview tool table only. The collection-only source methods are not registered:
-      // this build does not declare the source, so describe and every call see no events_list or probe.
+      // The tools RPC is the native Metaview tool table.
       const stopTools = await registerToolsRpc(ctx as never, {
         plugin: PLUGIN,
         methods: [...METHODS],

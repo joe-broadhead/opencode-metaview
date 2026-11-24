@@ -42,10 +42,10 @@ npm run check
 | `unit` | `bun test ./test/unit`: every module in `src/`, the docs' facts and error table, and the tools RPC's fail-closed tests |
 | `build` | `node scripts/build.mjs`: deletes `dist/` and bundles `src/index.ts` and `src/tui.ts` with esbuild into the self-contained `dist/index.js` and `dist/tui.js`. Fails if a bundle imports anything the host does not provide |
 | `icons` | `node scripts/check-icons.mjs`: the three icons, the manifest's declarations and the tarball's `files` against the family icon contract |
-| `host` | `bun test ./test/host`: the plugin inside an embedded OpenCode host, once on each tested release (`@opencode/sdk` 2.4.1) |
+| `host` | `bun test ./test/host`: the plugin inside an embedded OpenCode host, on the one tested release (`@opencode/sdk` 2.4.1) |
 | `pack` | `bun test ./test/pack`: builds, packs and installs the package, imports both entry points, and loads it in stock OpenCode 2.4.1 |
 | `forbidden` | `node scripts/check-forbidden.mjs`: scans `src/`, `test/`, `scripts/` and `dist/` for forbidden APIs and machine-local paths |
-| `copies` | `node scripts/check-copies.mjs`: Jelly's setting rules (`test/support/jelly-settings.ts`) and the release kit equal the copies every plugin carries. The tools RPC is the source contract's module, not a copied `src/host/tools-rpc.ts`. This repository's declaration kit, `test/support/jelly-kit.ts`, is not a family copy: Affinity and Ashby do not carry it |
+| `copies` | `node scripts/check-copies.mjs`: the copied setting rules (`test/support/jelly-settings.ts`) and the release kit equal the copies every plugin carries. The tools RPC is the source contract's module, not a copied `src/host/tools-rpc.ts`. This repository's declaration kit, `test/support/jelly-kit.ts`, is not a family copy: Affinity and Ashby do not carry it |
 | `whitelist` | Checks `package.json` against the approved package shape, and that `dist/` holds exactly `index.js` and `tui.js` |
 | `actionlint` | `actionlint`, when it is on `PATH`, parses the workflows as workflows; otherwise it prints a notice. CI installs it before `npm run check`. |
 
@@ -62,15 +62,8 @@ Shortcuts: `npm run typecheck`, `npm run build`, `npm test` (the `unit` stage), 
 and pack stages, status and CI all take their versions from it. Add a release there, and to the README's
 requirements, when every check passes on it.
 
-The host stage starts an embedded OpenCode host in a temporary home folder, with a local fake of Metaview's MCP server,
-once for each tested release. A request to any address other than the local machine fails the test. 2.4.1 is the
-locked `@opencode/sdk`. To run the host stage on another SDK, install it in a separate folder and point
-`HOST_SDK_DIR` at it:
-
-```sh
-mkdir ../sdk-2.4.99 && cd ../sdk-2.4.99 && npm init -y && npm install @opencode/sdk@2.4.99 --ignore-scripts && cd -
-HOST_SDK_DIR=../sdk-2.4.99 node scripts/check.mjs host
-```
+The host stage starts an embedded OpenCode host from the locked `@opencode/sdk` 2.4.1 in a temporary home folder, with
+a local fake of Metaview's MCP server. A request to any address other than the local machine fails the test.
 
 Every temporary folder of the host and pack stages is a git repository under the system's `/tmp`, never under
 `TMPDIR` or your home folder. OpenCode looks for `.opencode` folders and project config upwards from a project, and
@@ -192,12 +185,10 @@ key signs it.
 section in 4b.
 
 1. On `master`, set `version` in `package.json` to the new version, and change every install spec in the README,
-   `CONTRIBUTING.md` and `docs/` to `#v<version>`. Then run
-   `node scripts/changelog.mjs release`: it turns `## [Unreleased]` into `## [<version>] - <today>`, above the earlier
-   releases, and refuses a CHANGELOG it cannot shape. Run `npm run check`.
-2. Push that commit to `master`, and wait for CI to pass on it. A pull request's CI runs the Linux runners only; the
-   push to `master` runs every runner, Apple-silicon macOS (`macos-26`) too, and the release stands on that run. An
-   Intel Mac (`macos-26-intel`) is not required.
+   `CONTRIBUTING.md` and `docs/` to `#v<version>`. The contract's release tooling rewrites `CHANGELOG.md` in 4b. Run
+   `npm run check`.
+2. Push that commit to `master`, and wait for CI to pass on it. A pull request and a push to `master` run the same
+   single `ci` job on Node 24, and the release stands on that run.
 3. Start the release with that commit's full sha:
    `gh workflow run release.yml --ref master -f sha=<full sha>`, or from Actions → release →
    Run workflow, on `master`.
@@ -215,7 +206,7 @@ one newline: the kit tests check both in `npm run check`, as the release planner
 
 The declaration is checked against what the provider serves. `npm run capture` (`scripts/capture-tools.mjs`, run by hand
 through the signed-in OpenCode, never by CI) writes `test/fixtures/live-tools.json` and `test/fixtures/provenance.json`,
-with the signed-in account's own values that some servers write into descriptions (Slack's "Your user_id: …") replaced
+with the signed-in account's own values that some servers write into descriptions (a server's "Your user_id: …") replaced
 by placeholders such as `U00CURRENTUSER`; the drift check fails a committed capture that still holds one.
 `scripts/check-drift.mjs` checks `jelly.tools`, `test/fixtures/tool-registry.json`, the skills and the docs against them,
 offline, in the kit tests of `npm run check`. The release build runs it with `--release`, which also refuses a capture
@@ -231,17 +222,9 @@ release runs it again on the parent in its own `conformance` job, which has no w
 passes and the report's `ok` is `true` for this version. The report becomes the Release asset `conformance-report.json`, listed in `SHA256SUMS`. A
 plugin without `sources` has no report, and its release is unchanged.
 
-**This standalone build declares no `sources`.** It therefore has no `npm run conformance`, no
-`reports/conformance-report.json`, and no conformance job or report asset in the release workflow; the workflow's
-source gate reads `sources: false` from `package.json`. Its old `events_list` and `probe` methods are not registered
-or listed; the `unit`, `host` and `pack` stages prove that an old call is an unknown method and reaches no MCP or
-identity read. The removed collection RPC has no supported replacement in this standalone build; native
-`search_conversations` remains for ordinary explicit requests, not old collection scripts.
-
 Before the approval, the workflow:
 - **plans:** refuses a run that is not on `master`, a sha that is not `master`'s head, a sha without a successful
-  `ci.yml` push run with a successful job on every runner its push matrix names (macOS included), a `ci.yml` whose
-  matrix runs macOS on a pull request or not on a push (the kit tests check it too), a version that is not `x.y.z`, a
+  `ci` job in a `ci.yml` push run, a version that is not `x.y.z`, a
   `package.json` that is not `"private": true` or not in its canonical form, a CHANGELOG whose newest release is not
   this version, a plugin that declares sources with no `conformance` script, a release that does not move forward from
   the last published Release, a leftover `release/v<version>` branch, a native run that did not build this sha on
@@ -316,5 +299,5 @@ Each release has its own tag, and a Git install does not update by itself. To mo
 Or add the plugin to `opencode.json` instead, with the same spec:
 
 ```json
-{ "plugins": [{ "package": "github:we-the-rebel-alliance/metaview-plugin" }] }
+{ "plugins": [{ "package": "github:we-the-rebel-alliance/metaview-plugin#v<version>" }] }
 ```

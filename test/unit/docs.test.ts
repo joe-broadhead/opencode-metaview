@@ -20,7 +20,7 @@ const FILES = [
   ...readdirSync(join(ROOT, "docs")).map((name) => `docs/${name}`),
   ...readdirSync(join(ROOT, "skills")).map((name) => `skills/${name}/SKILL.md`),
 ]
-// The native Metaview tools; this standalone build has no collection methods.
+// The native Metaview tools.
 const KNOWN = [...READ_TOOLS, ...WRITE_TOOLS, ...DESTRUCTIVE_TOOLS]
 const text = (file: string) => readFileSync(join(ROOT, file), "utf8").replace(/\s+/g, " ")
 const raw = (file: string) => readFileSync(join(ROOT, file), "utf8")
@@ -31,9 +31,7 @@ function blockAfter(file: string, pattern: RegExp): unknown {
   return JSON.parse(body)
 }
 
-/** The package's version. */
-const VERSION = (JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")) as { version: string }).version
-const INSTALL = "github:we-the-rebel-alliance/metaview-plugin"
+const INSTALL = "github:we-the-rebel-alliance/metaview-plugin#v<version>"
 
 describe("docs", () => {
   test.each(FILES)("%s states no count of read, write or declared tools that could go stale", (file) => {
@@ -52,11 +50,20 @@ describe("docs", () => {
     expect(text(file)).not.toMatch(/provisional|not yet (?:checked|published|signed)|private package|TODO/i)
   })
 
-  test("the README names no version of the plugin, and its install lines name the new repository", () => {
-    expect(text("README.md")).not.toMatch(new RegExp(`metaview-plugin@\\d|\\bv?${VERSION.replaceAll(".", "\\.")}\\b`))
-    expect(text("README.md")).toContain(`opencode plugin add ${INSTALL}`)
-    expect(text("README.md")).toContain(`opencode plugin remove ${INSTALL}`)
-    expect(text("README.md")).not.toMatch(/joe-broadhead|opencode-metaview/)
+  test("the README installs only from a release tag and names the first release", () => {
+    const installLines = raw("README.md").split("\n").filter((line) => line.includes("metaview-plugin") && (line.includes("plugin add") || line.includes("plugin remove") || line.includes('"package"')))
+    expect(installLines.length).toBeGreaterThan(2)
+    for (const line of installLines) expect(line).toContain("#v<version>")
+    expect(text("README.md")).toContain("The first release on plugin-contract is `v0.0.0` (phase 4b).")
+    expect(text("README.md")).not.toMatch(/joe-broadhead|opencode-metaview|#v0\.0\.8/)
+  })
+
+  test("every guide's repository install line carries a release tag", () => {
+    for (const file of ["README.md", "docs/configuration.md", "CONTRIBUTING.md"]) {
+      for (const line of raw(file).split("\n").filter((item) => item.includes("github:we-the-rebel-alliance/metaview-plugin"))) {
+        expect({ file, line, tagged: line.includes("github:we-the-rebel-alliance/metaview-plugin#v") }).toEqual({ file, line, tagged: true })
+      }
+    }
   })
 
   // A person reads the README first, so it says plainly what an all-allow default means here and the one-line way out.
@@ -164,9 +171,8 @@ describe("the default rules block", () => {
 // Every "tested on …" mention states TESTED_HOSTS, so a release added to the list cannot leave a stale sentence behind.
 describe("tested hosts", () => {
   const CHANGELOG = readFileSync(join(ROOT, "CHANGELOG.md"), "utf8")
-  // While a release is prepared, its Unreleased section; otherwise the newest released one. Older released
-  // sections are history and keep their own list.
-  const SECTIONS = CHANGELOG.split(/\n(?=## \[)/)
+  // The changelog's first section is the release being prepared.
+  const SECTIONS = CHANGELOG.split(/\n(?=## )/)
   const NOTES = SECTIONS.find((section) => section.startsWith("## 0.0.0 (unreleased)")) ?? ""
   const SOURCES: [string, string][] = [
     ["README.md", readFileSync(join(ROOT, "README.md"), "utf8")],
@@ -175,6 +181,11 @@ describe("tested hosts", () => {
     ["docs/configuration.md", readFileSync(join(ROOT, "docs/configuration.md"), "utf8")],
     ["CHANGELOG.md (Unreleased or newest release)", NOTES],
   ]
+
+  test("the changelog's 0.0.0 section is read, not an empty string", () => {
+    expect(NOTES).toContain("## 0.0.0 (unreleased)")
+    expect(NOTES).toContain("tested on 2.4.1")
+  })
 
   test.each(SOURCES)("%s names exactly TESTED_HOSTS wherever it says what is tested", (file, body) => {
     // The sentence that says something is tested, so a version list in the next sentence cannot leak in.

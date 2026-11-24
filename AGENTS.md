@@ -38,7 +38,7 @@ scripts. It has no tool of its own. Read [docs/architecture.md](docs/architectur
 - **Status.** `src/status.ts` builds one model for `/metaview-status`, the `/metaview` dialog and the status RPC. It
   never shows OpenCode's text for a needed sign-in, cuts a failure's reason to one line of 160 characters with
   `src/redact.ts` (no credentials, URL queries or tokens), and names at most 20 unknown tools, plain names only. Status
-  makes no Metaview call: the account comes only from `get_user_context` results the model or a script asked for.
+  makes no Metaview call: the account comes only from a script's `get_user_context` result through the tools RPC.
 - **A user's own server entry** is read for its type, URL and whether `oauth` is `false`, never its `headers`, which
   may hold an API key.
 - **`src/metaview-tools.ts` is the one record of Metaview's tools**, and has no runtime imports. Everything else
@@ -48,8 +48,8 @@ scripts. It has no tool of its own. Read [docs/architecture.md](docs/architectur
   skills label Metaview's AI output as Metaview's, never infer protected characteristics, make no hiring decision the
   user did not ask for, and say whom a change reaches before it asks.
 - **Fixed context.** The Code Mode namespace line is at most 400 characters, and each skill description at most 300.
-  Nothing is pinned, and no per-request hook adds text. The namespace line counters any hosted MCP server text that
-  claims another owner's job or asks the agent to act unprompted.
+  Nothing is pinned, and the plugin registers no execute hook. The namespace line counters any hosted MCP server text
+  that claims another owner's job or asks the agent to act unprompted, including `submit_feedback`.
 - **The icons** `assets/icon.svg`, `assets/icon-128.png` and `assets/icon-256.png` are Metaview's own mark: the
   six-tile symbol from metaview.ai's logo in white on a black circle, as in Metaview's app icon; don't redraw or
   recolour it. The README carries the trademark line and `opencode.vendor.mark` is `true`.
@@ -60,10 +60,7 @@ scripts. It has no tool of its own. Read [docs/architecture.md](docs/architectur
   `WRITE_TOOLS`, `SEND_TOOLS` and `DESTRUCTIVE_TOOLS` in `src/metaview-tools.ts`: every known tool, by exact name, with
   its class. The rule is resolved before dispatch, so only an `allow` runs and an `ask` or a `deny` is refused. An
   unknown tool is never a method. Keep the RPC id `metaview.workspace.tools` and its method names stable: scripts call
-  them by name. Setup registers `METHODS` only: it adds no tool of its own and no plugin-owned collection methods.
-- **No collection source in this build.** `package.json` has no `sources`, and `events_list` and `probe` are not
-  registered. Do not add compatibility stubs or hidden methods. A build that restores the source restores a complete,
-  owned implementation and the source declaration together.
+  them by name. Setup registers `METHODS` only: it adds no tool of its own.
 - **Tests.** Unit tests use narrow `Pick<Plugin.Context, ...>` fakes. Host tests use the public `@opencode/sdk` with
   `OpenCode.create({ app: { version } })`, a loopback fake server and the temp root from `test/host/isolate.ts`. The
   harness builds the embedded host through `PromiseSdk.create` with the SDK's `overrides`, so its Automation service

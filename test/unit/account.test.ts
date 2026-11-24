@@ -34,15 +34,15 @@ const tick = () => new Promise((resolve) => setTimeout(resolve, 5))
 
 async function watch() {
   const stream = events()
-  let after: ((event: unknown) => Promise<void> | void) | undefined
   const state = { server: "connected" }
-  const account = await watchAccount({
-    tool: { hook: async (_name: string, callback: (event: unknown) => void) => ((after = callback), { dispose: async () => void (after = undefined) }) },
-    mcp: { list: async () => ({ data: [{ name: "metaview", status: { status: state.server } }] }) },
-    event: { subscribe: stream.subscribe },
-  } as never)
+  const account = await watchAccount(
+    {
+      mcp: { list: async () => ({ data: [{ name: "metaview", status: { status: state.server } }] }) },
+      event: { subscribe: stream.subscribe },
+    } as never,
+  )
   stops.push(account.stop)
-  return { account, state, stream, after: async (event: unknown) => await after?.(event) }
+  return { account, state, stream }
 }
 
 describe("accountOf", () => {
@@ -76,18 +76,6 @@ describe("accountOf", () => {
 })
 
 describe("watchAccount", () => {
-  test("captures a completed model call of get_user_context only", async () => {
-    const { account, after } = await watch()
-    await after({ tool: "metaview_search_conversations", status: "completed", result: { output: RESULT } })
-    await after({ tool: "metaview_get_user_context", status: "error", error: new Error("x") })
-    expect(account.current()).toBeUndefined()
-    await after({ tool: "metaview_get_user_context", status: "completed", result: { output: RESULT } })
-    expect(account.current()).toEqual({ workspace: "Acme Recruiting", role: "admin", plan: "free" })
-    // A later result without the fields keeps what was read.
-    await after({ tool: "metaview_get_user_context", status: "completed", result: { output: "{}" } })
-    expect(account.current()?.workspace).toBe("Acme Recruiting")
-  })
-
   test("a script's read through the tools RPC reaches every running instance", async () => {
     const first = await watch()
     const second = await watch()
@@ -96,8 +84,8 @@ describe("watchAccount", () => {
   })
 
   test("forgets the account when the server needs a new sign-in or the account is switched", async () => {
-    const { account, after, state, stream } = await watch()
-    await after({ tool: "metaview_get_user_context", status: "completed", result: { output: RESULT } })
+    const { account, state, stream } = await watch()
+    captureAccount({ output: RESULT })
     await tick()
     stream.emit("mcp.status.changed", { server: "other" })
     await tick()
@@ -107,7 +95,7 @@ describe("watchAccount", () => {
     await tick()
     expect(account.current()).toBeUndefined()
     state.server = "connected"
-    await after({ tool: "metaview_get_user_context", status: "completed", result: { output: RESULT } })
+    captureAccount({ output: RESULT })
     expect(account.current()).toBeDefined()
     stream.emit("credential.switched")
     await tick()
@@ -118,23 +106,18 @@ describe("watchAccount", () => {
     const shared = await watch()
     const stream = events()
     const own = await watchAccount(
-      { tool: { hook: async () => ({ dispose: async () => {} }) }, mcp: { list: async () => ({ data: [] }) }, event: { subscribe: stream.subscribe } } as never,
+      { mcp: { list: async () => ({ data: [] }) }, event: { subscribe: stream.subscribe } } as never,
       () => true,
     )
     stops.push(own.stop)
     captureAccount({ output: RESULT })
     expect([shared.account.current(), own.current()]).toEqual([undefined, undefined])
-    // The model path belongs to its own instance, so it still records the account there.
-    await shared.after({ tool: "metaview_get_user_context", status: "completed", result: { output: RESULT } })
-    expect(shared.account.current()?.workspace).toBe("Acme Recruiting")
   })
 
-  test("an instance whose metaview server is at another URL records no account, from the model or a script", async () => {
+  test("an instance whose metaview server is at another URL records no account", async () => {
     const stream = events()
-    let after: ((event: unknown) => Promise<void> | void) | undefined
     const foreign = await watchAccount(
       {
-        tool: { hook: async (_name: string, callback: (event: unknown) => void) => ((after = callback), { dispose: async () => {} }) },
         mcp: { list: async () => ({ data: [{ name: "metaview", status: { status: "connected" } }] }) },
         event: { subscribe: stream.subscribe },
       } as never,
@@ -142,7 +125,6 @@ describe("watchAccount", () => {
       () => false,
     )
     stops.push(foreign.stop)
-    await after?.({ tool: "metaview_get_user_context", status: "completed", result: { output: RESULT } })
     captureAccount({ output: RESULT })
     expect(foreign.current()).toBeUndefined()
   })

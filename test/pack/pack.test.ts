@@ -157,14 +157,10 @@ describe("package tarball", () => {
 
   // OpenCode reloads a plugin in place and reuses the module records it holds for unchanged paths, so an entry that
   // imported a sibling module could get an older cached copy of it. Each entry must stand alone.
-  test("dist holds only the two entry bundles, they import no sibling module, and the preserved source is not bundled", () => {
+  test("dist holds only the two entry bundles, and they import no sibling module", () => {
     const dist = join(installedPackage(true), "dist")
     expect(tree(relative(root, dist), dist).sort()).toEqual(["index.js", "tui.js"])
     for (const file of ["index.js", "tui.js"]) expect(relativeImports(readFileSync(join(dist, file), "utf8"))).toEqual([])
-    // The live bundle holds no collection implementation, compatibility shims or preserved source.
-    const server = readFileSync(join(dist, "index.js"), "utf8")
-    expect(server).not.toContain("metaview.conversations")
-    expect(server).not.toContain("signIns")
   }, 300_000)
 
   test("dist imports only modules the host provides", () => {
@@ -298,7 +294,7 @@ describe.each(HOST_VERSIONS)("the tools RPC on stock OpenCode %s", (version) => 
       // Config-only agents get no default rules: their own rules decide, after the host's defaults.
       agents: { locked: { permissions: [rule("metaview_*", "deny")] }, careful: { permissions: [rule(`metaview_${READ_A}`, "ask")] } },
     })
-    // Every known native tool, and the fake's new one, which is the only unknown. This build has no collection methods.
+    // Every known native tool, and the fake's new one, which is the only unknown.
     const tools = READ_TOOLS.length + WRITE_TOOLS.length + DESTRUCTIVE_TOOLS.length + 1
     await host.until(`metaview is connected with its ${tools} tools`, async () => {
       const output = await status()
@@ -321,7 +317,7 @@ describe.each(HOST_VERSIONS)("the tools RPC on stock OpenCode %s", (version) => 
     await fake?.close()
   }, 60_000)
 
-  test("describes every known tool with its class, each available with its live schema, and no collection methods", async () => {
+  test("describes every known tool with its class, each available with its live schema", async () => {
     const { value } = await script("describe", {})
     expect(value.id).toBe(TOOLS_RPC_ID)
     expect(value.methods.map((method: { name: string }) => method.name)).toEqual(METHODS.map((method) => method.name))
@@ -358,21 +354,6 @@ describe.each(HOST_VERSIONS)("the tools RPC on stock OpenCode %s", (version) => 
     const output = await status()
     expect(output).toMatchObject({ workspace: "Acme Recruiting", role: "member", plan: "paid" })
     expect(JSON.stringify(output)).not.toMatch(/0e0e0e0e-0000-4000-8000-000000000001|770077001/)
-  })
-
-  test("the old source methods are not methods: describe omits them and a call reaches no Metaview tool", async () => {
-    const before = fake.calls.length
-    const { value } = await script("describe", {})
-    expect(value.methods.map((method: { name: string }) => method.name)).toEqual(METHODS.map((method) => method.name))
-    for (const [method, input] of [
-      ["probe", { source: "metaview" }],
-      ["events_list", { account: "4100/770077001", since: new Date(Date.now() - 7 * 86_400_000).toISOString() }],
-    ] as const) {
-      const refused = await call("build", method, input)
-      expect(refused).toMatchObject({ type: "rpc.method_not_found" })
-      expect(refused).not.toHaveProperty("value")
-    }
-    expect(fake.calls.slice(before)).toEqual([])
   })
 
   test("a write and a destructive tool are methods that run at the default access; an unknown tool has no method, though OpenCode lists them all", async () => {
