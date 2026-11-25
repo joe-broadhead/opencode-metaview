@@ -1,6 +1,6 @@
 ---
 name: metaview-candidate-brief
-description: Interview prep, debriefs, evidence packs, finalist comparisons, scorecard checks and draft feedback from Metaview, leaving every hiring decision to the user. Not for non-hiring meetings.
+description: "Interview prep, debriefs, evidence packs, finalist comparisons, scorecard checks and draft feedback from Metaview, leaving every hiring decision to the user. Not for non-hiring meetings."
 ---
 
 # Candidate brief

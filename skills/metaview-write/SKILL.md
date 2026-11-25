@@ -1,6 +1,6 @@
 ---
 name: metaview-write
-description: Before any Metaview change: notes, snippets and clips, reports, AI fields and templates, sourcing, ATS posts, application review decisions, screening, sequences, enrichment, job posts, or a bug report to Metaview.
+description: "Before any Metaview change: notes, snippets and clips, reports, AI fields and templates, sourcing, ATS posts, application review decisions, screening, sequences, enrichment, job posts, or a bug report to Metaview."
 ---
 
 # Changes in Metaview
