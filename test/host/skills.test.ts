@@ -1,42 +1,16 @@
 import assert from "node:assert/strict"
 import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
-import { join, sep } from "node:path"
+import { join } from "node:path"
 import { test } from "node:test"
-import { pathToFileURL, fileURLToPath } from "node:url"
+import { fileURLToPath } from "node:url"
 import { OpenCode } from "@opencode/sdk"
-import { parse as parseYaml } from "yaml"
+import type { Plugin } from "@opencode/plugin"
+import { load, resolve } from "@opencode/plugin/host"
 import { createHost, waitForActivation } from "@we-the-rebel-alliance/plugin-contract/kit"
+import { parse as parseYaml } from "yaml"
 
-/** The repository root, and the skill directories the loader must register. */
 const root = fileURLToPath(new URL("../..", import.meta.url))
-const skillsDir = join(root, "skills")
-
-interface ExpectedSkill {
-  readonly id: string
-  readonly description: string
-}
-
-/** Every skill's id and the exact description a real YAML parser reads from its frontmatter. */
-function expectedSkills(): ExpectedSkill[] {
-  return readdirSync(skillsDir, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory())
-    .map((entry) => {
-      const text = readFileSync(join(skillsDir, entry.name, "SKILL.md"), "utf8").replace(/\r\n/g, "\n")
-      const match = /^---\n([\s\S]*?)\n---\n?/.exec(text)
-      if (match === null) throw new Error(`${entry.name} has no frontmatter`)
-      const frontmatter = parseYaml(match[1] ?? "") as Record<string, unknown> | null
-      const description = frontmatter?.["description"]
-      if (typeof description !== "string" || description.trim() === "") throw new Error(`${entry.name} has no description`)
-      if (description === ">" || description === "|") throw new Error(`${entry.name} uses a block scalar`)
-      const raw = /^description:\s*(.*)$/m.exec(match[1] ?? "")?.[1]?.trim()
-      if (raw === undefined || raw === ">" || raw === "|" || raw.startsWith(">") || raw.startsWith("|")) {
-        throw new Error(`${entry.name}'s description is not a one-line YAML scalar`)
-      }
-      return { id: entry.name, description }
-    })
-    .sort((left, right) => left.id.localeCompare(right.id))
-}
 
 interface Isolated {
   readonly home: string
@@ -71,58 +45,84 @@ function isolate(): Isolated {
   }
 }
 
+/** The real host's domains this test reads. */
 interface Host {
   readonly sessions: {
-    create(input: { location: { directory: string }; agent: string; permissions: readonly unknown[] }): Promise<{ id: string }>
-    prompt(input: { sessionID: string; text: string; delivery: string }): Promise<unknown>
+    create(input: Record<string, unknown>): Promise<{ readonly id: string }>
+    prompt(input: Record<string, unknown>): Promise<unknown>
   }
-  readonly plugin: { list(input: { location: { directory: string } }): Promise<{ data: readonly { id?: string }[] }> }
-  readonly skill: { list(input: { location: { directory: string } }): Promise<{ data: readonly { id: string; path: string; description?: string }[] }> }
-  readonly command: { list(input: { location: { directory: string } }): Promise<{ data: readonly { name: string }[] }> }
-  readonly agent: { list(input: { location: { directory: string } }): Promise<{ data: readonly { id: string }[] }> }
-  readonly mcp: { list(input: { location: { directory: string } }): Promise<{ data: readonly { name: string }[] }> }
+  readonly plugin: {
+    list(input: Record<string, unknown>): Promise<{ readonly data: readonly { readonly id?: string }[] }>
+  }
+  readonly skill: {
+    list(input: Record<string, unknown>): Promise<{
+      readonly data: readonly { readonly id: string; readonly name: string; readonly description?: string; readonly path: string; readonly content: string }[]
+    }>
+  }
+  readonly command: { list(input: Record<string, unknown>): Promise<{ readonly data: readonly { readonly name: string }[] }> }
+  readonly agent: { list(input: Record<string, unknown>): Promise<{ readonly data: readonly { readonly id: string }[] }> }
+  readonly mcp: { list(input: Record<string, unknown>): Promise<{ readonly data: readonly { readonly name: string }[] }> }
   close(): Promise<void>
 }
 
-test("every skills/*/SKILL.md is registered on the real OpenCode 2.4.1 host", { timeout: 120_000 }, async () => {
-  // An empty project, never the repository root: OpenCode discovers `<directory>/skills/` by itself, so the repo root
-  // would hide a missing `registerSkills` call.
-  const project = mkdtempSync(join(tmpdir(), "metaview-host-"))
+async function definitionOf() {
+  const entry = resolve({ directory: root }).server
+  assert.ok(entry !== undefined, "the package has no server entry")
+  const module = (await load(entry)) as { readonly default?: Plugin.Plugin }
+  const definition = module.default
+  assert.ok(definition !== undefined, "the server entry exports no Plugin.define value")
+  return definition
+}
+
+test("the real OpenCode 2.4.1 host registers every skills/<name>/SKILL.md after load", { timeout: 120_000 }, async () => {
+  const definition = await definitionOf()
+  const ids = readdirSync(join(root, "skills"), { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name)
+    .sort()
+  assert.ok(ids.length > 0, "the package ships no skill")
+
+  // An empty project: OpenCode discovers `<project>/skills/` itself, so using the repository root here would let the
+  // test pass without `registerSkills`. The skills must come from the plugin's transform alone. The isolated HOME and
+  // XDG dirs also keep a person's own skills and config out of the answer.
+  const project = mkdtempSync(join(tmpdir(), "metaview-skill-project-"))
   const isolated = isolate()
-  const module = (await import(pathToFileURL(join(root, "dist", "index.js")).href)) as { default: unknown }
   const host = (await OpenCode.create({
-    plugins: [module.default],
+    plugins: [definition],
     config: { directory: project },
     app: { name: "opencode", version: "2.4.1" },
     log: { level: "error", emit: () => undefined },
   })) as unknown as Host
   try {
     const session = await host.sessions.create({ location: { directory: project }, agent: "build", permissions: [] })
-    await host.sessions.prompt({ sessionID: session.id, text: "activate the plugin", delivery: "queue" }).catch(() => undefined)
+    await host.sessions.prompt({ sessionID: session.id, text: "activate the skill registration", delivery: "queue" }).catch(() => undefined)
     await waitForActivation({
-      isActive: async () => (await host.plugin.list({ location: { directory: project } })).data.some((plugin) => plugin.id === "metaview"),
+      isActive: async () => {
+        const list = await host.plugin.list({ location: { directory: project } }).catch(() => undefined)
+        return list?.data.some((entry) => entry.id === definition.id) ?? false
+      },
       timeoutMs: 60_000,
     })
-    const expected = expectedSkills()
-    const listed = await host.skill.list({ location: { directory: project } })
-    const ours = listed.data
-      .filter((skill) => skill.path.startsWith(`${skillsDir}${sep}`))
-      .map((skill) => ({ id: skill.id, description: skill.description }))
-      .sort((left, right) => left.id.localeCompare(right.id))
-    assert.deepEqual(ours.map((skill) => skill.id), expected.map((skill) => skill.id))
-    for (const skill of expected) {
-      const registered = ours.find((entry) => entry.id === skill.id)
-      assert.ok(registered !== undefined, `${skill.id} is registered`)
-      assert.equal(registered.description, skill.description, `${skill.id} description matches its SKILL.md`)
-      assert.ok(registered.description !== ">" && registered.description !== "|" && registered.description.trim() !== "")
+    const answer = await host.skill.list({ location: { directory: project } })
+    for (const id of ids) {
+      const skill = answer.data.find((candidate) => candidate.id === id)
+      assert.ok(skill !== undefined, `the host did not register the ${id} skill`)
+      assert.equal(skill.name, id)
+      assert.equal(skill.path, join(root, "skills", id, "SKILL.md"))
+      assert.ok(skill.content.trim().length > 0, `the ${id} skill has no body`)
+      const text = readFileSync(skill.path, "utf8")
+      const frontmatter = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/.exec(text)
+      assert.ok(frontmatter !== null, `the ${id} skill has no frontmatter`)
+      const parsed = parseYaml(frontmatter[1] ?? "") as { readonly description?: unknown }
+      assert.equal(typeof parsed.description, "string", `the ${id} skill has no YAML description`)
+      const expected = parsed.description as string
+      assert.notEqual(expected.trim(), "", `the ${id} skill has an empty description`)
+      for (const marker of [">", "|", ">-", "|-", ">+", "|+"]) {
+        assert.notEqual(expected.trim(), marker, `the ${id} skill registers the block marker ${marker}, not its text`)
+      }
+      assert.equal(skill.description, expected, `the ${id} skill description is not the YAML text`)
     }
 
-    const commands = await host.command.list({ location: { directory: project } })
-    assert.ok(!commands.data.some((command) => command.name === "metaview" || command.name === "metaview-status"), "the old slash commands are not restored")
-    const agents = await host.agent.list({ location: { directory: project } })
-    for (const id of ["build", "general", "explore", "compaction", "title", "summary", "plan"]) {
-      assert.ok(agents.data.some((agent) => agent.id === id), `${id} is still registered`)
-    }
     const servers = await host.mcp.list({ location: { directory: project } })
     assert.deepEqual(
       servers.data
@@ -132,6 +132,12 @@ test("every skills/*/SKILL.md is registered on the real OpenCode 2.4.1 host", { 
       ["metaview"],
       "the default Metaview MCP server is registered",
     )
+    const commands = await host.command.list({ location: { directory: project } })
+    assert.ok(!commands.data.some((command) => command.name === "metaview" || command.name === "metaview-status"))
+    const agents = await host.agent.list({ location: { directory: project } })
+    for (const id of ["build", "general", "explore", "compaction", "title", "summary", "plan"]) {
+      assert.ok(agents.data.some((agent) => agent.id === id), `${id} is still registered`)
+    }
   } finally {
     await host.close()
     isolated.restore()
@@ -141,16 +147,15 @@ test("every skills/*/SKILL.md is registered on the real OpenCode 2.4.1 host", { 
 })
 
 test("each account's MCP server is registered with the real OpenCode 2.4.1 host", { timeout: 120_000 }, async () => {
-  const project = mkdtempSync(join(tmpdir(), "metaview-mcp-host-"))
+  const definition = await definitionOf()
+  const project = mkdtempSync(join(tmpdir(), "metaview-mcp-project-"))
   const isolated = isolate()
-  const module = (await import(pathToFileURL(join(root, "dist", "index.js")).href)) as { default: unknown }
-  const definition = module.default as { readonly id: string; setup(context: unknown): Promise<unknown> | unknown }
   const options = { accounts: { work: {}, personal: {} } }
   const wrapper = {
     id: definition.id,
-    setup: (context: unknown) =>
+    setup: (context: Plugin.Context) =>
       definition.setup(
-        new Proxy(context as object, {
+        new Proxy(context, {
           get(target, property, receiver) {
             return property === "options" ? options : Reflect.get(target, property, receiver)
           },
