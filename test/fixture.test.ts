@@ -57,7 +57,8 @@ test("every recorded page is what the handlers answer today", async () => {
     }
     const answer = await run(runtime, "events_list", input, account)
     assert.deepEqual(answer, item.answer, item.name)
-    const accepted = acceptAnswer(source!, account, answer)
+    if (source === undefined) throw new Error("the manifest declares no metaview.conversations source")
+    const accepted = acceptAnswer(source, account, answer)
     if (!accepted.ok) throw new Error(`${item.name}: ${accepted.failure.message}`)
   }
 })

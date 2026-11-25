@@ -67,5 +67,7 @@ export function providerCall(): ProviderCall {
 
 /** Run one handler with an account and the input `register` would pass. */
 export async function run(runtime: HandlerRuntime, method: "status" | "probe" | "events_list", input: Readonly<Record<string, unknown>>, account = "work", call: Partial<MethodCall> = {}): Promise<unknown> {
-  return handlersFor(runtime)[method]!.run(input, callFor(account, call))
+  const handler = handlersFor(runtime)[method]
+  if (handler === undefined) throw new Error(`the handler table has no ${method} handler`)
+  return handler.run(input, callFor(account, call))
 }

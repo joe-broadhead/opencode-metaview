@@ -407,7 +407,8 @@ async function scan(
         break
       }
       found.push({ position, row })
-      if (boundary === undefined && found.length >= wanted) boundary = found[wanted - 1]!.position.time
+      const at = found[wanted - 1]
+      if (boundary === undefined && at !== undefined) boundary = at.position.time
     }
     if (stopped) break
     const short = rows.length < RAW_LIMIT

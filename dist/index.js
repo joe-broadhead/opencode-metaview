@@ -12580,7 +12580,8 @@ async function scan(host2, alias, report, after, since, now, wanted, call) {
         break;
       }
       found.push({ position, row });
-      if (boundary === void 0 && found.length >= wanted) boundary = found[wanted - 1].position.time;
+      const at = found[wanted - 1];
+      if (boundary === void 0 && at !== void 0) boundary = at.position.time;
     }
     if (stopped) break;
     const short = rows.length < RAW_LIMIT;
@@ -12798,7 +12799,7 @@ function parseSkill(id, path, text3) {
   const match = /^---\n([\s\S]*?)\n---\n?([\s\S]*)$/.exec(text3.replace(/\r\n/g, "\n"));
   if (match === null) throw new SkillLoadError(`skills/${id}/SKILL.md has no frontmatter`);
   const fields = /* @__PURE__ */ new Map();
-  for (const line of match[1].split("\n")) {
+  for (const line of (match[1] ?? "").split("\n")) {
     const at = line.indexOf(":");
     if (at < 0) continue;
     fields.set(line.slice(0, at).trim(), unquote(line.slice(at + 1).trim()));
@@ -12811,7 +12812,7 @@ function parseSkill(id, path, text3) {
     name: Skill.Name.make(id),
     description,
     path: Skill.Info.fields.path.make(path),
-    content: match[2].trim()
+    content: (match[2] ?? "").trim()
   };
 }
 async function loadSkills(directory = SKILLS_DIR) {

@@ -37,7 +37,7 @@ export function parseSkill(id: string, path: string, text: string): Skill.Info {
   const match = /^---\n([\s\S]*?)\n---\n?([\s\S]*)$/.exec(text.replace(/\r\n/g, "\n"))
   if (match === null) throw new SkillLoadError(`skills/${id}/SKILL.md has no frontmatter`)
   const fields = new Map<string, string>()
-  for (const line of match[1]!.split("\n")) {
+  for (const line of (match[1] ?? "").split("\n")) {
     const at = line.indexOf(":")
     if (at < 0) continue
     fields.set(line.slice(0, at).trim(), unquote(line.slice(at + 1).trim()))
@@ -50,7 +50,7 @@ export function parseSkill(id: string, path: string, text: string): Skill.Info {
     name: Skill.Name.make(id),
     description,
     path: Skill.Info.fields.path.make(path),
-    content: match[2]!.trim(),
+    content: (match[2] ?? "").trim(),
   }
 }
 

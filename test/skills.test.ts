@@ -45,8 +45,10 @@ test("a broken skill is a problem, not a thrown setup", async () => {
     const loaded = await loadSkills(directory)
     assert.deepEqual(loaded.skills, [])
     assert.equal(loaded.problems.length, 1)
-    assert.match(loaded.problems[0]!, /^SKILLS_INVALID: /)
-    assert.match(loaded.problems[0]!, /Next step: /)
+    const problem = loaded.problems[0]
+    assert.ok(problem !== undefined)
+    assert.match(problem, /^SKILLS_INVALID: /)
+    assert.match(problem, /Next step: /)
   } finally {
     rmSync(directory, { recursive: true, force: true })
   }
