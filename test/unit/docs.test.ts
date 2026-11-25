@@ -47,7 +47,7 @@ test("the README states the tested OpenCode range and the tested release", () =>
 
 test("the changelog carries the 0.0.0 section, and the package version is 0.0.0", () => {
   const changelog = read("CHANGELOG.md")
-  assert.match(changelog, /^## 0\.0\.0 \(unreleased\)$/m)
+  assert.match(changelog, /^## 0\.0\.0 \(2026-11-25\)$/m)
   assert.equal(version, "0.0.0")
 })
 

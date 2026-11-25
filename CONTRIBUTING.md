@@ -30,7 +30,7 @@ Node 24. The tests use Node's own test runner.
 A consumer installs a released tag:
 
 ```sh
-opencode plugin add github:we-the-rebel-alliance/metaview-plugin#v<version>
+opencode plugin add github:we-the-rebel-alliance/metaview-plugin#v0.0.0
 ```
 
 ## Report a problem

@@ -1,13 +1,15 @@
 # Changelog
 
-All notable changes to this plugin are recorded here. The format follows the plugin standard: one section per release,
-written by `plugin-kit release`.
+## 0.0.0 (2026-11-25)
 
-## 0.0.0 (unreleased)
+Metaview is an OpenCode plugin on plugin-contract v0. It registers Metaview's MCP server once per account alias
+(`metaview`, `metaview-<alias>`), passes the vendor's 68 tools through, and adds the contract's `status`, `probe` and
+`events_list` reads for the `metaview.conversations` source.
 
-- Rebuilt on `plugin-contract` v0: one `register` call wires the tools, Code Mode and RPC; the manifest is the
-  `capabilities` block in `package.json`.
-- Accounts are the contract's `mcp` mechanism: one Metaview MCP server per alias, `metaview` and `metaview-<alias>`.
-- The 68 Metaview MCP tools are declared in `methods` with their class and operations, and passed through untouched.
-- `status`, `probe` and `events_list` are plugin methods; `events_list` reads the new `metaview.conversations` source.
-- Deleted the copied kit, the tools RPC and the source-contract dependency.
+- `status` reports the version, OpenCode host, every alias and the next step; `probe` names the signed-in owner.
+- `events_list` lists recruiting conversations as metadata-only `meeting` events, oldest first, with a cursor that is a
+  total order on `(occurred_at, external_id)`, so two conversations with the same start are never skipped at a page
+  boundary.
+- Accounts are the contract's `mcp` mechanism, one server per alias, with `account` on every method that takes one.
+- The manifest declares no actions and no bus events: every change is the vendor's own MCP tool, under its own
+  permission action.

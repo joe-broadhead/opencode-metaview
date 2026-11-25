@@ -1,7 +1,17 @@
 {
   "name": "@we-the-rebel-alliance/metaview-plugin",
   "version": "0.0.0",
-  "description": "Unofficial OpenCode plugin for Metaview: read recruiting conversations, candidates, notes and reports through Metaview's own MCP server, with the vendor's tools passed through.",
+  "description": "Metaview recruiting interviews, transcripts, notes, candidates and reports, with Metaview's own MCP tools passed through.",
+  "keywords": [
+    "opencode",
+    "opencode-plugin",
+    "plugin-contract",
+    "metaview"
+  ],
+  "homepage": "https://github.com/we-the-rebel-alliance/metaview-plugin#readme",
+  "bugs": {
+    "url": "https://github.com/we-the-rebel-alliance/metaview-plugin/issues"
+  },
   "license": "MIT",
   "type": "module",
   "repository": {
@@ -568,7 +578,6 @@
     "check": "npm run typecheck && npm run build && npm run test && plugin-kit check && plugin-kit docs --check"
   },
   "devDependencies": {
-    "@opencode/client": "2.4.1",
     "@opencode/plugin": "2.4.1",
     "@opencode/sdk": "2.4.1",
     "@types/node": "24.19.2",

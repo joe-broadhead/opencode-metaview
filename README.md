@@ -1,17 +1,14 @@
-# Metaview for OpenCode
+# Metaview
 
-Read a recruiting workspace's Metaview conversations, candidates, notes and reports from OpenCode. The plugin registers
-Metaview's official MCP server, one server per account alias, so every tool Metaview serves is available to the agent,
-and adds the contract's own reads: `status`, `probe` and `events_list` for the conversations source. It adds no tool of
-its own beyond those reads: every Metaview call is one of the vendor's own MCP tools, executed through OpenCode.
-
-Unofficial; not affiliated with Metaview. Metaview is a trademark of Metaview Labs Inc.; this plugin is not endorsed by
-them.
+Metaview recruiting interviews, transcripts, notes, candidates and reports in OpenCode, with Metaview's own MCP tools
+passed through. The plugin registers one Metaview MCP server per account alias and adds the contract's `status`,
+`probe` and `events_list` reads for the `metaview.conversations` source. It is built on
+[plugin-contract](https://github.com/we-the-rebel-alliance/plugin-contract) v0.0.0.
 
 ## Requirements
 
-- OpenCode `>=2.4.1 <2.5.0`, tested on 2.4.1 only. Outside that range the plugin refuses to start, unless you set
-  `allowUntestedHost`.
+- OpenCode `>=2.4.1 <2.5.0`, tested on 2.4.1 only. Outside that range the plugin refuses to start with
+  `HOST_UNTESTED`, unless you set `allowUntestedHost`.
 - A Metaview account in a workspace where an admin has turned on **MCP integration**. Members also need **MCP for
   non-admins** (Metaview: Workspace settings).
 - What you can read follows your Metaview role: admins see every conversation in the workspace, members their own and
@@ -20,19 +17,14 @@ them.
 
 ## Install
 
-Install from a release tag. Releases start at `v0.0.0`; the first tag is cut once this repository's release pull request
-is merged.
-
 ```sh
-opencode plugin add github:we-the-rebel-alliance/metaview-plugin#v<version>
+opencode plugin add github:we-the-rebel-alliance/metaview-plugin#v0.0.0
 ```
 
-Run `opencode reload`, or restart OpenCode. Then ask for a read; `status` shows whether the account is signed in.
-
-Or add the plugin to `opencode.json` instead, with the same spec:
+Run `opencode reload`, or restart OpenCode. Or add the plugin to `opencode.json` with the same spec:
 
 ```json
-{ "plugins": [{ "package": "github:we-the-rebel-alliance/metaview-plugin#v<version>" }] }
+{ "plugins": [{ "package": "github:we-the-rebel-alliance/metaview-plugin#v0.0.0" }] }
 ```
 
 ## Sign in
@@ -41,19 +33,26 @@ The first account is the MCP server `metaview`; every other alias gets its own s
 `/connect` and choose the server for the account, then open the link with `o` or Enter. In a terminal, run
 `opencode mcp auth metaview` (or `opencode mcp auth metaview-work`). No key is needed.
 
-Configure several aliases in `opencode.json`:
+## Accounts and options
+
+Configure the aliases in `opencode.json`; each signs in separately and can belong to a different Metaview workspace:
 
 ```json
-{ "accounts": { "work": {}, "personal": {} } }
+{
+  "access": "all",
+  "accounts": { "work": {}, "personal": {} },
+  "allowUntestedHost": false
+}
 ```
 
-Each alias signs in separately. Methods that take an account accept `account: "work"` or `account: "personal"`. With
-two aliases and no account, a call is refused with `ACCOUNT_REQUIRED`.
+Methods that take an account accept `account: "work"` or `account: "personal"`. With two aliases and no account, a call
+is refused with `ACCOUNT_REQUIRED`; an alias the plugin does not serve is `ACCOUNT_UNKNOWN`. The profile has no fields:
+Metaview decides the workspace at sign-in. See [Configuration](docs/configuration.md) for every option.
 
 ## Access
 
-`access` is `all` (the default), `ask-changes` or `read-only`. Metaview's own tools and the plugin's reads are separate
-permission actions, so a person can narrow either.
+`access` is the ceiling. Metaview's own tools and the plugin's reads are separate permission actions, so a person can
+narrow either.
 
 | Value | Reads | Writes and sends |
 |---|---|---|
@@ -62,7 +61,8 @@ permission actions, so a person can narrow either.
 | `"read-only"` | run | are off |
 
 The classes come from the manifest: a Metaview tool that sends or deletes something is `send` or `delete`, and asks
-under `"ask-changes"`. A rule of your own in an agent's `permissions` still wins for one tool.
+under `"ask-changes"`. A rule of your own in an agent's `permissions` still wins for one tool. See
+[Capabilities](docs/capabilities.md) for each method's class.
 
 ## Capabilities
 
@@ -186,6 +186,21 @@ None.
 | `UNAVAILABLE` | the provider could not be reached |
 <!-- /generated:errors -->
 
+## Troubleshooting
+
+| Symptom | Next step |
+|---|---|
+| `NEEDS_SIGN_IN` | Run `/connect` and choose the account's server, `metaview` or `metaview-<alias>`, then try again. |
+| `ACCOUNT_REQUIRED` | Pass `account: "<alias>"`; the error lists the aliases. |
+| `ACCOUNT_UNKNOWN` | Use an alias from `status.accounts`, or add it under `accounts` in `opencode.json`. |
+| `CURSOR_INVALID` | Read again without the cursor, or pass the cursor with the account and `reports` scope that issued it. |
+| `PERMISSION_DENIED` | Check `access` and the agent's own rules; a deny is final, and a read-only plugin refuses every change. |
+| `HOST_UNTESTED` | Install OpenCode 2.4.1, or set `allowUntestedHost` deliberately. |
+| `RATE_LIMITED` | Wait a minute, then retry the same call. |
+| `UNAVAILABLE` | Check `status` and the account's server in `/mcps`; a server that needs sign-in is `NEEDS_SIGN_IN`. |
+
+`status` reports the plugin's version, OpenCode host, every alias's state and one next step. It reads no conversation.
+
 ## Docs
 
 - [Capabilities](docs/capabilities.md)
@@ -194,3 +209,4 @@ None.
 - [Automations](docs/automations.md)
 - [Architecture](docs/architecture.md)
 - [Security](docs/security.md)
+- [plugin-contract](https://github.com/we-the-rebel-alliance/plugin-contract)

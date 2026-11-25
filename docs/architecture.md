@@ -44,10 +44,10 @@ the cursor; the plugin binds it to the plugin, source, account and scope and ref
 
 ## Recorded evidence
 
-`test/fixtures/live-tools.json` is the tool list OpenCode showed for Metaview's server on 2026-11-14, captured on
-OpenCode 2.2.6. It is recorded evidence for the 68 pass-through tool names and their input schemas, not a test matrix;
-T1 runs on 2.4.1. `test/fixtures/provenance.json` records the capture. The 2.2.6 capture host is kept as history: the
-tool list is the vendor's and the plugin's host range is tested separately.
+`test/fixtures/live-tools.json` is the tool list OpenCode showed for Metaview's server on 2026-11-14. It is recorded
+evidence for the 68 pass-through tool names and their input schemas, not a test matrix; T1 runs on 2.4.1.
+`test/fixtures/provenance.json` records the capture and the historical capture host; the plugin supports and tests
+2.4.1 only.
 
 ## OpenCode APIs
 

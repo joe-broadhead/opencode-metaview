@@ -1,4 +1,4 @@
-name: CI
+name: ci
 
 # One job, named ci: the org ruleset requires a check with that name. It runs the whole gate, so the required check
 # covers typecheck, build, tests, conformance, docs drift and the forbidden scan.
