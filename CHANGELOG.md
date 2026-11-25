@@ -16,7 +16,7 @@ Metaview is an OpenCode plugin on plugin-contract v0. It registers Metaview's MC
 - The manifest declares no actions and no bus events: every change is the vendor's own MCP tool, under its own
   permission action.
 
-## Removed since v0.0.8
+### Removed since v0.0.8
 
 - `/metaview-status` and `/metaview`: the old slash command and TUI duplicated the private `metaview.workspace/status`
   RPC. `status` is now the contract method, reachable as a tool, in Code Mode and over RPC; a TUI view is optional host
