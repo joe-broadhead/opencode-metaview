@@ -1,6 +1,6 @@
 ---
 name: metaview
-description: The user's recruiting interviews and candidates in Metaview: what a candidate said, interview summaries and counts, scorecards, reports, sourcing, screening, sequences and job posts. Declines guesses about personal traits. Not for non-hiring meetings.
+description: "The user's recruiting interviews and candidates in Metaview: what a candidate said, interview summaries and counts, scorecards, reports, sourcing, screening, sequences and job posts. Declines guesses about personal traits. Not for non-hiring meetings."
 ---
 
 # Metaview

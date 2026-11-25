@@ -1,8 +1,9 @@
 import assert from "node:assert/strict"
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs"
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { test } from "node:test"
+import { parse as parseYaml } from "yaml"
 import { loadSkills, parseSkill, registerSkills, SkillLoadError } from "../src/skills.ts"
 
 test("the loader reads every skill directory with a valid frontmatter", async () => {
@@ -18,6 +19,12 @@ test("the loader reads every skill directory with a valid frontmatter", async ()
     assert.ok(description.length <= 300, `${skill.id} description is ${description.length} characters`)
     assert.ok(skill.path.endsWith(join("skills", skill.id, "SKILL.md")))
     assert.ok(skill.content.length > 0)
+    const text = readFileSync(new URL(`../skills/${skill.id}/SKILL.md`, import.meta.url), "utf8").replace(/\r\n/g, "\n")
+    const match = /^---\n([\s\S]*?)\n---\n?/.exec(text)
+    assert.ok(match !== null)
+    const parsed = parseYaml(match[1] ?? "") as Record<string, unknown> | null
+    assert.equal(description, parsed?.["description"], `${skill.id} description matches a YAML parse`)
+    assert.ok(description !== ">" && description !== "|")
   }
 })
 
