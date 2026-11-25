@@ -3,12 +3,14 @@ name: metaview-candidate-brief
 description: Interview prep, debriefs, evidence packs, finalist comparisons, scorecard checks and draft feedback from Metaview, leaving every hiring decision to the user. Not for non-hiring meetings.
 ---
 
-If Metaview's tools are absent, run `/connect` and choose Metaview.
-
 # Candidate brief
 
-Uses the `metaview` skill's steps to find people and conversations; this skill decides what to read and how to write it
-up. Everything here is read-only: nothing is saved to Metaview or the ATS.
+Use this skill for interview prep, a debrief, an evidence pack, a finalist comparison, a scorecard check or draft
+feedback. It uses the `metaview` skill's steps to find people and conversations; this skill decides what to read and how
+to write it up. Everything here is read-only: nothing is saved to Metaview or the ATS.
+
+If Metaview's tools are absent, run `/connect` and choose the account's server; on the plugin's own reads pass the same
+`account` alias.
 
 ## Inputs
 
@@ -63,11 +65,12 @@ saved to Metaview or the ATS. No comments on personality, accent, age or appeara
 
 ## Sensitive content
 
-- Compensation, visa or right to work and notice: only when decision-relevant and stated, labelled "as stated in <round>".
-  Health, family and protected characteristics: never, and never speculated.
+- Compensation, visa or right to work and notice: only when decision-relevant and stated, labelled "as stated in
+  <round>". Health, family and protected characteristics: never, and never speculated.
 - Anything meant for the candidate or a new manager leaves out compensation and interviewer evaluations.
 
 ## Follow-ups, only when asked
 
 - Sending the brief to a document, chat or email: the user names the destination; confirm it and what is left out.
-- A Metaview candidate pack or debrief note (`generate_notes`, `manage_notes_sources`) is a change: load `metaview-write`.
+- A Metaview candidate pack or debrief note (`generate_notes`, `manage_notes_sources`) is a change: load
+  `metaview-write`.

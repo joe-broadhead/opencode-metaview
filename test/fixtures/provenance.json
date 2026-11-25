@@ -6,7 +6,7 @@
       "listedAt": "2026-11-14",
       "server": "metaview",
       "endpoint": "https://mcp.metaview.ai/mcp",
-      "source": "scripts/capture-tools.mjs, signed in",
+      "source": "the server's own tools/list, signed in",
       "host": "2.2.6",
       "protocol": "2025-06-18",
       "count": 68,
