@@ -35,14 +35,14 @@ test("a page is metadata-only meetings, oldest first, marked untrusted", async (
   assert.ok(page.events.every((event) => event.kind === "meeting" && event.text === ""))
   const first = page.events[0]
   assert.ok(first !== undefined)
-  assert.equal(first.title, "Ana Silva interview")
+  assert.equal(first.title, "Metaview conversation 9001")
   assert.equal(first.url, "https://app.metaview.ai/conversations/9001")
   assert.deepEqual(
-    first.actors.map((actor) => [actor.role, actor.name]),
+    first.actors.map((actor) => [actor.role, actor.name ?? null]),
     [
-      ["participant", "Northwind Recruiting"],
-      ["candidate", "Ana Silva"],
-      ["interviewer", "Kai Mensah"],
+      ["participant", null],
+      ["candidate", "<redacted:personal>"],
+      ["interviewer", "<redacted:personal>"],
     ],
   )
   const source = findSource(manifest, "metaview.conversations")
@@ -69,13 +69,13 @@ test("a cursor lists what follows it, and a later page can be empty", async () =
   assert.equal(third.more, false)
 })
 
-test("since with limit 1 pages to the end, each matching event exactly once", async () => {
+test("since then cursor-only paging lists each matching event exactly once", async () => {
   const reader = provider()
   const lower = Date.parse("2026-11-19T08:40:00.000Z")
   const seen: string[] = []
   let cursor: string | undefined
   for (let page = 0; page < 10; page++) {
-    const answer = await reader.page({ account: "work", request: request({ since: lower, limit: 1, ...(cursor === undefined ? {} : { cursor }) }), now: NOW, call })
+    const answer = await reader.page({ account: "work", request: request({ ...(cursor === undefined ? { since: lower } : { cursor }), limit: 1 }), now: NOW, call })
     seen.push(...answer.events.map((event) => event.external_id))
     if (answer.events.length === 0) break
     cursor = answer.cursor
@@ -93,6 +93,29 @@ test("two conversations at the same start are split across a page boundary, with
   const second = await pair.page({ account: "work", request: request({ cursor: first.cursor, limit: 1 }), now: NOW, call })
   assert.deepEqual(second.events.map((event) => event.external_id), ["9202"])
   assert.equal(second.more, false)
+})
+
+test("same-start ids 999 and 1000 are both listed exactly once with limit 1", async () => {
+  const tie = provider(fakeHost({ tieText: true }))
+  const same = Date.parse("2026-11-23T10:00:00.000Z")
+  const first = await tie.page({ account: "work", request: request({ since: same, limit: 1 }), now: NOW, call })
+  const second = await tie.page({ account: "work", request: request({ cursor: first.cursor, limit: 1 }), now: NOW, call })
+  const third = await tie.page({ account: "work", request: request({ cursor: second.cursor, limit: 1 }), now: NOW, call })
+  const seen = [...first.events, ...second.events].map((event) => event.external_id)
+  assert.deepEqual([...seen].sort(), ["1000", "999"])
+  assert.equal(new Set(seen).size, 2)
+  assert.deepEqual(third.events, [])
+})
+
+test("two reports are merged before the page is cut", async () => {
+  const multi = provider(fakeHost({ multiReport: true }))
+  const lower = Date.parse("2026-11-20T00:00:00.000Z")
+  const first = await multi.page({ account: "work", request: request({ since: lower, scope: { reports: ["rpt-a", "rpt-b"] }, limit: 2 }), now: NOW, call })
+  assert.deepEqual(first.events.map((event) => event.external_id), ["1", "2"])
+  const second = await multi.page({ account: "work", request: request({ cursor: first.cursor, scope: { reports: ["rpt-a", "rpt-b"] }, limit: 2 }), now: NOW, call })
+  assert.deepEqual(second.events.map((event) => event.external_id), ["3"])
+  const third = await multi.page({ account: "work", request: request({ cursor: second.cursor, scope: { reports: ["rpt-a", "rpt-b"] }, limit: 2 }), now: NOW, call })
+  assert.deepEqual(third.events, [])
 })
 
 test("a cursor another account holds is refused, not restarted", async () => {
@@ -135,6 +158,13 @@ test("a server that needs a sign-in is NEEDS_SIGN_IN, and a failed tool is UNAVA
   assert.equal(await refusalCode(() => provider(fakeHost({ serverState: "needs_auth" })).page({ account: "work", request: request({ since }), now: NOW, call })), "NEEDS_SIGN_IN")
   assert.equal(await refusalCode(() => provider(fakeHost({ failSearch: "rate limit exceeded" })).page({ account: "work", request: request({ since }), now: NOW, call })), "RATE_LIMITED")
   assert.equal(await refusalCode(() => provider(fakeHost({ failSearch: "the upstream exploded" })).page({ account: "work", request: request({ since }), now: NOW, call })), "UNAVAILABLE")
+})
+
+test("a denied or declined vendor tool is PERMISSION_DENIED, not UNAVAILABLE", async () => {
+  const denied = provider(fakeHost({ denyTool: "metaview-work_search_conversations" }))
+  assert.equal(await refusalCode(() => denied.page({ account: "work", request: request({ since }), now: NOW, call })), "PERMISSION_DENIED")
+  const asked = provider(fakeHost({ askTool: "metaview-work_search_conversations" }))
+  assert.equal(await refusalCode(() => asked.page({ account: "work", request: request({ since }), now: NOW, call })), "PERMISSION_DENIED")
 })
 
 test("a missing tool names the server's state", async () => {

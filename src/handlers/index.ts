@@ -21,8 +21,8 @@ export interface HandlerRuntime {
   readonly hostVersion: string
   /** The accounts the options declare, in their order. */
   readonly accounts: readonly AccountProfile[]
-  /** What registering the MCP servers could not do, for `status`. */
-  readonly accountProblems: readonly string[]
+  /** What registering the MCP servers or loading a skill could not do, for `status`. */
+  readonly problems: readonly string[]
   readonly provider: Provider
   /** The clock a page's `asOf` is stamped with; tests pass a fixed one. */
   readonly clock: () => number

@@ -12,6 +12,7 @@ import { registerMcpAccounts } from "./accounts.ts"
 import { handlersFor } from "./handlers/index.ts"
 import { manifest, packageName, version } from "./manifest.ts"
 import { createProvider, SOURCE_ID } from "./provider/client.ts"
+import { loadSkills, registerSkills } from "./skills.ts"
 
 export default Plugin.define({
   id: manifest.plugin.name,
@@ -27,18 +28,23 @@ export default Plugin.define({
 
     // The vendor's MCP server holds the credentials: one server per alias, named metaview or metaview-<alias>.
     const accounts = await registerMcpAccounts(context, manifest, options)
+    const skills = await loadSkills()
+    const skillRegistration = await registerSkills(context.skill, skills.skills)
 
     const handlers = handlersFor({
       plugin: manifest.plugin.name,
       version,
       hostVersion: context.app.version,
       accounts: plan.value.accounts,
-      accountProblems: [...accounts.problems],
+      problems: [...accounts.problems, ...skills.problems],
       provider: createProvider({ tool: context.tool, mcp: context.mcp }, { plugin: manifest.plugin.name, package: packageName, maxBytes: maxBytesOf(conversations) }),
       clock: Date.now,
     })
 
     const registration = await register(context, manifest, handlers)
-    return () => registration.dispose()
+    return async () => {
+      await registration.dispose()
+      await skillRegistration.dispose().catch(() => undefined)
+    }
   },
 })

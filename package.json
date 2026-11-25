@@ -570,14 +570,16 @@
   },
   "scripts": {
     "bundle": "node scripts/build.mjs",
+    "lint": "biome check .",
     "typecheck": "tsc -p tsconfig.json",
     "test": "node --test \"test/**/*.test.ts\"",
     "fixtures": "node scripts/record-fixture.mjs",
     "docs": "plugin-kit docs",
     "docs:check": "plugin-kit docs --check",
-    "check": "npm run typecheck && npm run bundle && npm run test && plugin-kit check && plugin-kit docs --check"
+    "check": "npm run lint && npm run typecheck && npm run bundle && npm run test && plugin-kit check && plugin-kit docs --check"
   },
   "devDependencies": {
+    "@biomejs/biome": "2.6.9",
     "@opencode/plugin": "2.4.1",
     "@opencode/sdk": "2.4.1",
     "@types/node": "24.19.2",

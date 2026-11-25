@@ -22,7 +22,19 @@ export interface FakeOptions {
   readonly failSearch?: string
   /** Serve two conversations that share one start, for the cursor's total order. */
   readonly sameTimestamp?: boolean
+  /** Serve 999 and 1000 at one start, whose ids sort in the opposite order as text. */
+  readonly tieText?: boolean
+  /** Serve two reports whose events interleave, for the multi-report merge. */
+  readonly multiReport?: boolean
+  /** Refuse this tool id as the host's permission deny. */
+  readonly denyTool?: string
+  /** Refuse this tool id as a rejected permission ask. */
+  readonly askTool?: string
 }
+
+const REDACTED = "<redacted:personal>"
+
+const plain = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value)
 
 interface Person {
   readonly value: string
@@ -72,31 +84,31 @@ const WORK: readonly Conversation[] = [
   {
     id: 9001,
     start: "2026-11-18T10:15:00.000Z",
-    candidate: { value: "candidate-9001", label: "Ana Silva" },
-    interviewer: { value: "user-101", label: "Kai Mensah" },
+    candidate: { value: "candidate-9001", label: REDACTED },
+    interviewer: { value: "user-101", label: REDACTED },
     report: "rpt-research",
     url: "https://app.metaview.ai/conversations/9001?t=12",
   },
   {
     id: 9002,
     start: "2026-11-19T08:40:00.000Z",
-    candidate: { value: "candidate-9002", label: "Rowan Vale" },
-    interviewer: { value: "user-101", label: "Kai Mensah" },
+    candidate: { value: "candidate-9002", label: REDACTED },
+    interviewer: { value: "user-101", label: REDACTED },
     report: "rpt-research",
     url: "https://app.metaview.ai/conversations/9002",
   },
   {
     id: 9003,
     start: "2026-11-20T14:05:00.000Z",
-    candidate: { value: "candidate-9003", label: "Mira Chen" },
-    interviewer: { value: "user-102", label: "Ana Duarte" },
+    candidate: { value: "candidate-9003", label: REDACTED },
+    interviewer: { value: "user-102", label: REDACTED },
     url: "https://app.metaview.ai/conversations/9003",
   },
   {
     id: 9004,
     start: "2026-11-21T09:00:00.000Z",
-    candidate: { value: "candidate-9004", label: "Theo Park" },
-    interviewer: { value: "user-101", label: "Kai Mensah" },
+    candidate: { value: "candidate-9004", label: REDACTED },
+    interviewer: { value: "user-101", label: REDACTED },
     url: "https://app.metaview.ai/conversations/9004",
   },
 ]
@@ -105,15 +117,15 @@ const PERSONAL: readonly Conversation[] = [
   {
     id: 9101,
     start: "2026-11-17T19:05:00.000Z",
-    candidate: { value: "candidate-9101", label: "Sam Okafor" },
-    interviewer: { value: "user-103", label: "Rowan Vale" },
+    candidate: { value: "candidate-9101", label: REDACTED },
+    interviewer: { value: "user-103", label: REDACTED },
     url: "https://app.metaview.ai/conversations/9101",
   },
   {
     id: 9102,
     start: "2026-11-22T11:30:00.000Z",
-    candidate: { value: "candidate-9102", label: "Lee Gomez" },
-    interviewer: { value: "user-103", label: "Rowan Vale" },
+    candidate: { value: "candidate-9102", label: REDACTED },
+    interviewer: { value: "user-103", label: REDACTED },
     url: "https://app.metaview.ai/conversations/9102",
   },
 ]
@@ -122,16 +134,57 @@ const SAME_TIME: readonly Conversation[] = [
   {
     id: 9201,
     start: "2026-11-23T10:00:00.000Z",
-    candidate: { value: "candidate-9201", label: "Nadia Farouk" },
-    interviewer: { value: "user-101", label: "Kai Mensah" },
+    candidate: { value: "candidate-9201", label: REDACTED },
+    interviewer: { value: "user-101", label: REDACTED },
     url: "https://app.metaview.ai/conversations/9201",
   },
   {
     id: 9202,
     start: "2026-11-23T10:00:00.000Z",
-    candidate: { value: "candidate-9202", label: "Owen Blake" },
-    interviewer: { value: "user-101", label: "Kai Mensah" },
+    candidate: { value: "candidate-9202", label: REDACTED },
+    interviewer: { value: "user-101", label: REDACTED },
     url: "https://app.metaview.ai/conversations/9202",
+  },
+]
+
+const TEXT_TIE: readonly Conversation[] = [
+  {
+    id: 999,
+    start: "2026-11-23T10:00:00.000Z",
+    candidate: { value: "candidate-999", label: REDACTED },
+    interviewer: { value: "user-101", label: REDACTED },
+    url: "https://app.metaview.ai/conversations/999",
+  },
+  {
+    id: 1000,
+    start: "2026-11-23T10:00:00.000Z",
+    candidate: { value: "candidate-1000", label: REDACTED },
+    interviewer: { value: "user-101", label: REDACTED },
+    url: "https://app.metaview.ai/conversations/1000",
+  },
+]
+
+const MULTI_REPORT: readonly Conversation[] = [
+  {
+    id: 2,
+    start: "2026-11-20T10:00:00.000Z",
+    candidate: { value: "candidate-2", label: REDACTED },
+    interviewer: { value: "user-101", label: REDACTED },
+    report: "rpt-a",
+  },
+  {
+    id: 3,
+    start: "2026-11-20T11:00:00.000Z",
+    candidate: { value: "candidate-3", label: REDACTED },
+    interviewer: { value: "user-101", label: REDACTED },
+    report: "rpt-a",
+  },
+  {
+    id: 1,
+    start: "2026-11-20T09:00:00.000Z",
+    candidate: { value: "candidate-1", label: REDACTED },
+    interviewer: { value: "user-101", label: REDACTED },
+    report: "rpt-b",
   },
 ]
 
@@ -154,7 +207,15 @@ function search(conversations: readonly Conversation[], input: Record<string, un
   const limit = typeof input["limit"] === "number" ? input["limit"] : 20
   const offset = typeof input["offset"] === "number" ? input["offset"] : 0
   const ascending = input["sort_ascending"] === true
-  const all = conversations.filter((conversation) => report === undefined || conversation.report === report)
+  let all = conversations.filter((conversation) => report === undefined || conversation.report === report)
+  // Apply the provider's default:start_time relative `after` filter. The fake uses the fixed test clock.
+  for (const filter of Array.isArray(input["filters"]) ? input["filters"].filter(plain) : []) {
+    if (filter["field_id"] !== "default:start_time" || filter["operation"] !== "after" || !plain(filter["value"])) continue
+    const value = filter["value"]
+    if (value["scope"] !== "relative" || typeof value["value"] !== "number" || value["value"] >= 0) continue
+    const floor = NOW + value["value"] * 1000
+    all = all.filter((conversation) => Date.parse(conversation.start) >= floor)
+  }
   const ordered = [...all].sort((left, right) => {
     const time = Date.parse(left.start) - Date.parse(right.start)
     return (ascending ? time : -time) || left.id - right.id
@@ -186,7 +247,15 @@ export function fakeHost(options: FakeOptions = {}): ProviderHost {
       name,
       description: `Fake Metaview ${name}`,
       input: { type: "object" },
-      execute: async (input: Record<string, unknown>) => ({ output: execute(input) }),
+      execute: async (input: Record<string, unknown>) => {
+        if (options.denyTool === `${server}_${name}`) {
+          throw Object.assign(new Error("Permission denied"), { _tag: "Tool.Error", error: { _tag: "Permission.BlockedError" } })
+        }
+        if (options.askTool === `${server}_${name}`) {
+          throw Object.assign(new Error("Permission declined"), { _tag: "Tool.Error", error: { _tag: "Permission.DeclinedError" } })
+        }
+        return { output: execute(input) }
+      },
     })
     return [
       ...(omit.has(`${server}_get_user_context`)
@@ -202,7 +271,8 @@ export function fakeHost(options: FakeOptions = {}): ProviderHost {
         : [
             tool("search_conversations", (input) => {
               if (options.failSearch !== undefined) throw new Error(options.failSearch)
-              return search(options.sameTimestamp === true ? SAME_TIME : (CONVERSATIONS[account] ?? []), input)
+              const dataset = options.sameTimestamp === true ? SAME_TIME : options.tieText === true ? TEXT_TIE : options.multiReport === true ? MULTI_REPORT : (CONVERSATIONS[account] ?? [])
+              return search(dataset, input)
             }),
           ]),
     ]

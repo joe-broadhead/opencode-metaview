@@ -28,7 +28,7 @@
     "metaview.conversations": {
       "cases": [
         {
-          "name": "a work page",
+          "name": "<redacted:personal>",
           "input": {
             "source": "conversations",
             "account": "work",
@@ -54,25 +54,24 @@
                   {
                     "role": "participant",
                     "id": "metaview:participant:8d1f5c7e-0000-4000-8000-000000000101",
-                    "name": "Northwind Recruiting",
                     "self": true
                   },
                   {
                     "role": "candidate",
                     "id": "metaview:contact:candidate-9001",
-                    "name": "Ana Silva"
+                    "name": "<redacted:personal>"
                   },
                   {
                     "role": "interviewer",
                     "id": "metaview:contact:user-101",
-                    "name": "Kai Mensah"
+                    "name": "<redacted:personal>"
                   }
                 ],
-                "title": "Ana Silva interview",
+                "title": "Metaview conversation 9001",
                 "text": "",
                 "url": "https://app.metaview.ai/conversations/9001",
                 "labels": [],
-                "hash": "sha256:ca1ab61a4d4a22d786c8d1f32b12901648593d74f4a07a6e28109a793f590fe0"
+                "hash": "sha256:a637456a25cddf577fbe5e52800a1c473e60cfec155b2d7c2d36d310e41e19ce"
               },
               {
                 "source": "conversations",
@@ -85,25 +84,24 @@
                   {
                     "role": "participant",
                     "id": "metaview:participant:8d1f5c7e-0000-4000-8000-000000000101",
-                    "name": "Northwind Recruiting",
                     "self": true
                   },
                   {
                     "role": "candidate",
                     "id": "metaview:contact:candidate-9002",
-                    "name": "Rowan Vale"
+                    "name": "<redacted:personal>"
                   },
                   {
                     "role": "interviewer",
                     "id": "metaview:contact:user-101",
-                    "name": "Kai Mensah"
+                    "name": "<redacted:personal>"
                   }
                 ],
-                "title": "Rowan Vale interview",
+                "title": "Metaview conversation 9002",
                 "text": "",
                 "url": "https://app.metaview.ai/conversations/9002",
                 "labels": [],
-                "hash": "sha256:235c9426aae2b7471fb3756cc5c914b857fedbe3f1c24322c4bff8e503a05aa6"
+                "hash": "sha256:42b515d7bbbca919f75973643db8daa06f51baed15b95b5d4524ce8573fefcc8"
               },
               {
                 "source": "conversations",
@@ -116,25 +114,24 @@
                   {
                     "role": "participant",
                     "id": "metaview:participant:8d1f5c7e-0000-4000-8000-000000000101",
-                    "name": "Northwind Recruiting",
                     "self": true
                   },
                   {
                     "role": "candidate",
                     "id": "metaview:contact:candidate-9003",
-                    "name": "Mira Chen"
+                    "name": "<redacted:personal>"
                   },
                   {
                     "role": "interviewer",
                     "id": "metaview:contact:user-102",
-                    "name": "Ana Duarte"
+                    "name": "<redacted:personal>"
                   }
                 ],
-                "title": "Mira Chen interview",
+                "title": "Metaview conversation 9003",
                 "text": "",
                 "url": "https://app.metaview.ai/conversations/9003",
                 "labels": [],
-                "hash": "sha256:5dc6e0c9a816ad32ed5ad096fa827fcf0d3634f9b1a30b2094e5676445e844b7"
+                "hash": "sha256:b6c1aae0cde1f8ef59f345459eb4d60967eccd91c253fe6e2ff1e079d1d5140a"
               },
               {
                 "source": "conversations",
@@ -147,25 +144,24 @@
                   {
                     "role": "participant",
                     "id": "metaview:participant:8d1f5c7e-0000-4000-8000-000000000101",
-                    "name": "Northwind Recruiting",
                     "self": true
                   },
                   {
                     "role": "candidate",
                     "id": "metaview:contact:candidate-9004",
-                    "name": "Theo Park"
+                    "name": "<redacted:personal>"
                   },
                   {
                     "role": "interviewer",
                     "id": "metaview:contact:user-101",
-                    "name": "Kai Mensah"
+                    "name": "<redacted:personal>"
                   }
                 ],
-                "title": "Theo Park interview",
+                "title": "Metaview conversation 9004",
                 "text": "",
                 "url": "https://app.metaview.ai/conversations/9004",
                 "labels": [],
-                "hash": "sha256:d134f65cbfdd70a90112bbb6bd9c4c6a5f261ac0a6d8d40ffd22c56c77ce43cc"
+                "hash": "sha256:0178fe775bf6b616397ffaed1f68ad2e75f385d97ab764e18f0957791f78f2ca"
               }
             ],
             "cursor": "eyJ2IjoyLCJzIjoiY29udmVyc2F0aW9ucyIsImIiOiIzMzkzMTc3ZGVmMzQ1MGQ3IiwiYWZ0ZXIiOnsidGltZSI6IjIwMjYtMTEtMjFUMDk6MDA6MDAuMDAwWiIsImlkIjoiOTAwNCJ9fQ",
@@ -176,7 +172,7 @@
           }
         },
         {
-          "name": "a personal page",
+          "name": "<redacted:personal>",
           "input": {
             "source": "conversations",
             "account": "personal",
@@ -202,25 +198,24 @@
                   {
                     "role": "participant",
                     "id": "metaview:participant:8d1f5c7e-0000-4000-8000-000000000102",
-                    "name": "Northwind Recruiting (personal)",
                     "self": true
                   },
                   {
                     "role": "candidate",
                     "id": "metaview:contact:candidate-9101",
-                    "name": "Sam Okafor"
+                    "name": "<redacted:personal>"
                   },
                   {
                     "role": "interviewer",
                     "id": "metaview:contact:user-103",
-                    "name": "Rowan Vale"
+                    "name": "<redacted:personal>"
                   }
                 ],
-                "title": "Sam Okafor interview",
+                "title": "Metaview conversation 9101",
                 "text": "",
                 "url": "https://app.metaview.ai/conversations/9101",
                 "labels": [],
-                "hash": "sha256:e1c068084aef93787221bf8d0cf35a64fcf62a0c9b002a3a084d2c6591d66062"
+                "hash": "sha256:b9f813bf437eca18336e25d8931b173de621ef85f8cda7dcb8df6f9b37dee075"
               },
               {
                 "source": "conversations",
@@ -233,25 +228,24 @@
                   {
                     "role": "participant",
                     "id": "metaview:participant:8d1f5c7e-0000-4000-8000-000000000102",
-                    "name": "Northwind Recruiting (personal)",
                     "self": true
                   },
                   {
                     "role": "candidate",
                     "id": "metaview:contact:candidate-9102",
-                    "name": "Lee Gomez"
+                    "name": "<redacted:personal>"
                   },
                   {
                     "role": "interviewer",
                     "id": "metaview:contact:user-103",
-                    "name": "Rowan Vale"
+                    "name": "<redacted:personal>"
                   }
                 ],
-                "title": "Lee Gomez interview",
+                "title": "Metaview conversation 9102",
                 "text": "",
                 "url": "https://app.metaview.ai/conversations/9102",
                 "labels": [],
-                "hash": "sha256:1f8f327d52829a6762f39f8bcb58a4e823e2caa784804723ad87acbaae12f81f"
+                "hash": "sha256:0551842753dc5982f350b8e4a5c0ad257ca67ce3a95ffd92d9c0ae8edada3f21"
               }
             ],
             "cursor": "eyJ2IjoyLCJzIjoiY29udmVyc2F0aW9ucyIsImIiOiJkZjk4MTBmOTRhYjdhMjI2IiwiYWZ0ZXIiOnsidGltZSI6IjIwMjYtMTEtMjJUMTE6MzA6MDAuMDAwWiIsImlkIjoiOTEwMiJ9fQ",
@@ -262,7 +256,7 @@
           }
         },
         {
-          "name": "only the confirmed report",
+          "name": "<redacted:personal>",
           "input": {
             "source": "conversations",
             "account": "work",
@@ -293,25 +287,24 @@
                   {
                     "role": "participant",
                     "id": "metaview:participant:8d1f5c7e-0000-4000-8000-000000000101",
-                    "name": "Northwind Recruiting",
                     "self": true
                   },
                   {
                     "role": "candidate",
                     "id": "metaview:contact:candidate-9001",
-                    "name": "Ana Silva"
+                    "name": "<redacted:personal>"
                   },
                   {
                     "role": "interviewer",
                     "id": "metaview:contact:user-101",
-                    "name": "Kai Mensah"
+                    "name": "<redacted:personal>"
                   }
                 ],
-                "title": "Ana Silva interview",
+                "title": "Metaview conversation 9001",
                 "text": "",
                 "url": "https://app.metaview.ai/conversations/9001",
                 "labels": [],
-                "hash": "sha256:ca1ab61a4d4a22d786c8d1f32b12901648593d74f4a07a6e28109a793f590fe0"
+                "hash": "sha256:a637456a25cddf577fbe5e52800a1c473e60cfec155b2d7c2d36d310e41e19ce"
               },
               {
                 "source": "conversations",
@@ -324,25 +317,24 @@
                   {
                     "role": "participant",
                     "id": "metaview:participant:8d1f5c7e-0000-4000-8000-000000000101",
-                    "name": "Northwind Recruiting",
                     "self": true
                   },
                   {
                     "role": "candidate",
                     "id": "metaview:contact:candidate-9002",
-                    "name": "Rowan Vale"
+                    "name": "<redacted:personal>"
                   },
                   {
                     "role": "interviewer",
                     "id": "metaview:contact:user-101",
-                    "name": "Kai Mensah"
+                    "name": "<redacted:personal>"
                   }
                 ],
-                "title": "Rowan Vale interview",
+                "title": "Metaview conversation 9002",
                 "text": "",
                 "url": "https://app.metaview.ai/conversations/9002",
                 "labels": [],
-                "hash": "sha256:235c9426aae2b7471fb3756cc5c914b857fedbe3f1c24322c4bff8e503a05aa6"
+                "hash": "sha256:42b515d7bbbca919f75973643db8daa06f51baed15b95b5d4524ce8573fefcc8"
               }
             ],
             "cursor": "eyJ2IjoyLCJzIjoiY29udmVyc2F0aW9ucyIsImIiOiI2YTlhMzRhYzc5NTM3NDQ1IiwiYWZ0ZXIiOnsidGltZSI6IjIwMjYtMTEtMTlUMDg6NDA6MDAuMDAwWiIsImlkIjoiOTAwMiJ9fQ",
@@ -358,7 +350,7 @@
           }
         },
         {
-          "name": "an empty window",
+          "name": "<redacted:personal>",
           "input": {
             "source": "conversations",
             "account": "work",
@@ -381,7 +373,7 @@
           }
         },
         {
-          "name": "another account's cursor is refused",
+          "name": "<redacted:personal>",
           "input": {
             "source": "conversations",
             "account": "personal",
@@ -391,7 +383,7 @@
           "refuses": "CURSOR_INVALID: the cursor belongs to another plugin, source, account or scope. Next step: Read again without the cursor to start a fresh window."
         },
         {
-          "name": "an unknown source is refused",
+          "name": "<redacted:personal>",
           "input": {
             "source": "other",
             "account": "work"

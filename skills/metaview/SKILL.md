@@ -16,8 +16,8 @@ If Metaview's tools are absent, run `/connect` and choose the account's server, 
 
 ## Accounts
 
-The plugin serves one MCP server per alias. On the plugin's own reads (`probe`, `events_list`, `status`) pass
-`account: "<alias>"` when more than one is configured; without it the call is `ACCOUNT_REQUIRED`. Metaview's pass-through
+The plugin serves one MCP server per alias. On `probe` and `events_list`, pass `account: "<alias>"` when more than one
+is configured; without it the call is `ACCOUNT_REQUIRED`. `status` takes no account. Metaview's pass-through
 tools carry the alias in their server prefix: `metaview_` for the first account, `metaview-work_` for `work`. Use the
 alias the person named, and never mix one account's conversation with another's.
 

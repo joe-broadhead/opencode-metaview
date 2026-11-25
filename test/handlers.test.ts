@@ -50,7 +50,7 @@ test("a server that needs a sign-in makes every account needs_sign_in", async ()
 test("an account problem makes status an error and its next step is redacted", async () => {
   const answer = (await run(runtime, "status", {})) as Record<string, unknown>
   assert.equal(answer["state"], "ready")
-  const broken = runtimeFor(undefined, undefined, { accountProblems: ["the metaview-work server failed at https://example.test/x?token=secret"] })
+  const broken = runtimeFor(undefined, undefined, { problems: ["the metaview-work server failed at https://example.test/x?token=secret"] })
   const reported = (await run(broken, "status", {})) as Record<string, unknown>
   assert.equal(reported["state"], "error")
   assert.equal(reported["nextStep"], "the metaview-work server failed at https://example.test/x?token=…")

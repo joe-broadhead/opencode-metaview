@@ -12396,8 +12396,24 @@ async function missingTool(host2, alias, tool) {
   const detail2 = reason === void 0 ? "" : `: ${reasonOf2(reason)}`;
   return new SourceError({ code: "UNAVAILABLE", what: `Metaview's ${tool} is not available on the ${server} server${detail2}`, next: `Check the ${server} server in /mcps, then try again.` });
 }
+var PERMISSION_DENIAL_TAGS = /* @__PURE__ */ new Set(["Permission.BlockedError", "Permission.DeclinedError", "Permission.CorrectedError"]);
+function permissionDenied(error2) {
+  if (typeof error2 !== "object" || error2 === null) return false;
+  const record3 = error2;
+  if (record3.code === "PERMISSION_DENIED") return true;
+  if (typeof record3._tag === "string" && PERMISSION_DENIAL_TAGS.has(record3._tag)) return true;
+  const inner = record3.error;
+  return typeof inner === "object" && inner !== null && typeof inner._tag === "string" && PERMISSION_DENIAL_TAGS.has(inner._tag);
+}
 function toolFailure(error2, alias, tool) {
   const message2 = reasonOf2(error2);
+  if (permissionDenied(error2)) {
+    return new SourceError({
+      code: "PERMISSION_DENIED",
+      what: `Metaview's ${tool} is not permitted for ${alias}`,
+      next: `Allow ${tool} for ${alias} in the agent's rules, or ask the person to allow it.`
+    });
+  }
   if (/needs? (?:a )?sign.?in|not authenticated|unauthori[sz]ed|\b401\b/i.test(message2)) {
     return new SourceError({ code: "NEEDS_SIGN_IN", what: `Metaview's ${tool} could not sign in`, next: signInNext(alias) });
   }
@@ -12442,10 +12458,6 @@ function fieldRows(row, field) {
   const fields = row["fields"];
   return plain5(fields) ? rowsOf(fields[field]) : [];
 }
-function fieldLabel(row, field) {
-  const entry = fieldRows(row, field)[0];
-  return entry === void 0 ? void 0 : text2(entry["label"]) ?? text2(entry["value"]);
-}
 function timeOf(row) {
   const entry = fieldRows(row, "default:start_time")[0];
   if (entry === void 0) return void 0;
@@ -12482,8 +12494,7 @@ function conversationEvent(row, account, owner) {
   const external = text2(row["id"]);
   const time3 = timeOf(row);
   if (external === void 0 || time3 === void 0) return void 0;
-  const candidate = fieldLabel(row, "default:candidate");
-  const actors = [{ role: "participant", id: owner.id, name: owner.label, self: true }];
+  const actors = [{ role: "participant", id: owner.id, self: true }];
   for (const entry of fieldRows(row, "default:candidate")) {
     const actor = personActor(entry, "candidate");
     if (actor !== void 0) actors.push(actor);
@@ -12501,7 +12512,7 @@ function conversationEvent(row, account, owner) {
     occurred_at: time3,
     thread: null,
     actors,
-    title: candidate === void 0 ? `Metaview conversation ${external}` : `${candidate} interview`,
+    title: `Metaview conversation ${external}`,
     text: "",
     ...url2 === void 0 ? {} : { url: url2 },
     labels: []
@@ -12536,6 +12547,7 @@ async function scan(host2, alias, report, after, since, now, wanted, call) {
   const found = [];
   let more = false;
   let offset = 0;
+  let boundary;
   for (let page = 0; page < MAX_PAGES; page++) {
     const answer = await runTool(
       host2,
@@ -12562,12 +12574,13 @@ async function scan(host2, alias, report, after, since, now, wanted, call) {
       if (position === void 0) continue;
       if (after !== void 0 && !afterPosition(position, after)) continue;
       if (since !== void 0 && position.time < since) continue;
-      found.push({ position, row });
-      if (found.length >= wanted) {
+      if (boundary !== void 0 && position.time > boundary) {
         stopped = true;
         more = hasMore || index < rows.length - 1;
         break;
       }
+      found.push({ position, row });
+      if (boundary === void 0 && found.length >= wanted) boundary = found[wanted - 1].position.time;
     }
     if (stopped) break;
     const short = rows.length < RAW_LIMIT;
@@ -12625,7 +12638,6 @@ function createProvider(host2, options) {
         const scanned = await scan(host2, account, report, after, since, now, wanted, call);
         scans.push(...scanned.found);
         more = more || scanned.more;
-        if (ordered(scans).length >= wanted) break;
       }
       const chosen = ordered(scans);
       const events2 = [];
@@ -12746,7 +12758,7 @@ function statusHandler(runtime) {
         version: runtime.version,
         hostVersion: runtime.hostVersion,
         accounts: accountStatuses(runtime.accounts, signals),
-        problems: [...runtime.accountProblems],
+        problems: [...runtime.problems],
         unguardedAgents: await call.unguardedAgents()
       });
     }
@@ -12762,6 +12774,73 @@ function handlersFor(runtime) {
   };
 }
 
+// src/skills.ts
+import { readdir, readFile } from "node:fs/promises";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { Skill } from "@opencode/plugin";
+var SKILLS_DIR = fileURLToPath(new URL("../skills/", import.meta.url));
+var SkillLoadError = class extends Error {
+  code = "SKILLS_INVALID";
+  what;
+  next;
+  constructor(what, next = "Reinstall the plugin, or fix the skill's frontmatter.") {
+    super(`SKILLS_INVALID: ${what}. Next step: ${next}`);
+    this.name = "SkillLoadError";
+    this.what = what;
+    this.next = next;
+  }
+};
+function unquote(value) {
+  return value.replace(/^(["'])(.*)\1$/, "$2");
+}
+function parseSkill(id, path, text3) {
+  const match = /^---\n([\s\S]*?)\n---\n?([\s\S]*)$/.exec(text3.replace(/\r\n/g, "\n"));
+  if (match === null) throw new SkillLoadError(`skills/${id}/SKILL.md has no frontmatter`);
+  const fields = /* @__PURE__ */ new Map();
+  for (const line of match[1].split("\n")) {
+    const at = line.indexOf(":");
+    if (at < 0) continue;
+    fields.set(line.slice(0, at).trim(), unquote(line.slice(at + 1).trim()));
+  }
+  if (fields.get("name") !== id) throw new SkillLoadError(`skills/${id}/SKILL.md must be named "${id}" in its frontmatter`);
+  const description = fields.get("description");
+  if (description === void 0 || description === "") throw new SkillLoadError(`skills/${id}/SKILL.md has no description`);
+  return {
+    id: Skill.ID.make(id),
+    name: Skill.Name.make(id),
+    description,
+    path: Skill.Info.fields.path.make(path),
+    content: match[2].trim()
+  };
+}
+async function loadSkills(directory = SKILLS_DIR) {
+  const skills = [];
+  const problems = [];
+  let names = [];
+  try {
+    const entries = await readdir(directory, { withFileTypes: true });
+    names = entries.filter((entry) => entry.isDirectory()).map((entry) => String(entry.name)).sort((left, right) => left.localeCompare(right));
+  } catch (error2) {
+    const reason = error2 instanceof Error ? error2.message : String(error2);
+    return { skills, problems: [new SkillLoadError(`the skills directory cannot be read (${reason})`).message] };
+  }
+  for (const name of names) {
+    const path = join(directory, name, "SKILL.md");
+    try {
+      skills.push(parseSkill(name, path, await readFile(path, "utf8")));
+    } catch (error2) {
+      problems.push(error2 instanceof SkillLoadError ? error2.message : new SkillLoadError(`skills/${name}/SKILL.md cannot be read (${error2 instanceof Error ? error2.message : String(error2)})`).message);
+    }
+  }
+  return { skills, problems };
+}
+function registerSkills(skill, skills) {
+  return skill.transform((editor) => {
+    for (const info of skills) editor.add(info);
+  });
+}
+
 // src/index.ts
 var src_default = Plugin.define({
   id: manifest.plugin.name,
@@ -12773,17 +12852,22 @@ var src_default = Plugin.define({
     const conversations = findSource(manifest, SOURCE_ID2);
     if (conversations === void 0) throw new Error(`OPTIONS_INVALID: the manifest declares no ${SOURCE_ID2} source. Next step: add the conversations source to capabilities.sources.`);
     const accounts = await registerMcpAccounts(context, manifest, options);
+    const skills = await loadSkills();
+    const skillRegistration = await registerSkills(context.skill, skills.skills);
     const handlers = handlersFor({
       plugin: manifest.plugin.name,
       version: version2,
       hostVersion: context.app.version,
       accounts: plan.value.accounts,
-      accountProblems: [...accounts.problems],
+      problems: [...accounts.problems, ...skills.problems],
       provider: createProvider({ tool: context.tool, mcp: context.mcp }, { plugin: manifest.plugin.name, package: packageName, maxBytes: maxBytesOf(conversations) }),
       clock: Date.now
     });
     const registration = await register(context, manifest, handlers);
-    return () => registration.dispose();
+    return async () => {
+      await registration.dispose();
+      await skillRegistration.dispose().catch(() => void 0);
+    };
   }
 });
 export {

@@ -23,9 +23,9 @@ Each alias can belong to a different Metaview workspace, because the workspace i
 
 ## Picking an account
 
-Pass `account: "<alias>"` on a method that takes one: `probe`, `events_list`, and every plugin method that reads
-Metaview. Metaview's pass-through tools are named per server, so the agent picks the alias by the server prefix
-(`metaview_` for the first account, `metaview-work_` for `work`).
+Pass `account: "<alias>"` on `probe` and `events_list`. `status` takes no account: it reports every alias, and
+`register` refuses an `account` field on it as `INPUT_INVALID`. Metaview's pass-through tools are named per server, so
+the agent picks the alias by the server prefix (`metaview_` for the first account, `metaview-work_` for `work`).
 
 With two aliases and no account, a call is refused with `ACCOUNT_REQUIRED`, whose next step lists the aliases. An alias
 the plugin does not serve is `ACCOUNT_UNKNOWN`.

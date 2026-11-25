@@ -159,9 +159,29 @@ async function missingTool(host: ProviderHost, alias: string, tool: string): Pro
   return new SourceError({ code: "UNAVAILABLE", what: `Metaview's ${tool} is not available on the ${server} server${detail}`, next: `Check the ${server} server in /mcps, then try again.` })
 }
 
+/** The host's permission denials, as OpenCode's tool error carries them. */
+const PERMISSION_DENIAL_TAGS = new Set(["Permission.BlockedError", "Permission.DeclinedError", "Permission.CorrectedError"])
+
+/** True when a tool error is the host refusing the vendor tool's own `<server>_<tool>` action. */
+function permissionDenied(error: unknown): boolean {
+  if (typeof error !== "object" || error === null) return false
+  const record = error as { readonly code?: unknown; readonly _tag?: unknown; readonly error?: unknown }
+  if (record.code === "PERMISSION_DENIED") return true
+  if (typeof record._tag === "string" && PERMISSION_DENIAL_TAGS.has(record._tag)) return true
+  const inner = record.error
+  return typeof inner === "object" && inner !== null && typeof (inner as { readonly _tag?: unknown })._tag === "string" && PERMISSION_DENIAL_TAGS.has((inner as { readonly _tag: string })._tag)
+}
+
 /** The contract refusal for a tool failure. */
 function toolFailure(error: unknown, alias: string, tool: string): SourceError {
   const message = reasonOf(error)
+  if (permissionDenied(error)) {
+    return new SourceError({
+      code: "PERMISSION_DENIED",
+      what: `Metaview's ${tool} is not permitted for ${alias}`,
+      next: `Allow ${tool} for ${alias} in the agent's rules, or ask the person to allow it.`,
+    })
+  }
   if (/needs? (?:a )?sign.?in|not authenticated|unauthori[sz]ed|\b401\b/i.test(message)) {
     return new SourceError({ code: "NEEDS_SIGN_IN", what: `Metaview's ${tool} could not sign in`, next: signInNext(alias) })
   }
@@ -214,12 +234,6 @@ function fieldRows(row: Row, field: string): Row[] {
   return plain(fields) ? rowsOf(fields[field]) : []
 }
 
-/** The label a person reads for a field, else its value. */
-function fieldLabel(row: Row, field: string): string | undefined {
-  const entry = fieldRows(row, field)[0]
-  return entry === undefined ? undefined : (text(entry["label"]) ?? text(entry["value"]))
-}
-
 /** A conversation's start, as epoch milliseconds: `default:start_time` in its value, or a nested value. */
 function timeOf(row: Row): number | undefined {
   const entry = fieldRows(row, "default:start_time")[0]
@@ -265,8 +279,7 @@ function conversationEvent(row: Row, account: string, owner: Owner): SourceEvent
   const external = text(row["id"])
   const time = timeOf(row)
   if (external === undefined || time === undefined) return undefined
-  const candidate = fieldLabel(row, "default:candidate")
-  const actors: EventActor[] = [{ role: "participant", id: owner.id, name: owner.label, self: true }]
+  const actors: EventActor[] = [{ role: "participant", id: owner.id, self: true }]
   for (const entry of fieldRows(row, "default:candidate")) {
     const actor = personActor(entry, "candidate")
     if (actor !== undefined) actors.push(actor)
@@ -284,7 +297,7 @@ function conversationEvent(row: Row, account: string, owner: Owner): SourceEvent
     occurred_at: time,
     thread: null,
     actors,
-    title: candidate === undefined ? `Metaview conversation ${external}` : `${candidate} interview`,
+    title: `Metaview conversation ${external}`,
     text: "",
     ...(url === undefined ? {} : { url }),
     labels: [],
@@ -360,6 +373,8 @@ async function scan(
   const found: Found[] = []
   let more = false
   let offset = 0
+  /** The start time of the wanted-th event: every event at that start is kept before a page is cut. */
+  let boundary: number | undefined
   for (let page = 0; page < MAX_PAGES; page++) {
     const answer = await runTool(
       host,
@@ -386,12 +401,13 @@ async function scan(
       if (position === undefined) continue
       if (after !== undefined && !afterPosition(position, after)) continue
       if (since !== undefined && position.time < since) continue
-      found.push({ position, row })
-      if (found.length >= wanted) {
+      if (boundary !== undefined && position.time > boundary) {
         stopped = true
         more = hasMore || index < rows.length - 1
         break
       }
+      found.push({ position, row })
+      if (boundary === undefined && found.length >= wanted) boundary = found[wanted - 1]!.position.time
     }
     if (stopped) break
     const short = rows.length < RAW_LIMIT
@@ -451,11 +467,11 @@ export function createProvider(host: ProviderHost, options: { readonly plugin: s
       const reports = reportIds(request.scope)
       const scans: Found[] = []
       let more = false
+      // Every report is scanned before the merge: an earlier event in a later report must not be lost.
       for (const report of reports.length === 0 ? [undefined] : reports) {
         const scanned = await scan(host, account, report, after, since, now, wanted, call)
         scans.push(...scanned.found)
         more = more || scanned.more
-        if (ordered(scans).length >= wanted) break
       }
       const chosen = ordered(scans)
       const events: SourceEvent[] = []

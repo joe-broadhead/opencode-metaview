@@ -7,14 +7,16 @@
 | Entry | `src/index.ts` | `Plugin.define({ id, setup })`, the host gate, the account wiring and one `register` call |
 | Accounts | `src/accounts.ts` | one Metaview MCP server per alias, through the contract's `accounts` module |
 | Manifest | `src/manifest.ts` | reads `package.json` `capabilities` and checks it with the contract's validator |
-| Handlers | `src/handlers/` | one handler per method: the input, the answer schema, the description and the work |
+| Handlers | `src/handlers/` | one handler per plugin method: the input, the answer schema, the description and the work; the 68 vendor tools have no handler |
 | Provider | `src/provider/client.ts` | the two Metaview MCP tools the plugin reads, and the page and probe normalisation |
 
-The entry is deliberately thin. `register` from the contract wires doors 1–3: one agent tool per method in the
-`metaview` namespace, the same tools in Code Mode, one RPC registration under `metaview`, the permission assertions on
-`<alias>:<operation>`, the access rules inserted into every agent and the bus writer (empty, because the manifest
-declares no event). This repository never calls `ctx.tool.transform`, `ctx.rpc.register` or `ctx.permission.assert`
-itself.
+The entry is deliberately thin. `register` from the contract wires doors 1–3 for the plugin's own methods: one agent
+tool per plugin method in the `metaview` namespace, the same tools in Code Mode, one RPC registration under `metaview`,
+the permission assertions on `<alias>:<operation>`, the access rules inserted into every agent and the bus writer
+(empty, because the manifest declares no event). The 68 `mcp:` rows are the vendor server's tools: the plugin declares
+them for their class and per-alias rules, but registers neither a handler nor an agent tool for them. This repository
+never calls `ctx.tool.transform`, `ctx.rpc.register` or `ctx.permission.assert` itself; `src/skills.ts` is the one other
+registration, for the plugin's skills.
 
 ## The call path
 

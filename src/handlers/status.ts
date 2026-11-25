@@ -43,7 +43,7 @@ export function statusHandler(runtime: HandlerRuntime): MethodHandler {
         version: runtime.version,
         hostVersion: runtime.hostVersion,
         accounts: accountStatuses(runtime.accounts, signals),
-        problems: [...runtime.accountProblems],
+        problems: [...runtime.problems],
         unguardedAgents: await call.unguardedAgents(),
       })
     },
