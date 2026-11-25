@@ -68,6 +68,6 @@ cursor to the account and scope. `status` reads each alias's identity on demand 
 
 ## Build
 
-`scripts/build.mjs` bundles `src/index.ts` into `dist/index.js` with esbuild. `@opencode/*` stays external, because
-OpenCode provides it; the contract modules are bundled, so an install needs no build. `dist/` is generated and is not
-committed.
+`scripts/build.mjs` bundles `src/index.ts` into `dist/index.js` with esbuild through `npm run bundle`. `@opencode/*`
+stays external, because OpenCode provides it; the contract modules are bundled, so an install needs no build. `dist/` is
+generated and committed, and CI runs `npm run bundle && git diff --exit-code dist/` so a stale bundle fails.

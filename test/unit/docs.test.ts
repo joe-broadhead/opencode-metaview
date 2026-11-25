@@ -26,13 +26,13 @@ function installSpecs(text: string): (string | undefined)[] {
   return [...text.matchAll(/github:we-the-rebel-alliance\/metaview-plugin(#[A-Za-z0-9.<>_-]+)?/g)].map((match) => match[1])
 }
 
-test("every install line names a versioned tag, never a ref that is only #v or untagged", () => {
+test("every install line names exactly the v0.0.0 tag", () => {
   let installs = 0
   for (const file of guides) {
     for (const ref of installSpecs(read(file))) {
       installs++
       assert.ok(ref !== undefined, `${file}: an install spec is untagged`)
-      assert.ok(ref === "#v<version>" || /^#v\d+\.\d+\.\d+$/.test(ref), `${file}: ${ref} is not #v<version> or a full release tag`)
+      assert.equal(ref, "#v0.0.0", `${file}: ${ref} is not #v0.0.0`)
     }
   }
   assert.ok(installs > 0, "no guide names an install spec")

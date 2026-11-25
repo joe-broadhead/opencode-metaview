@@ -11,7 +11,7 @@ npm ci --ignore-scripts
 npm run check
 ```
 
-`npm run check` runs the typecheck, the build, the tests, `plugin-kit check` and `plugin-kit docs --check`. It needs
+`npm run check` runs the typecheck, the bundle, the tests, `plugin-kit check` and `plugin-kit docs --check`. It needs
 Node 24. The tests use Node's own test runner.
 
 ## Change the plugin

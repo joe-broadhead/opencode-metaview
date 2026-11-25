@@ -39,7 +39,8 @@ jobs:
         run: git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"
       - run: npm ci --ignore-scripts
       - run: npm run typecheck
-      - run: npm run build
+      - name: The committed dist is current
+        run: npm run bundle && git diff --exit-code dist/
       - run: npm test
       - run: npx plugin-kit check
       - run: npx plugin-kit docs --check

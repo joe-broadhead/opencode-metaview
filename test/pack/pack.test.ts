@@ -24,7 +24,7 @@ const run = (command: string, args: readonly string[], cwd: string): string =>
 let cached: Packed | undefined
 function pack(): Packed {
   if (cached !== undefined) return cached
-  run("node", ["scripts/build.mjs"], root)
+  run("npm", ["run", "bundle"], root)
   const [first] = JSON.parse(run("npm", ["pack", "--json", "--ignore-scripts", "--pack-destination", work], root)) as Packed[]
   if (first === undefined) throw new Error("npm pack answered no tarball")
   cached = first
