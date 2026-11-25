@@ -69,6 +69,21 @@ test("a cursor lists what follows it, and a later page can be empty", async () =
   assert.equal(third.more, false)
 })
 
+test("since with limit 1 pages to the end, each matching event exactly once", async () => {
+  const reader = provider()
+  const lower = Date.parse("2026-11-19T08:40:00.000Z")
+  const seen: string[] = []
+  let cursor: string | undefined
+  for (let page = 0; page < 10; page++) {
+    const answer = await reader.page({ account: "work", request: request({ since: lower, limit: 1, ...(cursor === undefined ? {} : { cursor }) }), now: NOW, call })
+    seen.push(...answer.events.map((event) => event.external_id))
+    if (answer.events.length === 0) break
+    cursor = answer.cursor
+  }
+  assert.deepEqual(seen, ["9002", "9003", "9004"])
+  assert.equal(new Set(seen).size, seen.length)
+})
+
 test("two conversations at the same start are split across a page boundary, with no loss or repeat", async () => {
   const pair = provider(fakeHost({ sameTimestamp: true }))
   const same = Date.parse("2026-11-23T10:00:00.000Z")
