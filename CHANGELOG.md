@@ -1,20 +1,13 @@
 # Changelog
 
-All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+All notable changes to this plugin are recorded here. The format follows the plugin standard: one section per release,
+written by `plugin-kit release`.
 
 ## 0.0.0 (unreleased)
 
-The first release under the new name and organization.
-
-### Changed
-
-- Renamed to `@we-the-rebel-alliance/metaview-plugin` and restarted the version at `0.0.0`.
-- Supports OpenCode 2.4.1 exactly (`>=2.4.1 <2.5.0`), tested on 2.4.1 only.
-- The Code Mode namespace line and skill descriptions are within the fixed-context budget: at most 400 and 300
-  characters.
-- Packaged as a single `ci` job on Node 24.
-
-### Removed
-
-- The app-specific guide; app guides live in each app's repository.
-- The collection source and its `events_list` and `probe` methods; the plugin registers Metaview's native tools only.
+- Rebuilt on `plugin-contract` v0: one `register` call wires the tools, Code Mode and RPC; the manifest is the
+  `capabilities` block in `package.json`.
+- Accounts are the contract's `mcp` mechanism: one Metaview MCP server per alias, `metaview` and `metaview-<alias>`.
+- The 68 Metaview MCP tools are declared in `methods` with their class and operations, and passed through untouched.
+- `status`, `probe` and `events_list` are plugin methods; `events_list` reads the new `metaview.conversations` source.
+- Deleted the copied kit, the tools RPC and the source-contract dependency.
