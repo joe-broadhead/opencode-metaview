@@ -104,7 +104,8 @@ None.
   into Metaview. A transcript, a summary, an email or a phone number is never in a page.
 - **The source** is `metaview.conversations`: private, free, 256 KB per answer, with URLs on `app.metaview.ai`. Its
   `reports` scope narrows a read to the saved reports a person confirms. A cursor is bound to the plugin, source,
-  account and scope; another account's cursor is `CURSOR_INVALID`.
+  account and scope; another account's cursor is `CURSOR_INVALID`. Its position is a total order on the event's start
+  and its Metaview id, so two conversations that share a start are never skipped at a page boundary.
 - **The 68 `mcp:` rows** are Metaview's own MCP tools, passed through from one server per alias. The plugin does not
   proxy or re-implement them; each row's class and `operations` tell a consumer how risky the call is before it runs.
   `mcp:create_snippet` is `share` because every snippet gets a share link, and `share_scope: "anyone_with_link"` opens it

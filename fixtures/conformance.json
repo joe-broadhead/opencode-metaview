@@ -168,7 +168,7 @@
                 "hash": "sha256:d134f65cbfdd70a90112bbb6bd9c4c6a5f261ac0a6d8d40ffd22c56c77ce43cc"
               }
             ],
-            "cursor": "eyJ2IjoyLCJzIjoiY29udmVyc2F0aW9ucyIsImIiOiIzMzkzMTc3ZGVmMzQ1MGQ3IiwiYWZ0ZXIiOiIyMDI2LTExLTIxVDA5OjAwOjAwLjAwMFoifQ",
+            "cursor": "eyJ2IjoyLCJzIjoiY29udmVyc2F0aW9ucyIsImIiOiIzMzkzMTc3ZGVmMzQ1MGQ3IiwiYWZ0ZXIiOnsidGltZSI6IjIwMjYtMTEtMjFUMDk6MDA6MDAuMDAwWiIsImlkIjoiOTAwNCJ9fQ",
             "more": false,
             "trust": "untrusted",
             "plugin": "@we-the-rebel-alliance/metaview-plugin",
@@ -254,7 +254,7 @@
                 "hash": "sha256:1f8f327d52829a6762f39f8bcb58a4e823e2caa784804723ad87acbaae12f81f"
               }
             ],
-            "cursor": "eyJ2IjoyLCJzIjoiY29udmVyc2F0aW9ucyIsImIiOiJkZjk4MTBmOTRhYjdhMjI2IiwiYWZ0ZXIiOiIyMDI2LTExLTIyVDExOjMwOjAwLjAwMFoifQ",
+            "cursor": "eyJ2IjoyLCJzIjoiY29udmVyc2F0aW9ucyIsImIiOiJkZjk4MTBmOTRhYjdhMjI2IiwiYWZ0ZXIiOnsidGltZSI6IjIwMjYtMTEtMjJUMTE6MzA6MDAuMDAwWiIsImlkIjoiOTEwMiJ9fQ",
             "more": false,
             "trust": "untrusted",
             "plugin": "@we-the-rebel-alliance/metaview-plugin",
@@ -345,7 +345,7 @@
                 "hash": "sha256:235c9426aae2b7471fb3756cc5c914b857fedbe3f1c24322c4bff8e503a05aa6"
               }
             ],
-            "cursor": "eyJ2IjoyLCJzIjoiY29udmVyc2F0aW9ucyIsImIiOiI2YTlhMzRhYzc5NTM3NDQ1IiwiYWZ0ZXIiOiIyMDI2LTExLTE5VDA4OjQwOjAwLjAwMFoifQ",
+            "cursor": "eyJ2IjoyLCJzIjoiY29udmVyc2F0aW9ucyIsImIiOiI2YTlhMzRhYzc5NTM3NDQ1IiwiYWZ0ZXIiOnsidGltZSI6IjIwMjYtMTEtMTlUMDg6NDA6MDAuMDAwWiIsImlkIjoiOTAwMiJ9fQ",
             "more": false,
             "trust": "untrusted",
             "scope": {
@@ -373,7 +373,7 @@
               "label": "Northwind Recruiting"
             },
             "events": [],
-            "cursor": "eyJ2IjoyLCJzIjoiY29udmVyc2F0aW9ucyIsImIiOiIzMzkzMTc3ZGVmMzQ1MGQ3IiwiYWZ0ZXIiOiIyMDI2LTExLTI1VDA5OjAwOjAwLjAwMFoifQ",
+            "cursor": "eyJ2IjoyLCJzIjoiY29udmVyc2F0aW9ucyIsImIiOiIzMzkzMTc3ZGVmMzQ1MGQ3IiwiYWZ0ZXIiOnsidGltZSI6IjIwMjYtMTEtMjVUMDk6MDA6MDAuMDAwWiIsImlkIjoiIn19",
             "more": false,
             "trust": "untrusted",
             "plugin": "@we-the-rebel-alliance/metaview-plugin",
@@ -385,7 +385,7 @@
           "input": {
             "source": "conversations",
             "account": "personal",
-            "cursor": "eyJ2IjoyLCJzIjoiY29udmVyc2F0aW9ucyIsImIiOiIzMzkzMTc3ZGVmMzQ1MGQ3IiwiYWZ0ZXIiOiIyMDI2LTExLTIxVDA5OjAwOjAwLjAwMFoifQ"
+            "cursor": "eyJ2IjoyLCJzIjoiY29udmVyc2F0aW9ucyIsImIiOiIzMzkzMTc3ZGVmMzQ1MGQ3IiwiYWZ0ZXIiOnsidGltZSI6IjIwMjYtMTEtMjFUMDk6MDA6MDAuMDAwWiIsImlkIjoiOTAwNCJ9fQ"
           },
           "expect": "CURSOR_INVALID",
           "refuses": "CURSOR_INVALID: the cursor belongs to another plugin, source, account or scope. Next step: Read again without the cursor to start a fresh window."

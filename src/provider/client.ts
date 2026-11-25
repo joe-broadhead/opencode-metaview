@@ -307,8 +307,14 @@ function reportIds(scope: Scope | undefined): string[] {
   return [...new Set(values.filter((entry): entry is string => typeof entry === "string" && entry.trim() !== ""))].slice(0, MAX_SCOPE_REPORTS)
 }
 
-interface Found {
+/** A cursor's position in the source's total order: the event's start and its Metaview id. */
+interface Position {
   readonly time: number
+  readonly id: string
+}
+
+interface Found {
+  readonly position: Position
   readonly row: Row
 }
 
@@ -317,23 +323,40 @@ interface Scan {
   readonly more: boolean
 }
 
+/** The position of a conversation row: its start and its Metaview id, or undefined when it has no start. */
+function positionOf(row: Row): Position | undefined {
+  const id = text(row["id"])
+  const time = timeOf(row)
+  return id === undefined || time === undefined ? undefined : { time, id }
+}
+
+/** The source's total order: start ascending, then the Metaview id as text. */
+function comparePositions(left: Position, right: Position): number {
+  return left.time - right.time || (left.id < right.id ? -1 : left.id > right.id ? 1 : 0)
+}
+
+/** True when a position comes after the cursor's pair in the total order. */
+function afterPosition(position: Position, after: Position): boolean {
+  return position.time > after.time || (position.time === after.time && position.id > after.id)
+}
+
 /**
- * One report's conversations in the window, oldest first from the vendor: after the cursor, or since the window's
- * start. Metaview filters `default:start_time` with a relative `after`, so the scan reads only the window and pages
- * forward from its oldest conversation.
+ * One report's conversations in the window, oldest first from the vendor: after the cursor's pair, or since the
+ * window's start. Metaview filters `default:start_time` with a relative `after`; the window starts one second before
+ * the boundary, so a conversation at the cursor's own start is returned and the pair filter decides it.
  */
 async function scan(
   host: ProviderHost,
   alias: string,
   report: string | undefined,
-  after: number | undefined,
+  after: Position | undefined,
   since: number | undefined,
   now: number,
   wanted: number,
   call: ProviderCall,
 ): Promise<Scan> {
-  const floor = after ?? since
-  const seconds = floor === undefined ? 86_400 : Math.max(1, Math.ceil((now - floor) / 1000))
+  const floor = after?.time ?? since
+  const seconds = floor === undefined ? 86_400 : Math.max(1, Math.ceil((now - floor) / 1000) + 1)
   const found: Found[] = []
   let more = false
   let offset = 0
@@ -359,11 +382,11 @@ async function scan(
     const hasMore = plain(answer) && answer["has_more"] === true
     let stopped = false
     for (const [index, row] of rows.entries()) {
-      const time = timeOf(row)
-      if (time === undefined) continue
-      if (after !== undefined && time <= after) continue
-      if (since !== undefined && time < since) continue
-      found.push({ time, row })
+      const position = positionOf(row)
+      if (position === undefined) continue
+      if (after !== undefined && !afterPosition(position, after)) continue
+      if (since !== undefined && position.time < since) continue
+      found.push({ position, row })
       if (found.length >= wanted) {
         stopped = true
         more = hasMore || index < rows.length - 1
@@ -379,16 +402,14 @@ async function scan(
   return { found, more }
 }
 
-/** Newest last, then by the vendor's id, with one row per conversation. */
+/** The source's total order, with one row per conversation. */
 function ordered(found: readonly Found[]): Found[] {
   const byId = new Map<string, Found>()
   for (const entry of found) {
-    const id = text(entry.row["id"])
-    if (id === undefined) continue
-    const held = byId.get(id)
-    if (held === undefined || entry.time < held.time) byId.set(id, entry)
+    const held = byId.get(entry.position.id)
+    if (held === undefined || comparePositions(entry.position, held.position) < 0) byId.set(entry.position.id, entry)
   }
-  return [...byId.values()].sort((left, right) => left.time - right.time || (text(left.row["id"]) ?? "").localeCompare(text(right.row["id"]) ?? ""))
+  return [...byId.values()].sort((left, right) => comparePositions(left.position, right.position))
 }
 
 /** The provider for `plugin`, whose id binds every cursor. `package` names the page's plugin and `maxBytes` its limit. */
@@ -406,7 +427,7 @@ export function createProvider(host: ProviderHost, options: { readonly plugin: s
 
     async page({ account, request, now, call }) {
       const binding = { plugin: options.plugin, source: SOURCE, account, ...(request.scope === undefined ? {} : { scope: request.scope }) }
-      let after: string | undefined
+      let after: Position | undefined
       if (request.cursor !== undefined) {
         const decoded = decodeBoundCursor(binding, request.cursor)
         if (!decoded.ok) {
@@ -417,13 +438,13 @@ export function createProvider(host: ProviderHost, options: { readonly plugin: s
           )
         }
         const held = decoded.state["after"]
-        if (held !== null && typeof held !== "string") refuse("CURSOR_INVALID", "the cursor holds no position this source can read", "Read again without the cursor to start a fresh window.")
-        if (typeof held === "string") {
-          if (!Number.isFinite(Date.parse(held))) refuse("CURSOR_INVALID", "the cursor holds no time this source can read", "Read again without the cursor to start a fresh window.")
-          after = held
+        const time = plain(held) ? held["time"] : undefined
+        const id = plain(held) ? held["id"] : undefined
+        if (typeof time !== "string" || typeof id !== "string" || !Number.isFinite(Date.parse(time))) {
+          refuse("CURSOR_INVALID", "the cursor holds no position this source can read", "Read again without the cursor to start a fresh window.")
         }
+        after = { time: Date.parse(time), id }
       }
-      const afterTime = after === undefined ? undefined : Date.parse(after)
       const since = request.cursor === undefined ? startTime(request, now) : undefined
       const identity = await this.identity(account, call)
       const wanted = request.limit
@@ -431,7 +452,7 @@ export function createProvider(host: ProviderHost, options: { readonly plugin: s
       const scans: Found[] = []
       let more = false
       for (const report of reports.length === 0 ? [undefined] : reports) {
-        const scanned = await scan(host, account, report, afterTime, since, now, wanted, call)
+        const scanned = await scan(host, account, report, after, since, now, wanted, call)
         scans.push(...scanned.found)
         more = more || scanned.more
         if (ordered(scans).length >= wanted) break
@@ -449,9 +470,10 @@ export function createProvider(host: ProviderHost, options: { readonly plugin: s
       const listed = events.slice(0, fit)
       // Provider text is data, never instructions: a secret in an event is refused for good.
       const screened = screenEvents(listed)
-      // A refused event is accounted for: the cursor moves past everything the page listed.
-      const position = listed.at(-1)?.occurred_at ?? after ?? new Date(now).toISOString()
-      const cursor = encodeBoundCursor(binding, { after: position })
+      // A refused event is accounted for: the cursor moves past everything the page listed, as a (start, id) pair.
+      const last = listed.at(-1)
+      const position = last === undefined ? (after ?? { time: now, id: "" }) : { time: Date.parse(last.occurred_at), id: last.external_id }
+      const cursor = encodeBoundCursor(binding, { after: { time: new Date(position.time).toISOString(), id: position.id } })
       return eventsListResult({ source: SOURCE, account, owner: identity.owner }, screened.events, cursor, more || fit < events.length || chosen.length > wanted, {
         ...(request.scope === undefined ? {} : { scope: request.scope }),
         ...(screened.refused.length === 0 ? {} : { refused: screened.refused }),

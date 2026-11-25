@@ -69,6 +69,17 @@ test("a cursor lists what follows it, and a later page can be empty", async () =
   assert.equal(third.more, false)
 })
 
+test("two conversations at the same start are split across a page boundary, with no loss or repeat", async () => {
+  const pair = provider(fakeHost({ sameTimestamp: true }))
+  const same = Date.parse("2026-11-23T10:00:00.000Z")
+  const first = await pair.page({ account: "work", request: request({ since: same, limit: 1 }), now: NOW, call })
+  assert.deepEqual(first.events.map((event) => event.external_id), ["9201"])
+  assert.equal(first.more, true)
+  const second = await pair.page({ account: "work", request: request({ cursor: first.cursor, limit: 1 }), now: NOW, call })
+  assert.deepEqual(second.events.map((event) => event.external_id), ["9202"])
+  assert.equal(second.more, false)
+})
+
 test("a cursor another account holds is refused, not restarted", async () => {
   const first = await provider().page({ account: "work", request: request({ since }), now: NOW, call })
   assert.equal(await refusalCode(() => provider().page({ account: "personal", request: request({ cursor: first.cursor }), now: NOW, call })), "CURSOR_INVALID")

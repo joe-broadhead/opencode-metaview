@@ -88,6 +88,8 @@ scripts/record-fixture.mjs rebuilds the fake server's recorded fixture
   from the declared events and gives it to every call as `call.bus`. Do not call `ctx.rpc.register` yourself.
 - **The source is metadata only.** Never add a transcript, summary, email or phone number to an event. Candidate data
   is personal data; a page names people, not their contact details.
+- **The cursor is a total order.** Its position is `(occurred_at, external_id)`, and a page resumes strictly after that
+  pair, so two conversations with the same start are never skipped at a page boundary.
 
 ## Adding a capability
 

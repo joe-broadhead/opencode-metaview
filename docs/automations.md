@@ -28,7 +28,8 @@ state.cursor = page.cursor
 ```
 
 A cursor is bound to its plugin, source, account and scope. Do not share one between accounts: the plugin refuses it
-with `CURSOR_INVALID`.
+with `CURSOR_INVALID`. The cursor resumes after the `(start, conversation id)` pair it holds, so two conversations that
+share a start are listed one after the other, never skipped.
 
 The page is metadata only. To read a transcript or a summary, the automation uses Metaview's own tools through the
 agent; the source never carries conversation content.

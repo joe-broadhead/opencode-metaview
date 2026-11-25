@@ -20,6 +20,8 @@ export interface FakeOptions {
   readonly unreadable?: boolean
   /** `search_conversations` fails with this message. */
   readonly failSearch?: string
+  /** Serve two conversations that share one start, for the cursor's total order. */
+  readonly sameTimestamp?: boolean
 }
 
 interface Person {
@@ -116,6 +118,23 @@ const PERSONAL: readonly Conversation[] = [
   },
 ]
 
+const SAME_TIME: readonly Conversation[] = [
+  {
+    id: 9201,
+    start: "2026-11-23T10:00:00.000Z",
+    candidate: { value: "candidate-9201", label: "Nadia Farouk" },
+    interviewer: { value: "user-101", label: "Kai Mensah" },
+    url: "https://app.metaview.ai/conversations/9201",
+  },
+  {
+    id: 9202,
+    start: "2026-11-23T10:00:00.000Z",
+    candidate: { value: "candidate-9202", label: "Owen Blake" },
+    interviewer: { value: "user-101", label: "Kai Mensah" },
+    url: "https://app.metaview.ai/conversations/9202",
+  },
+]
+
 const CONVERSATIONS: Readonly<Record<string, readonly Conversation[]>> = { default: [], work: WORK, personal: PERSONAL }
 
 const row = (conversation: Conversation): Record<string, unknown> => ({
@@ -129,14 +148,17 @@ const row = (conversation: Conversation): Record<string, unknown> => ({
   },
 })
 
-/** One `search_conversations` answer: newest first, filtered by report, paged by offset and limit. */
-function search(account: string, input: Record<string, unknown>): unknown {
+/** One `search_conversations` answer: filtered by report, paged by offset and limit, with an id tie-breaker. */
+function search(conversations: readonly Conversation[], input: Record<string, unknown>): unknown {
   const report = typeof input["report_id"] === "string" ? input["report_id"] : undefined
   const limit = typeof input["limit"] === "number" ? input["limit"] : 20
   const offset = typeof input["offset"] === "number" ? input["offset"] : 0
   const ascending = input["sort_ascending"] === true
-  const all = (CONVERSATIONS[account] ?? []).filter((conversation) => report === undefined || conversation.report === report)
-  const ordered = [...all].sort((left, right) => (ascending ? Date.parse(left.start) - Date.parse(right.start) : Date.parse(right.start) - Date.parse(left.start)))
+  const all = conversations.filter((conversation) => report === undefined || conversation.report === report)
+  const ordered = [...all].sort((left, right) => {
+    const time = Date.parse(left.start) - Date.parse(right.start)
+    return (ascending ? time : -time) || left.id - right.id
+  })
   const page = ordered.slice(offset, offset + limit)
   return {
     field_definitions: [
@@ -180,7 +202,7 @@ export function fakeHost(options: FakeOptions = {}): ProviderHost {
         : [
             tool("search_conversations", (input) => {
               if (options.failSearch !== undefined) throw new Error(options.failSearch)
-              return search(account, input)
+              return search(options.sameTimestamp === true ? SAME_TIME : (CONVERSATIONS[account] ?? []), input)
             }),
           ]),
     ]
