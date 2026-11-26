@@ -37,6 +37,7 @@ test("the tarball lists exactly the files whitelist, with no source, fixture or 
     .sort()
   const expected = [
     "LICENSE",
+    "NOTICE",
     "README.md",
     "assets/icon-128.png",
     "assets/icon-256.png",
